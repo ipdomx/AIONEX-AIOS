@@ -21,6 +21,7 @@ services:
   project-worker: {restart: "no"}
   security-remediation-worker: {restart: "no"}
   security-scan-worker: {restart: "no"}
+  social-publish-worker: {restart: "no"}
   studio-worker: {restart: "no"}
   telegram-worker: {restart: "no"}
   three-d-worker: {restart: "no"}

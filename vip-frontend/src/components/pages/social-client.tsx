@@ -318,10 +318,24 @@ export function SocialClient() {
         <p className="section-copy mt-4">{t("description")}</p>
       </div>
       {isAuthenticated && (
-        <Button variant="secondary" disabled={loading} onClick={() => void loadAll()}>
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
-          {t("refresh")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/${locale}/social/compose`}
+            className="portal-primary-button inline-flex h-11 items-center px-5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-500"
+          >
+            {t("compose")}
+          </Link>
+          <Link
+            href={`/${locale}/social/calendar`}
+            className="portal-secondary-button inline-flex h-11 items-center px-5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-500"
+          >
+            {t("calendar")}
+          </Link>
+          <Button variant="secondary" disabled={loading} onClick={() => void loadAll()}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+            {t("refresh")}
+          </Button>
+        </div>
       )}
     </div>
   );

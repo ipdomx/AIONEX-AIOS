@@ -44,6 +44,8 @@ async function checkRoutes() {
     "/projects",
     "/3d",
     "/social",
+    "/social/compose",
+    "/social/calendar",
     "/notifications",
     "/support",
   ];

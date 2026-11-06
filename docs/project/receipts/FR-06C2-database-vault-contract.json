@@ -43,7 +43,7 @@
     "target_subpath": "pgdata"
   },
   "database_clients": {
-    "service_definition_count": 24,
+    "service_definition_count": 25,
     "services": [
       "academy-course-worker",
       "audio-dubbing-worker",
@@ -64,6 +64,7 @@
       "project-worker",
       "security-remediation-worker",
       "security-scan-worker",
+      "social-publish-worker",
       "studio-worker",
       "telegram-worker",
       "three-d-worker",

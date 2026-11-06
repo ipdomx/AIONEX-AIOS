@@ -326,6 +326,40 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+  social-publish-worker:
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
+    stop_grace_period: 45s
+    command: ["python", "-m", "app.services.social_publish_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      MEDIA_STORAGE_TYPE: local
+      SOCIAL_PUBLISH_WORKER_POLL_SECONDS: "10"
+      SOCIAL_PUBLISH_LEASE_SECONDS: "900"
+      SOCIAL_PUBLISH_WORKER_HEALTH_FILE: /tmp/aionex-social-publish-worker.json
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.social_publish_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   operations-observer:
     image: aionex-aios-backend:local
     restart: unless-stopped

@@ -3,6 +3,7 @@
 import {
   Bell,
   Box,
+  CalendarDays,
   CreditCard,
   LayoutDashboard,
   LifeBuoy,
@@ -13,6 +14,7 @@ import {
   Share2,
   ShieldCheck,
   Sparkles,
+  SquarePen,
   UserRound,
   X,
 } from "lucide-react";
@@ -230,6 +232,22 @@ export function Navbar() {
                 <Share2 className="h-4 w-4" aria-hidden="true" />
                 {t("social")}
               </Link>
+              <Link
+                href={`/${locale}/social/compose`}
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/social/compose`) ? "true" : undefined}
+              >
+                <SquarePen className="h-4 w-4" aria-hidden="true" />
+                {t("socialCompose")}
+              </Link>
+              <Link
+                href={`/${locale}/social/calendar`}
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/social/calendar`) ? "true" : undefined}
+              >
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                {t("socialCalendar")}
+              </Link>
               {campaignsVisible && (
                 <Link
                   href={`/${locale}/campaigns`}
@@ -380,6 +398,22 @@ export function Navbar() {
                   data-active={isActive(`/${locale}/social`) ? "true" : undefined}
                 >
                   {t("social")}
+                </Link>
+                <Link
+                  href={`/${locale}/social/compose`}
+                  onClick={() => setOpen(false)}
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/social/compose`) ? "true" : undefined}
+                >
+                  {t("socialCompose")}
+                </Link>
+                <Link
+                  href={`/${locale}/social/calendar`}
+                  onClick={() => setOpen(false)}
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/social/calendar`) ? "true" : undefined}
+                >
+                  {t("socialCalendar")}
                 </Link>
                 {campaignsVisible && (
                   <Link
