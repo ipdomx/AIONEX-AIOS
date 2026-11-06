@@ -223,10 +223,13 @@ async def ads_case(monkeypatch):
     def ads_graph() -> MetaAdsGraph:
         return MetaAdsGraph(transport=httpx.MockTransport(graph), sleep=_no_sleep)
 
+    def job(**kwargs) -> InsightsJob:
+        return InsightsJob(
+            session_factory=sessions, graph=ads_graph(), report_poll_attempts=1, report_poll_interval=0, **kwargs
+        )
+
     case.ads_graph = ads_graph
-    case.job = lambda **kwargs: InsightsJob(
-        session_factory=sessions, graph=ads_graph(), report_poll_attempts=1, report_poll_interval=0, **kwargs
-    )
+    case.job = job
 
     created = False
     try:
