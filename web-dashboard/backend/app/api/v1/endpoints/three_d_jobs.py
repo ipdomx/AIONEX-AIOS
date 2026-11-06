@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
 
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -96,23 +96,47 @@ async def _licensed_provider_route(
 ) -> tuple[str, str | None, str, dict]:
     country, country_source = await request_country(session, actor, request)
     blocked: list[str] = []
+    provider_states: dict[str, str] = {}
     for provider in provider_candidates(policy, country):
         if not await provider_runtime_configured(provider):
             blocked.append(provider)
+            provider_states[provider] = "unconfigured"
             continue
         try:
             await assert_provider_available(session, provider=provider)
         except HTTPException as exc:
             if exc.status_code != 503:
                 raise
+            # A paused (or credential-rejected) endpoint fails over to the
+            # next licensed candidate exactly like an open circuit.
             blocked.append(provider)
+            detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
+            provider_states[provider] = (
+                "paused"
+                if detail.get("code") == "THREE_D_PROVIDER_PAUSED"
+                else "auth_rejected"
+                if detail.get("code") == "THREE_D_PROVIDER_AUTH"
+                else "circuit_open"
+            )
             continue
+        # Routing evidence for the access response; never persisted on a job.
+        request.state.three_d_provider_route = {
+            "provider_state": "available",
+            "provider_failover": bool(blocked),
+            "provider_states": {**provider_states, provider: "available"},
+        }
         return provider, country, country_source, provider_disclosure(policy, provider)
+    paused = bool(provider_states) and all(
+        state in {"paused", "auth_rejected"} for state in provider_states.values()
+    )
     raise HTTPException(
         status_code=503,
         detail={
             "code": "THREE_D_PROVIDERS_UNAVAILABLE",
             "providers": blocked,
+            "provider_state": "paused" if paused else "unavailable",
+            "provider_states": provider_states,
+            "queueing": False,
             "message": "All licensed 3D providers are temporarily unavailable.",
         },
     )
@@ -139,6 +163,10 @@ async def get_three_d_access(
             "model_disclosure": disclosure,
             "third_party_terms_version": policy["third_party_terms_version"],
             "third_party_terms_required": True,
+            **dict(
+                getattr(request.state, "three_d_provider_route", None)
+                or {"provider_state": "available", "provider_failover": False}
+            ),
         }
     )
     await session.commit()

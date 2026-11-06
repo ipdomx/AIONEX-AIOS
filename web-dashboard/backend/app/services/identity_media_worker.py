@@ -19,6 +19,7 @@ from app.services.identity_media_replicate import (
     ReplicateFile,
     ReplicateIdentityMediaAdapter,
     VOICE_TRANSFORM_VERSION,
+    failure_code,
     issue_provider_input_token,
     provider_input_url,
 )
@@ -32,7 +33,7 @@ from app.services.identity_media_runtime import (
     record_secondary_submission,
     release_for_poll,
 )
-from app.services.media_storage import MediaObjectStore, media_object_store
+from app.services.media_storage import MediaObjectStore, MediaStorageError, media_object_store
 
 logger = get_logger(__name__)
 
@@ -85,6 +86,24 @@ def _output_url(output: Any) -> Any:
     if isinstance(output, list) and len(output) == 1:
         return output[0]
     raise IdentityMediaProviderFailure("provider_output_invalid")
+
+
+def _failure_message(prefix: str, exc: IdentityMediaProviderFailure) -> str:
+    code = failure_code(exc)
+    if exc.http_status is not None:
+        return f"{prefix} ({code}, provider HTTP {exc.http_status})"
+    return f"{prefix} ({code})"
+
+
+def _prediction_failure(prediction: Any) -> tuple[str, str]:
+    """Code and private message for a provider-side terminal prediction."""
+    status = str(getattr(prediction, "status", "") or "")
+    code = "provider_execution_canceled" if status == "canceled" else "provider_execution_failed"
+    excerpt = getattr(prediction, "error_excerpt", None)
+    message = f"Identity media provider execution {status or 'failed'}"
+    if excerpt:
+        message += f": {excerpt}"
+    return code, message
 
 
 class IdentityMediaWorker:
@@ -311,12 +330,37 @@ class IdentityMediaWorker:
                 )
                 await session.commit()
             except IdentityMediaProviderFailure as exc:
+                code = failure_code(exc)
+                logger.warning(
+                    "identity media submission failed",
+                    extra={
+                        "execution_id": row.id,
+                        "operation": operation,
+                        "error_code": code,
+                        "http_status": exc.http_status,
+                        "ambiguous": exc.ambiguous_submission,
+                    },
+                )
                 await fail_execution(
                     session,
                     claim,
-                    code=exc.code,
-                    message="Identity media provider submission failed",
+                    code=code,
+                    message=_failure_message("Identity media provider submission failed", exc),
                     needs_review=exc.ambiguous_submission,
+                )
+                await session.commit()
+            except MediaStorageError as exc:
+                # The private input object is gone or unreadable; nothing was
+                # sent to the provider, so this is a clean terminal failure.
+                logger.warning(
+                    "identity media input unavailable",
+                    extra={"execution_id": row.id, "operation": operation, "error_type": type(exc).__name__},
+                )
+                await fail_execution(
+                    session,
+                    claim,
+                    code="identity_media_input_unavailable",
+                    message="Identity media input object is unavailable before provider submission",
                 )
                 await session.commit()
 
@@ -327,7 +371,8 @@ class IdentityMediaWorker:
                 await release_for_poll(session, claim, provider_state=prediction.status, metrics=prediction.metrics, poll_after_seconds=self.poll_seconds)
                 return
             if prediction.status != "succeeded":
-                await fail_execution(session, claim, code="provider_secondary_failed", message="Generated cloned speech failed")
+                _code, detail = _prediction_failure(prediction)
+                await fail_execution(session, claim, code="provider_secondary_failed", message=f"Generated cloned speech failed. {detail}")
                 return
             if not await self._authorized(session, row, claim):
                 return
@@ -355,7 +400,8 @@ class IdentityMediaWorker:
             await release_for_poll(session, claim, provider_state=prediction.status, metrics=prediction.metrics, poll_after_seconds=self.poll_seconds)
             return
         if prediction.status != "succeeded":
-            await fail_execution(session, claim, code="provider_voice_clone_failed", message="Voice cloning provider execution failed")
+            _code, detail = _prediction_failure(prediction)
+            await fail_execution(session, claim, code="provider_voice_clone_failed", message=f"Voice cloning provider execution failed. {detail}")
             return
         voice_id = _voice_id(prediction.output)
         text = str((row.request_payload or {}).get("script") or "").strip()
@@ -382,8 +428,8 @@ class IdentityMediaWorker:
             await fail_execution(
                 session,
                 claim,
-                code=exc.code,
-                message="Cloned speech submission failed",
+                code=failure_code(exc),
+                message=_failure_message("Cloned speech submission failed", exc),
                 needs_review=exc.ambiguous_submission,
             )
             return
@@ -419,7 +465,12 @@ class IdentityMediaWorker:
                     await session.commit()
                     return
                 if prediction.status != "succeeded":
-                    await fail_execution(session, claim, code="provider_execution_failed", message="Identity media provider execution failed")
+                    code, detail = _prediction_failure(prediction)
+                    logger.warning(
+                        "identity media provider execution failed",
+                        extra={"execution_id": row.id, "operation": row.operation, "error_code": code, "provider_error": prediction.error_excerpt},
+                    )
+                    await fail_execution(session, claim, code=code, message=detail)
                     await session.commit()
                     return
                 if not await self._authorized(session, row, claim):
@@ -445,11 +496,27 @@ class IdentityMediaWorker:
                 )
                 await session.commit()
             except IdentityMediaProviderFailure as exc:
+                if exc.retryable and row.provider_job_id:
+                    # A transient poll/download error is not a provider
+                    # failure: the prediction may still succeed (and bill).
+                    # Keep polling, bounded by max_polls.
+                    logger.warning(
+                        "identity media poll deferred after transient provider error",
+                        extra={"execution_id": row.id, "error_code": exc.code, "http_status": exc.http_status},
+                    )
+                    await release_for_poll(
+                        session,
+                        claim,
+                        provider_state=row.provider_state,
+                        poll_after_seconds=max(self.poll_seconds, 10),
+                    )
+                    await session.commit()
+                    return
                 await fail_execution(
                     session,
                     claim,
-                    code=exc.code,
-                    message="Identity media provider polling or output validation failed",
+                    code=failure_code(exc),
+                    message=_failure_message("Identity media provider polling or output validation failed", exc),
                     needs_review=exc.ambiguous_submission,
                 )
                 await session.commit()

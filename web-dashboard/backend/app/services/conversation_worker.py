@@ -19,6 +19,7 @@ from app.core.owner_policy import require_owner_service_allowed
 from app.db.base import SessionLocal
 from app.db.models import AuditEvent, Job, Project
 from app.services import ai_runtime_service as ai
+from app.services import aionex_ai_plan_signal
 from app.services import conversation_governance as governance
 
 logger = get_logger(__name__)
@@ -315,6 +316,13 @@ async def run_turn(job_id: str) -> bool:
                 "automatic_replay": False,
                 "queue_wait_ms": queue_wait_ms,
             }))
+        aionex_plan = await aionex_ai_plan_signal.plan_for_dispatch(
+            session,
+            provider_type=provider.type,
+            model=agent.model,
+            organization_id=actor.organization_id,
+            role_name=actor.role,
+        )
         # Return to provider I/O only after an acknowledged durable claim commit.
         await session.commit()
 
@@ -324,10 +332,11 @@ async def run_turn(job_id: str) -> bool:
         name=f"aionex-conversation-heartbeat:{job_id}",
     )
     try:
-        result = await asyncio.wait_for(
-            ai._execute_provider(provider, agent, prompt),
-            timeout=_CONVERSATION_PROVIDER_HARD_TIMEOUT_SECONDS,
-        )
+        with aionex_ai_plan_signal.plan_context(aionex_plan):
+            result = await asyncio.wait_for(
+                ai._execute_provider(provider, agent, prompt),
+                timeout=_CONVERSATION_PROVIDER_HARD_TIMEOUT_SECONDS,
+            )
         response = str(result.get("text", "")).strip()
         if not response:
             raise RuntimeError("No textual provider result")

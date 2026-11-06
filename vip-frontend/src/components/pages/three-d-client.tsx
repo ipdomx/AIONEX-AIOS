@@ -182,6 +182,8 @@ export function ThreeDClient() {
             return t("errors.notGranted");
           case "THREE_D_PROVIDERS_UNAVAILABLE":
           case "THREE_D_PROVIDER_CIRCUIT_OPEN":
+          case "THREE_D_PROVIDER_PAUSED":
+          case "THREE_D_PROVIDER_AUTH":
             return t("errors.providerUnavailable");
           case "MEDIA_MAINTENANCE_CLOSED":
           case "MEDIA_MAINTENANCE_UNAVAILABLE":

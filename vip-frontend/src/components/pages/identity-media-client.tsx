@@ -278,11 +278,15 @@ export function IdentityMediaClient() {
             <button key={id} type="button" onClick={() => setOperation(id)} className={`glass-panel rounded-2xl p-4 text-start transition ${operation === id ? "ring-1 ring-crimson-300/60" : "opacity-80 hover:opacity-100"}`}>
               <Icon className="h-5 w-5 text-crimson-200" />
               <div className="mt-3 font-semibold">{t(`operation.${id}`)}</div>
-              <div className={`mt-2 text-[11px] ${cap?.runtime_ready ? "text-emerald-300" : "text-amber-300"}`}>{cap?.runtime_ready ? t("runtimeReady") : t("runtimePending")}</div>
+              <div className={`mt-2 text-[11px] ${cap?.runtime_ready ? "text-emerald-300" : "text-amber-300"}`}>{cap?.acceptance_pending ? t("acceptancePending") : cap?.runtime_ready ? t("runtimeReady") : t("runtimePending")}</div>
             </button>
           );
         })}
       </div>
+
+      {selectedCapability?.acceptance_pending && (
+        <div role="status" className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-6 text-amber-100">{t("acceptancePendingNote")}</div>
+      )}
 
       <form onSubmit={submit} className="glass-panel space-y-5 rounded-3xl p-5 sm:p-6">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -365,7 +369,7 @@ export function IdentityMediaClient() {
             <thead className="text-white/30"><tr><th className="py-2">{t("operationLabel")}</th><th>{t("basisLabel")}</th><th>{t("status")}</th><th>{t("provider")}</th><th>{t("cost")}</th><th>{t("output")}</th></tr></thead>
             <tbody>
               {executions.map((item) => (
-                <tr key={item.execution_id} className="border-t border-white/[0.06]"><td className="py-3">{t(`operation.${item.operation}`)}</td><td>{t(`basis.${item.identity_basis}`)}</td><td className={statusClass(item.status)}>{item.status}</td><td>{item.provider} · {item.model}</td><td>{item.actual_cost_usd == null ? t("costUnknown") : `$${item.actual_cost_usd.toFixed(4)}`}</td><td>{item.output_ready ? <button className="text-crimson-200 hover:text-white" disabled={busy !== null} onClick={() => void download(item)}><Download className="inline h-4 w-4" /> {t("download")}</button> : "—"}</td></tr>
+                <tr key={item.execution_id} className="border-t border-white/[0.06]"><td className="py-3">{t(`operation.${item.operation}`)}</td><td>{t(`basis.${item.identity_basis}`)}</td><td className={statusClass(item.status)}>{item.status}{item.error_code ? <span className="block text-[10px] text-white/40">{item.error_code}</span> : null}</td><td>{item.provider} · {item.model}</td><td>{item.actual_cost_usd == null ? t("costUnknown") : `$${item.actual_cost_usd.toFixed(4)}`}</td><td>{item.output_ready ? <button className="text-crimson-200 hover:text-white" disabled={busy !== null} onClick={() => void download(item)}><Download className="inline h-4 w-4" /> {t("download")}</button> : "—"}</td></tr>
               ))}
               {!executions.length && <tr><td colSpan={6} className="py-8 text-center text-white/30">{t("noExecutions")}</td></tr>}
             </tbody>

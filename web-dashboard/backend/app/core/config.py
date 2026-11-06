@@ -482,6 +482,13 @@ class Settings(BaseSettings):
         validation_alias="PROJECT_EXECUTION_WORKER_STALE_SECONDS",
     )
 
+    # Shared HMAC secret for the signed X-AIONEX-Plan priority headers sent to
+    # the AIONEX AI gateway. Unset or unreadable: no headers (behaviour as before).
+    AIONEX_AI_PLAN_SECRET_FILE: str = Field(
+        default="",
+        max_length=1024,
+        validation_alias="AIONEX_AI_PLAN_SECRET_FILE",
+    )
     THREE_D_RUNPOD_SECRET_FILE: str = Field(
         default="/run/secrets/aionex/runpod-gpu.env",
         validation_alias="THREE_D_RUNPOD_SECRET_FILE",
@@ -898,6 +905,12 @@ class Settings(BaseSettings):
     )
     IDENTITY_MEDIA_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="IDENTITY_MEDIA_LIVE_ENABLED"
+    )
+    # Owner flag: let normal users submit operations whose runtime exists but
+    # whose Phase 36 acceptance is still pending (voice_transform, face_swap).
+    # Off by default; the Super Owner can always run acceptance executions.
+    IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC: bool = Field(
+        default=False, validation_alias="IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC"
     )
     IDENTITY_MEDIA_WORKER_ID: str = Field(
         default="", validation_alias="IDENTITY_MEDIA_WORKER_ID"
