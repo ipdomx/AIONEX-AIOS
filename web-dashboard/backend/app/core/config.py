@@ -899,6 +899,12 @@ class Settings(BaseSettings):
     IDENTITY_MEDIA_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="IDENTITY_MEDIA_LIVE_ENABLED"
     )
+    # Owner flag: let normal users submit operations whose runtime exists but
+    # whose Phase 36 acceptance is still pending (voice_transform, face_swap).
+    # Off by default; the Super Owner can always run acceptance executions.
+    IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC: bool = Field(
+        default=False, validation_alias="IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC"
+    )
     IDENTITY_MEDIA_WORKER_ID: str = Field(
         default="", validation_alias="IDENTITY_MEDIA_WORKER_ID"
     )

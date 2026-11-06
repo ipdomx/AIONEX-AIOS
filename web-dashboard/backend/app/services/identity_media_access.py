@@ -16,6 +16,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import ACTIVE_ORGANIZATION_STATUSES, ACTIVE_USER_STATUSES, UserRecord
+from app.core.config import settings
 from app.db.models import AuditEvent, BillingAccount, IdentityMediaExecution, Organization, OwnerControlRecord, Project, Role, User
 from app.services import billing
 
@@ -38,6 +39,23 @@ IDENTITY_BASES = (
 )
 REAL_PERSON_BASES = frozenset({"self", "consented_person", "licensed_public_figure"})
 RUNTIME_READY_OPERATIONS = frozenset({"voice_clone", "voice_transform", "face_reenactment", "talking_head", "lip_sync", "avatar_generation"})
+# docs/phase-36/CURRENT_STATUS.json ``not_yet_accepted_operations``: a runtime
+# may exist, but independent acceptance is pending, so normal users cannot
+# submit them unless the Owner flag below is switched on.
+NOT_YET_ACCEPTED_OPERATIONS = frozenset({"voice_transform", "face_swap"})
+
+
+def operation_accepted(operation: str) -> bool:
+    return str(operation or "").strip().lower() not in NOT_YET_ACCEPTED_OPERATIONS
+
+
+def operation_available_to(actor: UserRecord | User, operation: str) -> bool:
+    """Whether ``actor`` may submit ``operation`` given Phase 36 acceptance."""
+    if operation_accepted(operation):
+        return True
+    if bool(settings.IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC):
+        return True
+    return getattr(actor, "role", None) == "Super Owner"
 
 
 @dataclass(frozen=True, slots=True)
@@ -686,7 +704,8 @@ async def user_access_snapshot(
     }
     operations: list[dict[str, Any]] = []
     for operation in OPERATIONS:
-        runtime_ready = operation in RUNTIME_READY_OPERATIONS
+        available = operation_available_to(actor, operation)
+        runtime_ready = operation in RUNTIME_READY_OPERATIONS and available
         record = override_by_operation.get(operation)
         owner_override = None
         if record is not None:
@@ -702,6 +721,8 @@ async def user_access_snapshot(
             {
                 "operation": operation,
                 "runtime_ready": runtime_ready,
+                "accepted": operation_accepted(operation),
+                "acceptance_pending": not available,
                 "fictional_inspired_direct": runtime_ready,
                 "real_person_owner_approval_required": True,
                 "licensed_public_figure_runtime_ready": False,

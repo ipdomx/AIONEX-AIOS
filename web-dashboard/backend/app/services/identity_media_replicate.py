@@ -10,6 +10,7 @@ import binascii
 import hashlib
 import hmac
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -178,6 +179,40 @@ class ReplicatePrediction:
     output: Any
     error_present: bool
     metrics: dict[str, Any]
+    # Sanitized provider error excerpt (URLs and credentials removed).
+    error_excerpt: str | None = None
+
+
+_URL_PATTERN = re.compile(r"(?i)\b(?:https?|data):\S+")
+_SECRET_PATTERN = re.compile(r"(?i)(?:bearer\s+\S+|\br8_[A-Za-z0-9]+|[A-Za-z0-9+/_=-]{32,})")
+
+# Stable, operator-readable codes for rejected (never-ambiguous) submissions.
+SUBMISSION_HTTP_FAILURE_CODES = {
+    401: "provider_auth_rejected",
+    402: "provider_billing_required",
+    403: "provider_auth_rejected",
+    404: "provider_model_not_found",
+    422: "provider_input_rejected",
+    429: "provider_rate_limited",
+}
+
+
+def sanitize_provider_error(value: Any, *, limit: int = 240) -> str | None:
+    """Short provider error text safe for logs and the private error column."""
+    if value is None:
+        return None
+    text = value if isinstance(value, str) else json.dumps(value, default=str)[:2000]
+    text = _URL_PATTERN.sub("[url]", text)
+    text = _SECRET_PATTERN.sub("[redacted]", text)
+    text = " ".join("".join(ch if ch.isprintable() else " " for ch in text).split())
+    return text[:limit] or None
+
+
+def failure_code(exc: "IdentityMediaProviderFailure") -> str:
+    """Refine a rejected submission into a code that names the HTTP cause."""
+    if exc.code == "provider_submission_rejected" and exc.http_status is not None:
+        return SUBMISSION_HTTP_FAILURE_CODES.get(int(exc.http_status), exc.code)
+    return exc.code
 
 
 VOICE_TRANSFORM_MODEL = "adirik/hierspeechpp"
@@ -226,6 +261,7 @@ def _prediction(payload: Any) -> ReplicatePrediction:
         output=payload.get("output"),
         error_present=bool(payload.get("error")),
         metrics=_safe_metrics(payload.get("metrics")),
+        error_excerpt=sanitize_provider_error(payload.get("error")),
     )
 
 

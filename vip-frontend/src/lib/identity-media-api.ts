@@ -21,6 +21,10 @@ export type IdentityBasis =
 export type IdentityMediaOperationCapability = {
   operation: IdentityMediaOperation;
   runtime_ready: boolean;
+  /** False while Phase 36 independent acceptance is pending. */
+  accepted?: boolean;
+  /** True when this account cannot submit the operation until acceptance completes. */
+  acceptance_pending?: boolean;
   fictional_inspired_direct: boolean;
   real_person_owner_approval_required: boolean;
   licensed_public_figure_runtime_ready: boolean;
