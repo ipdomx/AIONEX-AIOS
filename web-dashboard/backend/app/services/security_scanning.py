@@ -21,7 +21,12 @@ from app.db.models import (
     SecurityTarget,
     uuid_str,
 )
-from app.services import adaptive_intelligence, security_fabric, security_tools
+from app.services import (
+    adaptive_intelligence,
+    security_entitlement,
+    security_fabric,
+    security_tools,
+)
 from app.services.security_api_analyzer import analyze_openapi
 from app.services.security_web_scanner import scan_web_origin
 from app.services.security_zap import run_zap
@@ -98,9 +103,15 @@ async def request_scan(
     policy = await security_fabric.get_policy(session)
     if not policy["enabled"]:
         raise PermissionError("Security Lab is disabled by the Super Owner")
-    level = await security_fabric.access_level(session, actor)
+    access = await security_entitlement.resolve_access(session, actor, policy=policy)
+    level = access.level
+    if level is None:
+        raise access.plan_required()
     if not security_fabric.profile_allowed(level, profile):
-        raise PermissionError("Security Lab profile is not granted to this account")
+        raise security_entitlement.SecurityLabError(
+            security_entitlement.PROFILE_NOT_ALLOWED,
+            "Security Lab profile is not granted to this account",
+        )
     target = await session.scalar(
         select(SecurityTarget).where(
             SecurityTarget.id == target_id,
@@ -108,7 +119,9 @@ async def request_scan(
             SecurityTarget.status == "active",
         )
     )
-    if target is None:
+    if target is None or not security_entitlement.subscriber_owns_target(
+        access, actor, target
+    ):
         raise LookupError("Security target not found")
     if target.authorization_status != "verified":
         raise PermissionError("Security target must be verified before scanning")
@@ -116,6 +129,20 @@ async def request_scan(
     # becoming an SSRF route after DNS changes.
     security_fabric.assert_target_dns_stable(target)
     execution_mode = _profile_mode(profile, target, policy)
+    await security_entitlement.enforce_scan_limits(session, access, actor)
+    max_age = int(policy["subscription_access"]["reverify_after_days"])
+    if security_fabric.verification_is_stale(target, max_age_days=max_age):
+        # Ownership proofs expire: re-check the file or DNS TXT record before a
+        # stale authorization can admit another scan.
+        try:
+            await security_fabric.reverify_external_target(session, target)
+        except ValueError as exc:
+            raise security_entitlement.SecurityLabError(
+                security_entitlement.REVERIFY_FAILED,
+                f"Ownership re-verification failed: {exc}",
+                status_code=409,
+                extra={"target_id": target.id},
+            ) from exc
     active = int(
         await session.scalar(
             select(func.count(SecurityScan.id)).where(
@@ -170,7 +197,12 @@ async def request_scan(
         tool_plan=build_tool_plan(
             profile, source_available=source_available, execution_mode=execution_mode
         ),
-        summary={"access_level": level, "requested_at": now().isoformat()},
+        summary={
+            "access_level": level,
+            "access_source": access.source,
+            "plan_code": access.plan_code,
+            "requested_at": now().isoformat(),
+        },
         attempts=0,
         max_attempts=2,
     )

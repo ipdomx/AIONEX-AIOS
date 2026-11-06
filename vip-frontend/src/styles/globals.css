@@ -559,3 +559,31 @@ html.light .orbital-visual::before { border-color: rgba(10, 10, 10, 0.12); }
 .to-crimson-600 { --tw-gradient-to: var(--primary-deep) var(--tw-gradient-to-position) !important; }
 .border-crimson-300\/30, .border-crimson-300\/20, .border-crimson-500\/20 { border-color: color-mix(in srgb, var(--primary) 30%, transparent) !important; }
 .glass-panel, .glass-card { border-radius: var(--portal-radius); }
+
+/* Security Lab printable report: when the report view is open, printing (or
+   "Save as PDF") emits only the report on a plain light page. */
+@media print {
+  html[data-security-report] body * {
+    visibility: hidden !important;
+  }
+  html[data-security-report] .security-report,
+  html[data-security-report] .security-report * {
+    visibility: visible !important;
+    color: #111 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-color: #d4d4d8 !important;
+  }
+  html[data-security-report] body {
+    background: #fff !important;
+  }
+  html[data-security-report] .security-report {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0;
+  }
+  html[data-security-report] .security-report-actions {
+    display: none !important;
+  }
+}

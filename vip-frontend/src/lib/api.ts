@@ -37,9 +37,12 @@ import type {
   SecurityLabAccess,
   SecurityRemediationRecord,
   SecurityScanRecord,
+  SecurityScanReport,
   SecurityTargetRecord,
   SecurityTool,
   SecurityProfile,
+  SecurityVerificationInstructions,
+  SecurityVerificationMethod,
   Project,
   ProjectExecution,
   ThreeDAccess,
@@ -971,7 +974,7 @@ export function registerExternalSecurityTarget(
   origin: string,
 ): Promise<
   SecurityTargetRecord & {
-    verification: { method: string; path: string; challenge: string };
+    verification: SecurityVerificationInstructions;
   }
 > {
   return jsonRequest(
@@ -984,11 +987,29 @@ export function registerExternalSecurityTarget(
 export function verifyExternalSecurityTarget(
   targetId: string,
   challenge: string,
+  method: SecurityVerificationMethod = "http_file",
 ): Promise<SecurityTargetRecord> {
   return jsonRequest<SecurityTargetRecord>(
     `/security-lab/targets/${encodeURIComponent(targetId)}/verify`,
     "POST",
-    { challenge },
+    { challenge, method },
+  );
+}
+
+export function removeSecurityTarget(
+  targetId: string,
+): Promise<SecurityTargetRecord> {
+  return jsonRequest<SecurityTargetRecord>(
+    `/security-lab/targets/${encodeURIComponent(targetId)}`,
+    "DELETE",
+  );
+}
+
+export function getSecurityScanReport(
+  scanId: string,
+): Promise<SecurityScanReport> {
+  return request<SecurityScanReport>(
+    `/security-lab/scans/${encodeURIComponent(scanId)}/report`,
   );
 }
 

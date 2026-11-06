@@ -47,7 +47,13 @@ export function Navbar() {
     let cancelled = false;
     void getSecurityLabAccess()
       .then((access) => {
-        if (!cancelled) setSecurityLabVisible(access.enabled && access.granted);
+        if (!cancelled)
+          setSecurityLabVisible(
+            access.enabled &&
+              (access.granted ||
+                Boolean(access.upgrade_required) ||
+                Boolean(access.reports_available)),
+          );
       })
       .catch(() => {
         if (!cancelled) setSecurityLabVisible(false);
