@@ -25,42 +25,11 @@ misconfigurations:
     expired_at: 2027-01-31
 
 vulnerabilities:
-  # Accepted risk with expiry: Go modules of the Security Lab's locally built
-  # scanner binaries (security-build/*). Each lock pins the module graph AND
-  # the expected binary SHA-256, so a bump needs a rebuild to re-pin the
-  # binary hash (owner pre-launch action FR23-P3). The binaries only run in
-  # the isolated, non-root Security Lab worker; every listed issue is a DoS in
-  # parsing (compress, x/net html/http2, go-jose) or a Docker-engine issue the
-  # Trivy CLI does not exercise (no Docker daemon in that container).
-  - id: CVE-2026-63209
-    paths:
-      - "web-dashboard/backend/security-build/gitleaks/go.mod"
-      - "web-dashboard/backend/security-build/httpx/go.mod"
-    statement: "FR23-T3 klauspost/compress DoS; rebuild lock with 1.18.7"
-    expired_at: 2026-12-31
-  - id: CVE-2026-116587
-    paths:
-      - "web-dashboard/backend/security-build/grype/go.mod"
-      - "web-dashboard/backend/security-build/syft/go.mod"
-      - "web-dashboard/backend/security-build/trivy/go.mod"
-    statement: "FR23-T3 go-jose DoS; rebuild lock with 4.1.6"
-    expired_at: 2026-12-31
-  - id: CVE-2026-78661
-    paths:
-      - "web-dashboard/backend/security-build/grype/go.mod"
-      - "web-dashboard/backend/security-build/httpx/go.mod"
-      - "web-dashboard/backend/security-build/syft/go.mod"
-      - "web-dashboard/backend/security-build/trivy/go.mod"
-    statement: "FR23-T3 x/net/html DoS; rebuild lock with x/net 0.62.0"
-    expired_at: 2026-12-31
-  - id: CVE-2026-78669
-    paths:
-      - "web-dashboard/backend/security-build/grype/go.mod"
-      - "web-dashboard/backend/security-build/httpx/go.mod"
-      - "web-dashboard/backend/security-build/syft/go.mod"
-      - "web-dashboard/backend/security-build/trivy/go.mod"
-    statement: "FR23-T3 x/net http2 DoS; rebuild lock with x/net 0.62.0"
-    expired_at: 2026-12-31
+  # Accepted risk with expiry: Docker-engine issues in Trivy's module graph that
+  # have no upstream fix. The Trivy CLI runs in the isolated, non-root Security
+  # Lab worker without a Docker daemon, so the engine code is never exercised.
+  # (The compress / go-jose / x/net DoS entries were removed on 2026-11-07: all
+  # five tools were rebuilt on patched modules with re-pinned binary hashes, T-11.)
   - id: CVE-2026-41567
     paths:
       - "web-dashboard/backend/security-build/trivy/go.mod"

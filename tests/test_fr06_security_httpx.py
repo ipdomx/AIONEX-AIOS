@@ -170,4 +170,4 @@ def test_real_lock_is_stable_and_preserves_test_selection():
     m.test_commands("go")
     assert lock == before
     assert lock["toolchain_version"] == "go1.27.1"
-    assert lock["modules"]["golang.org/x/crypto"] == "v0.55.0"
+    assert lock["modules"]["golang.org/x/crypto"] == "v0.58.0"
