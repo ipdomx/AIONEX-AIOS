@@ -75,11 +75,12 @@
 - [ ] 5.3 الدفع على Stripe من البداية للنهاية: اشتراك وwebhook وتجديد وإلغاء، بقرار المالك على توقيت التفعيل.
 
 ### المرحلة 6: بوابات إطلاق الويب
-- [ ] 6.1 اختبار 5000 مستخدم حقيقي، مع P95 أقل من 500ms (FR-09 وNS-13).
-- [ ] 6.2 مراقبة 72 ساعة متصلة (NS-12).
-- [ ] 6.3 مرونة البث وإعادة الاتصال (NS-14A).
-- [ ] 6.4 استعادة كاملة من R2: التطبيق والمصادقة والميديا (FR-08 وFR-24).
-- [ ] 6.5 إخراج السيرفر القديم من الخدمة (NS-15 وNS-16).
+قائمة التشغيل المرتبة لكل التحققات الحية: `docs/project/PRE-LAUNCH-RUNBOOK.md`.
+- [ ] 6.1 اختبار 5000 مستخدم حقيقي، مع P95 أقل من 500ms (FR-09 وNS-13). الأداة `scripts/capacity/p6_mixed_load.py` والتحليل والضبط في `P6-CAPACITY-ANALYSIS.md`. (tooling merged; execution in pre-launch window)
+- [ ] 6.2 مراقبة 72 ساعة متصلة (NS-12). الأداة `scripts/ops/p6_72h_observer.py` وشهادة PASS/FAIL. (tooling merged; execution in pre-launch window)
+- [ ] 6.3 مرونة البث وإعادة الاتصال (NS-14A). الأداة `scripts/resilience/p6_stream_fault_matrix.py`. (tooling merged; execution in pre-launch window)
+- [ ] 6.4 استعادة كاملة من R2: التطبيق والمصادقة والميديا (FR-08 وFR-24). الأداة `scripts/recovery/p6_isolated_restore_drill.py`. (tooling merged; execution in pre-launch window)
+- [ ] 6.5 إخراج السيرفر القديم من الخدمة (NS-15 وNS-16). الأداة `scripts/ops/p6_old_server_decommission_verify.py` (قراءة فقط). (tooling merged; execution in pre-launch window)
 - [ ] 6.6 الإصدار النهائي للويب (FR-25).
 
 ### المرحلة 7 (الأخيرة، مع إطلاق التطبيق)
