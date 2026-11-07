@@ -47,7 +47,7 @@ SUMMARY_NAME = "drill-summary.json"
 
 
 class DrillFetchError(RuntimeError):
-    pass
+    """The drill fetch/extract refused or failed; nothing outside the drill was touched."""
 
 
 def _newest_manifest(replicator: Any) -> tuple[str, str]:
