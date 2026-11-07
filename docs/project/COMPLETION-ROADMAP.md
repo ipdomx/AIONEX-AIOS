@@ -42,7 +42,7 @@
 - [x] 1.3 حدود استخدام لكل مشترك: عدد الفحوصات والمواقع شهريًا، مع حد للتزامن. (code merged; live verification pending)
 - [x] 1.4 واجهة المستخدم في `vip-frontend`: إضافة موقع، وتحقق، وتشغيل فحص، وتقرير مرتب حسب الخطورة، وخطوات الإصلاح، وتصدير PDF. (code merged; live verification pending)
 - [x] 1.5 أول فحص حقيقي على دومين يملكه المالك (vip-e.net)، وإيصال حي. (تم 2026-11-06: الفحص `94feb36d`، 0 حرجة، 1 عالية HSTS اتصلحت. testssl وnuclei وصلوا لحد 180 ثانية ← بند قبل الإطلاق T-04)
-- [ ] 1.6 إغلاق FR-23، أي الفحص الأمني الشامل للمشروع نفسه.
+- [x] 1.6 إغلاق FR-23، أي الفحص الأمني الشامل للمشروع نفسه. (code review merged; live re-scan in pre-launch window) — PR #1038، الإيصال `docs/project/receipts/FR23-final-security-review-20261107.md`: بوابات Semgrep وGitleaks وTrivy وpip/npm audit، وإصلاحات باختبارات رجوع (منها Next.js RCE في `vip-frontend`). Pillow في TripoSR خطر متبقي لحد إعادة البناء.
 
 ### المرحلة 2: الـ 3D
 - [x] 2.1 صفحة 3D مستقلة للمستخدم في `vip-frontend`: توليد من صورة أو نص، ومعرض، وعارض، وتنزيل GLB/OBJ. (code merged; live verification pending)
@@ -105,6 +105,7 @@
 - [ ] O-06 Meta Ads: توكن إعلانات جديد طويل الأجل، لأن القديم `marketing-api-token` انتهى 2026-10-13.
 - [ ] O-07 RunPod: فحص endpoint `aionex-triposr-phase34g-production` (`rrcr2ftk4sqq1j`) من اللوحة، لأن الـ scaler ما شغّلش worker حتى مع workersMax=1 يوم 2026-11-06. الـ endpointين حاليًا workersMax=0. البديل إعادة بناء الـ endpoint.
 - [ ] O-08 الموافقة على تكلفة التجارب الحية: 3D، وإعلانات بإنفاق محدود، وStripe live، وAI خارجي إن لزم.
+- [ ] O-09 إعدادات GitHub: إضافة فحوصات `FR-23 Security Gates` (Semgrep وGitleaks وTrivy وDependency audit) لقائمة الفحوصات المطلوبة في branch protection على `main` (FR-23).
 
 ### تقني (يتنفذ في نافذة ما قبل الإطلاق)
 - [ ] T-01 نشر `src/aios/gpu_worker/runpod.py` (PR #1032): العمال بيقروا `/opt/AIOS/src` من checkout قديم (`f2527cf3`)، فلازم overlay أو تحديث آمن.
@@ -117,6 +118,13 @@
 - [ ] T-08 تجارب حية: نشر Meta، والصندوق، والإعلانات، وStripe، و3D، والصور والفيديو والصوت والأكاديمية (البند 5.1).
 - [ ] T-09 تنظيف السيرفر (0.4): worktrees قديمة، وحاويات `aionex-pr872*`، ونسخ النشر القديمة في `/var/lib/aionex-migration/*/static`.
 - [ ] T-10 nginx الإنتاج: التعديلات بتتطبق على `/tmp/aionex-nginx-fr09-realip.conf` (live) وعلى ملف المصدر على السيرفر. لازم ريستارت مُتحكَّم فيه للحاوية يتأكد إنها بتبني نفس الإعداد.
+- [ ] T-11 إعادة بناء أدوات الفحص المبنية محليًا (`security-build/{gitleaks,httpx,grype,syft,trivy}`) على klauspost/compress 1.18.7 وgo-jose 4.1.6 وx/net 0.62.0، وتحديث `expected_binary_sha256` في كل lock. استثناءات Trivy بتنتهي 2026-12-31 (FR23-10).
+- [ ] T-12 **عاجل:** نشر `vip-frontend` بـ Next.js 15.5.29 (البوابة على السيرفر والنسخة الثابتة على cPanel). 15.5.27 فيها ثغرة تنفيذ كود عن بعد من غير تسجيل دخول (GHSA-2464-fhr4-w9xw، FR23-01).
+- [ ] T-13 TripoSR: Pillow 12.3.0 فيها ثغرات حرجة، والإصلاح Pillow 13 بيتعارض مع rembg (`pillow<13`). لازم إصدار rembg يقبل Pillow 13 أو حل موثق، ثم إعادة بناء الصورة وتشغيلها كمستخدم غير root. **ممنوع رفع workersMax قبلها.** الاستثناء بينتهي 2026-12-15 (FR23-02 وFR23-12).
+- [ ] T-14 FR-23E: إعادة تشغيل بوابات FR-23 على commit الإصدار، وفحص Security Lab حي لـ api.vip-e.net وai.vip-e.net، واختبارات DAST معزولة (FR-23C) بعد النشر.
+- [ ] T-15 نشر إصلاحات FR-23 في الباك إند (تثبيت عنوان التحقق، وصلاحية signed_request لمدة 24 ساعة، ومقارنة توقيعات الدفع، وdefusedxml) وحارس حروف التحكم في nginx (مع T-10).
+- [ ] T-16 بعد بوابة 6.1: تنظيف حسابات اختبار الحمل `synthetic_load_accounts cleanup --execute` وحذف ملف كلمة السر المشترك وملف التصدير.
+- [ ] T-17 جدار egress لـ `security-scan-worker`: منع العناوين الخاصة وloopback وlink-local والـ metadata، أو شبكة منفصلة عن Postgres وRedis والباك إند، لأن أدوات الفحص النشط بتعمل DNS بنفسها (FR23-11).
 
 ## طريقة التحديث
 - كل بند يُعلَّم `[x]` في نفس الـ PR الذي يغلقه، مع رابط PR والإيصال الحي.

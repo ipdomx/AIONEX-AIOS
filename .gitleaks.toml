@@ -1,0 +1,9 @@
+# FR-23 Gitleaks policy: the upstream default rule set, unchanged, plus
+# reviewed allowlists. An allowlist entry is added only for a proven false
+# positive, scoped as narrowly as possible (exact value or exact path), with
+# its reason here and a row in
+# docs/project/receipts/FR23-final-security-review-20261107.md.
+title = "AIONEX AIOS FR-23 gitleaks policy"
+
+[extend]
+useDefault = true

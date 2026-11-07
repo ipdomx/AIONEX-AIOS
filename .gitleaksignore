@@ -1,0 +1,65 @@
+# FR-23 reviewed Gitleaks fingerprints (commit:path:rule:line).
+# Every entry below was inspected line by line on 2026-11-07 (FR-23 receipt,
+# section 'Gitleaks triage'). All 52 are generic-api-key entropy matches on
+# values that are not credentials. Add a fingerprint only after the same
+# review; a real secret must be rotated, never listed here.
+
+# G1 (3): CI-only placeholder SECRET_KEY values in workflows/scripts (ephemeral containers, never deployed)
+d9e21428d9f9ab006d71fb8fed801d8d371332a9:.github/workflows/final-validation.yml:generic-api-key:298
+f49a60b664d86d370489a0f490daf3d25f9f731b:scripts/security/run-security-acceptance-lab.sh:generic-api-key:112
+fd06d84d5fd5385acf4a02007a92bfd01a1ac2f3:.github/workflows/final-validation.yml:generic-api-key:47
+
+# G2 (7): Documentation and receipts: SHA-256 digests and prose matched by the generic-api-key entropy rule
+5c0424175362d4130a6ca5606ae23dcac6f94368:docs/phase-36/PHASE_36H_REALTIME_FOUNDATION.md:generic-api-key:185
+5c0424175362d4130a6ca5606ae23dcac6f94368:docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md:generic-api-key:592
+979b2de5d37930e240d36f79564820029b9e642a:docs/project/receipts/FR-02-source-security-candidate.json:generic-api-key:17
+d27751fdda1371c2efddd36d090f17b8c6a96947:docs/project/receipts/FR-06-protected-check-event-provenance-20261002.md:generic-api-key:23
+d530f491c9679cd600fcc983f159cecb84ab7a17:docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md:generic-api-key:738
+d7f3bff7d563371c2753fdf8fe588e89849408ea:docs/phase-36/receipts/36N-2026-08-28-real-runtime-audit.md:generic-api-key:65
+e18819a8df1ffcc730c5c3042fd0bfaa6132027d:docs/release-candidate/CORE_PRODUCTION_RC_ACCEPTANCE_2026-08-13.md:generic-api-key:139
+
+# G3 (3): Source comments / historical sandbox smoke-test placeholder passphrase for a locally generated project (no longer present at HEAD)
+3e0f058846a55bde8193071f0118bf34c328615c:src/aios/project_ai_compact_spec.py:generic-api-key:100
+b914a5397b4e95e9229e22ba4e6593d5765ec7dc:src/aios/controlled_project_builder.py:generic-api-key:1212
+b914a5397b4e95e9229e22ba4e6593d5765ec7dc:src/aios/controlled_project_builder.py:generic-api-key:1219
+
+# G4 (39): Test fixtures: synthetic keys, monkeypatched SECRET_KEY placeholders, idempotency/event keys and scanner bait strings in test suites
+04b4fc62e9787c20f51bf59b576a95fc5a5dcf27:web-dashboard/backend/tests/test_aionex_ai_plan_signal.py:generic-api-key:17
+0eb4c0bc0927ca582e21f9d41192f229e0d5456d:web-dashboard/backend/tests/test_phase36e_design_image_runtime.py:generic-api-key:217
+0eb4c0bc0927ca582e21f9d41192f229e0d5456d:web-dashboard/backend/tests/test_phase36e_design_image_runtime.py:generic-api-key:218
+1454d74956ba5e365c106d6fa5834feda1474b55:tests/test_autonomous_project_intelligence.py:generic-api-key:45
+1454d74956ba5e365c106d6fa5834feda1474b55:tests/test_phase4_engineering_platform.py:generic-api-key:29
+1454d74956ba5e365c106d6fa5834feda1474b55:tests/test_phase5_security_platform.py:generic-api-key:14
+1af998d32bacbafadc6234bbc23cce94d156be30:web-dashboard/backend/tests/test_phase36f_video_runtime.py:generic-api-key:261
+1af998d32bacbafadc6234bbc23cce94d156be30:web-dashboard/backend/tests/test_phase36f_video_runtime.py:generic-api-key:262
+1e3ffb0ef9eea7f7176dadda9f10dda607c2d426:web-dashboard/backend/tests/test_security_tools.py:generic-api-key:11
+3e770ae65e0c54100bef1e42c844f6c49c91cb28:web-dashboard/backend/tests/test_phase36h_realtime_admission_service.py:generic-api-key:22
+638b216613dad6100bea5a04f4bfe1be9dafe3c0:web-dashboard/backend/tests/test_phase29e_communications_governance.py:generic-api-key:1002
+638b216613dad6100bea5a04f4bfe1be9dafe3c0:web-dashboard/backend/tests/test_phase29e_communications_governance.py:generic-api-key:1029
+638b216613dad6100bea5a04f4bfe1be9dafe3c0:web-dashboard/backend/tests/test_phase29e_communications_governance.py:generic-api-key:989
+94e5c11adab1d9772ba960794b07aba1c1332ea3:web-dashboard/backend/tests/test_three_d_runpod_permanent_errors.py:generic-api-key:29
+979b36191d1bdefa777fe9cbdcaed7d4a4679132:web-dashboard/backend/tests/test_security_tools.py:generic-api-key:26
+9cf91f141697eeea0be767b185049c0bb2531d08:web-dashboard/backend/tests/test_phase29e_communications_governance.py:generic-api-key:155
+9cf91f141697eeea0be767b185049c0bb2531d08:web-dashboard/backend/tests/test_phase29e_communications_governance.py:generic-api-key:168
+a0e235643e93781ff115479512bd6b8143f0e104:tests/test_phase26_mobile_telegram_delivery.py:generic-api-key:47
+a6ad60cddb7c68170854dfac04e3e732d817640d:web-dashboard/backend/tests/test_p4_ads_database.py:generic-api-key:208
+ada0e0d02b69bbef952eeef3c5fcc27bb2c4cdaa:web-dashboard/backend/tests/test_p3_social_publishing_database.py:generic-api-key:121
+c3bb931710f6932039766ac20e7daecbc86bab4e:web-dashboard/backend/tests/test_phase36g_audio_song_worker.py:generic-api-key:458
+c85682e06d3322117b158d92df5fa730dcfa7c83:web-dashboard/backend/tests/test_fr15c_sfx_quality_contract.py:generic-api-key:61
+d9e21428d9f9ab006d71fb8fed801d8d371332a9:web-dashboard/backend/tests/test_phase36g_audio_speech_runtime.py:generic-api-key:441
+d9e21428d9f9ab006d71fb8fed801d8d371332a9:web-dashboard/backend/tests/test_phase36g_audio_speech_runtime.py:generic-api-key:442
+d9e21428d9f9ab006d71fb8fed801d8d371332a9:web-dashboard/backend/tests/test_phase36g_audio_speech_runtime.py:generic-api-key:636
+d9e21428d9f9ab006d71fb8fed801d8d371332a9:web-dashboard/backend/tests/test_phase36g_audio_speech_runtime.py:generic-api-key:693
+d9e21428d9f9ab006d71fb8fed801d8d371332a9:web-dashboard/backend/tests/test_phase36g_audio_speech_runtime.py:generic-api-key:736
+dcd6efbd332ab33a7ea0ad6e2f9964f29e9ab86e:web-dashboard/backend/tests/test_phase36_identity_media_revocation.py:generic-api-key:161
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:374
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:375
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:425
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:467
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:513
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:632
+ea2642a9ba0ab8f30f562da64cbd89f801f89fd7:web-dashboard/backend/tests/test_phase36g_audio_dubbing_runtime.py:generic-api-key:841
+ef355b2c6a18ea2b04fddeb0c9c6fb0e4fb4fe29:tests/test_telegram_bot.py:generic-api-key:52
+ef355b2c6a18ea2b04fddeb0c9c6fb0e4fb4fe29:tests/test_telegram_bot.py:generic-api-key:70
+ef51653bb5b3881b395ccd74bcdddcb5e99525dd:web-dashboard/backend/tests/test_phase36h_realtime_runtime_activation.py:generic-api-key:50
+f25e6fa808eed9361e8af6b6f5c7419ffc9d0d99:web-dashboard/backend/tests/test_phase29d_billing_payments.py:generic-api-key:1338

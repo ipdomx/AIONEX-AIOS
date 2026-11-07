@@ -20,6 +20,7 @@ import base64
 import hashlib
 import hmac
 import json
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,6 +40,10 @@ from app.services.social_meta_provider import MetaConnector, _secret_value
 
 MAX_BODY_BYTES = 1024 * 1024
 MAX_SIGNED_REQUEST = 8192
+# A signed_request older than this, or issued in the future beyond the skew,
+# is refused (replay protection for deauthorize / data-deletion callbacks).
+SIGNED_REQUEST_MAX_AGE_SECONDS = 24 * 60 * 60
+SIGNED_REQUEST_CLOCK_SKEW_SECONDS = 300
 FEED_VERBS = {"add": "add", "edited": "edited", "remove": "remove", "hide": "hide", "unhide": "unhide"}
 
 
@@ -238,7 +243,7 @@ def _b64decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(padded.encode("ascii"))
 
 
-def parse_signed_request(signed_request: str | None) -> dict[str, Any]:
+def parse_signed_request(signed_request: str | None, *, now: int | None = None) -> dict[str, Any]:
     value = (signed_request or "").strip()
     if not value or len(value) > MAX_SIGNED_REQUEST or value.count(".") != 1:
         raise SocialConnectorError("signed-request-invalid", status_code=400)
@@ -258,4 +263,16 @@ def parse_signed_request(signed_request: str | None) -> dict[str, Any]:
     user_id = str(payload.get("user_id") or "")
     if not valid_id(user_id):
         raise SocialConnectorError("signed-request-user-missing", status_code=400)
+    issued_at = payload.get("issued_at")
+    current = int(time.time()) if now is None else int(now)
+    # FR-23: a captured signed_request never expires on its own, so a replay
+    # weeks later would revoke a grant the person made again since. Meta
+    # sends these callbacks as the person acts; only a fresh one is honored.
+    if (
+        isinstance(issued_at, bool)
+        or not isinstance(issued_at, int)
+        or issued_at > current + SIGNED_REQUEST_CLOCK_SKEW_SECONDS
+        or current - issued_at > SIGNED_REQUEST_MAX_AGE_SECONDS
+    ):
+        raise SocialConnectorError("signed-request-stale", status_code=400)
     return payload

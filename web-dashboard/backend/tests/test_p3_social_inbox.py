@@ -279,7 +279,10 @@ def test_meta_times_parse_epoch_seconds_milliseconds_and_iso():
 
 def test_signed_request_requires_a_valid_hmac_and_user_id():
     payload = {"algorithm": "HMAC-SHA256", "issued_at": 1762425600, "user_id": "2200000000000001"}
-    assert webhooks.parse_signed_request(signed_request(payload))["user_id"] == "2200000000000001"
+    assert (
+        webhooks.parse_signed_request(signed_request(payload), now=1762425600 + 60)["user_id"]
+        == "2200000000000001"
+    )
     for value, code in (
         (None, "signed-request-invalid"),
         ("not-a-signed-request", "signed-request-invalid"),
@@ -288,8 +291,29 @@ def test_signed_request_requires_a_valid_hmac_and_user_id():
         (signed_request({"algorithm": "HMAC-SHA256"}), "signed-request-user-missing"),
     ):
         with pytest.raises(SocialConnectorError) as error:
-            webhooks.parse_signed_request(value)
+            webhooks.parse_signed_request(value, now=1762425600 + 60)
         assert error.value.code == code
+
+
+def test_fr23_signed_request_replay_outside_the_freshness_window_is_refused():
+    """FR-23 regression: a captured deauthorize/data-deletion request cannot be replayed later."""
+
+    issued = 1762425600
+    payload = {"algorithm": "HMAC-SHA256", "issued_at": issued, "user_id": "2200000000000001"}
+    max_age = webhooks.SIGNED_REQUEST_MAX_AGE_SECONDS
+    skew = webhooks.SIGNED_REQUEST_CLOCK_SKEW_SECONDS
+    assert webhooks.parse_signed_request(signed_request(payload), now=issued + max_age)
+    assert webhooks.parse_signed_request(signed_request(payload), now=issued - skew)
+    for value, now in (
+        (signed_request(payload), issued + max_age + 1),  # replayed after the window
+        (signed_request(payload), issued - skew - 1),  # issued in the future
+        (signed_request({**payload, "issued_at": None}), issued),
+        (signed_request({**payload, "issued_at": str(issued)}), issued),
+        (signed_request({**payload, "issued_at": True}), issued),
+    ):
+        with pytest.raises(SocialConnectorError) as error:
+            webhooks.parse_signed_request(value, now=now)
+        assert error.value.code == "signed-request-stale"
 
 
 # --- Graph inbox actions against a mocked Graph API --------------------------------------

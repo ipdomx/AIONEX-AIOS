@@ -24,6 +24,7 @@ async function waitUntilReady() {
   while (Date.now() < deadline) {
     if (server.exitCode !== null) throw new Error(`Production server exited early.\n${serverOutput}`);
     try {
+      // nosemgrep -- FR-23 reviewed: readiness probe of the local production server started by this smoke test (loopback http).
       const response = await fetch(base, { redirect: "manual" });
       if (response.status > 0) return;
     } catch {
@@ -89,6 +90,7 @@ async function checkRoutes() {
     if (!/name="robots" content="noindex/.test(body)) failures.push(`${path}: 404 noindex missing`);
   }
 
+  // nosemgrep -- FR-23 reviewed: loopback request to the local server this smoke test started.
   const root = await fetch(base, { redirect: "manual" });
   if (root.status !== 200) failures.push(`/: expected HTTP 200, got ${root.status}`);
   if (failures.length) throw new Error(failures.join("\n"));

@@ -6,7 +6,7 @@ import hashlib
 import plistlib
 from pathlib import Path
 from typing import Any
-from xml.etree import ElementTree
+from defusedxml import ElementTree  # type: ignore[import-untyped]
 
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 
@@ -39,7 +39,9 @@ def _finding(
 
 
 def analyze_android_manifest(xml_text: str) -> list[dict[str, Any]]:
-    root = ElementTree.fromstring(xml_text)
+    # FR-23: the manifest comes from a scanned (untrusted) source tree, so it
+    # is parsed with defusedxml and any DTD/entity declaration is refused.
+    root = ElementTree.fromstring(xml_text, forbid_dtd=True)
     app = root.find("application")
     if app is None:
         return []
@@ -137,7 +139,7 @@ def scan_mobile_source(root: Path) -> dict[str, Any]:
     for path in android:
         try:
             findings.extend(analyze_android_manifest(path.read_text(encoding="utf-8")))
-        except (OSError, UnicodeError, ElementTree.ParseError):
+        except (OSError, UnicodeError, ValueError, ElementTree.ParseError):
             continue
     plists = [
         path
