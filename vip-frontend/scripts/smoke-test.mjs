@@ -90,6 +90,7 @@ async function checkRoutes() {
     if (!/name="robots" content="noindex/.test(body)) failures.push(`${path}: 404 noindex missing`);
   }
 
+  // nosemgrep -- FR-23 reviewed: loopback request to the local server this smoke test started.
   const root = await fetch(base, { redirect: "manual" });
   if (root.status !== 200) failures.push(`/: expected HTTP 200, got ${root.status}`);
   if (failures.length) throw new Error(failures.join("\n"));

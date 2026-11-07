@@ -42,7 +42,7 @@
 - [x] 1.3 حدود استخدام لكل مشترك: عدد الفحوصات والمواقع شهريًا، مع حد للتزامن. (code merged; live verification pending)
 - [x] 1.4 واجهة المستخدم في `vip-frontend`: إضافة موقع، وتحقق، وتشغيل فحص، وتقرير مرتب حسب الخطورة، وخطوات الإصلاح، وتصدير PDF. (code merged; live verification pending)
 - [ ] 1.5 أول فحص حقيقي على دومين يملكه المالك (vip-e.net)، وإيصال حي.
-- [ ] 1.6 إغلاق FR-23، أي الفحص الأمني الشامل للمشروع نفسه.
+- [x] 1.6 إغلاق FR-23، أي الفحص الأمني الشامل للمشروع نفسه. (code review merged; live re-scan in pre-launch window) — PR #1038، الإيصال `docs/project/receipts/FR23-final-security-review-20261107.md`: بوابات Semgrep وGitleaks وTrivy وpip/npm audit، و9 إصلاحات باختبارات رجوع (منها Next.js RCE في `vip-frontend` وPillow في TripoSR).
 
 ### المرحلة 2: الـ 3D
 - [x] 2.1 صفحة 3D مستقلة للمستخدم في `vip-frontend`: توليد من صورة أو نص، ومعرض، وعارض، وتنزيل GLB/OBJ. (code merged; live verification pending)
