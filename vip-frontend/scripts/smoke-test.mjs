@@ -24,6 +24,7 @@ async function waitUntilReady() {
   while (Date.now() < deadline) {
     if (server.exitCode !== null) throw new Error(`Production server exited early.\n${serverOutput}`);
     try {
+      // nosemgrep -- FR-23 reviewed: readiness probe of the local production server started by this smoke test (loopback http).
       const response = await fetch(base, { redirect: "manual" });
       if (response.status > 0) return;
     } catch {
