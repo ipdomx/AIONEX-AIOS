@@ -1,0 +1,255 @@
+name: FR-23 Security Gates
+
+# FR-23 final codebase security review (roadmap 1.6). Four fail-closed gates:
+#   * Semgrep SAST with rules pinned to one semgrep-rules commit (Python,
+#     TypeScript/React, JavaScript, secrets; the OWASP Top 10 rules of those
+#     languages are part of these directories). Gate: ERROR severity.
+#   * Gitleaks over the full git history, built from the repository's own
+#     hash-pinned source lock. Gate: any unallowlisted finding.
+#   * Trivy filesystem scan: vulnerable dependencies in every lockfile
+#     (npm, pip, Go modules) and Dockerfile/Kubernetes misconfigurations.
+#     Gate: HIGH/CRITICAL, as in the Phase 34E container gate.
+#   * pip-audit / npm audit for the manifests the Dependency Security job of
+#     Final Validation does not cover. Gate: npm high/critical, any pip-audit
+#     vulnerability (same convention as Dependency Security).
+# Every suppression is reviewed and documented in .semgrepignore,
+# .gitleaks.toml or .trivyignore.yaml and in
+# docs/project/receipts/FR23-final-security-review-20261107.md.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fr23-security-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SEMGREP_VERSION: "1.178.0"
+  SEMGREP_WHEEL: semgrep-1.178.0-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-manylinux_2_34_x86_64.whl
+  SEMGREP_WHEEL_URL: https://files.pythonhosted.org/packages/b3/bf/5bc9cc1b1e1650467ceb6361306d170dd3641b911efa2a89bc7129be4d54/semgrep-1.178.0-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-manylinux_2_34_x86_64.whl
+  SEMGREP_WHEEL_SHA256: b7c4a4ba5cad1a6b0e76f7143c164b3f2853b9d0f902f2db2f64006257c941f2
+  # semgrep/semgrep-rules commit 16b9e6d (2026-10-21), fetched by exact SHA.
+  SEMGREP_RULES_COMMIT: 16b9e6d45f10649f6a531ec4838ed9924372c3bc
+  PIP_AUDIT_VERSION: "2.10.1"
+
+jobs:
+  semgrep:
+    name: Semgrep SAST (pinned rules)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install hash-verified Semgrep
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          work="$RUNNER_TEMP/semgrep"
+          mkdir -p "$work"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            --output "$work/$SEMGREP_WHEEL" "$SEMGREP_WHEEL_URL"
+          echo "$SEMGREP_WHEEL_SHA256  $work/$SEMGREP_WHEEL" | sha256sum --check --strict
+          python -m venv "$work/venv"
+          "$work/venv/bin/python" -m pip install --quiet --upgrade pip
+          "$work/venv/bin/python" -m pip install --quiet "$work/$SEMGREP_WHEEL"
+          test "$("$work/venv/bin/semgrep" --version)" = "$SEMGREP_VERSION"
+          echo "$work/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch pinned Semgrep rules
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rules="$RUNNER_TEMP/semgrep-rules"
+          git init --quiet "$rules"
+          git -C "$rules" fetch --quiet --depth 1 https://github.com/semgrep/semgrep-rules "$SEMGREP_RULES_COMMIT"
+          git -C "$rules" checkout --quiet FETCH_HEAD
+          test "$(git -C "$rules" rev-parse HEAD)" = "$SEMGREP_RULES_COMMIT"
+          echo "SEMGREP_RULES=$rules" >> "$GITHUB_ENV"
+
+      - name: Run Semgrep (fail on ERROR severity)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          semgrep scan \
+            --metrics off --disable-version-check \
+            --config "$SEMGREP_RULES/python" \
+            --config "$SEMGREP_RULES/typescript" \
+            --config "$SEMGREP_RULES/javascript" \
+            --config "$SEMGREP_RULES/generic/secrets" \
+            --severity ERROR \
+            --error \
+            --timeout 30 \
+            --max-target-bytes 2000000 \
+            --sarif-output semgrep.sarif \
+            --text
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fr23-semgrep-sarif
+          path: semgrep.sarif
+          if-no-files-found: ignore
+          retention-days: 14
+
+  gitleaks:
+    name: Gitleaks full-history secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout full history without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Use Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build Gitleaks from the repository's hash-pinned lock
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python web-dashboard/backend/scripts/build_gitleaks.py \
+            --lock-dir web-dashboard/backend/security-build/gitleaks \
+            --output "$RUNNER_TEMP/gitleaks-build"
+          "$RUNNER_TEMP/gitleaks-build/gitleaks" version
+
+      - name: Scan every commit (redacted, fail on any finding)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git log --oneline | wc -l | xargs echo "commits in scanned history:"
+          "$RUNNER_TEMP/gitleaks-build/gitleaks" git . \
+            --config .gitleaks.toml \
+            --gitleaks-ignore-path .gitleaksignore \
+            --redact \
+            --no-banner \
+            --verbose \
+            --exit-code 1 \
+            --report-format sarif \
+            --report-path gitleaks.sarif
+
+      - name: Upload redacted Gitleaks SARIF
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fr23-gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: ignore
+          retention-days: 14
+
+  trivy:
+    name: Trivy dependencies and IaC misconfiguration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fail on HIGH/CRITICAL vulnerabilities and misconfigurations
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.72.0
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: "1"
+          format: table
+          trivyignores: .trivyignore.yaml
+          # Deliberately vulnerable Security Lab acceptance fixtures (test data).
+          skip-dirs: web-dashboard/backend/tests/security_acceptance_lab/fixtures
+
+  dependency-audit:
+    name: Dependency audit (manifests outside Dependency Security)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Install pinned pip-audit
+        run: python -m pip install --quiet "pip-audit==${PIP_AUDIT_VERSION}"
+
+      - name: Audit the root AIOS package
+        run: pip-audit --progress-spinner off .
+
+      - name: Audit exact-pinned worker manifests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Exact pins only, no resolution: the transitive closure of these
+          # images is covered by the Trivy job and by the image scans.
+          for manifest in \
+            web-dashboard/backend/requirements-project-worker.txt \
+            infra/runpod/open_song/requirements.txt; do
+            echo "::group::pip-audit $manifest"
+            pip-audit --progress-spinner off --no-deps --disable-pip -r "$manifest"
+            echo "::endgroup::"
+          done
+
+      - name: Audit the public portal (vip-frontend)
+        working-directory: vip-frontend
+        env:
+          npm_config_audit_level: high
+        run: |
+          npm ci --ignore-scripts
+          "$GITHUB_WORKSPACE/.github/scripts/npm-audit-retry.sh"
+
+      - name: Audit the 3D runtime project template lockfile
+        shell: bash
+        env:
+          npm_config_audit_level: high
+        run: |
+          set -Eeuo pipefail
+          work="$RUNNER_TEMP/three-d-runtime"
+          mkdir -p "$work"
+          cp src/aios/three_d_web/runtime-package-lock.json "$work/package-lock.json"
+          python - "$work" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          work = Path(sys.argv[1])
+          lock = json.loads((work / "package-lock.json").read_text(encoding="utf-8"))
+          root = lock["packages"][""]
+          manifest = {key: root[key] for key in ("name", "version", "dependencies", "devDependencies") if key in root}
+          (work / "package.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+          cd "$work"
+          "$GITHUB_WORKSPACE/.github/scripts/npm-audit-retry.sh"

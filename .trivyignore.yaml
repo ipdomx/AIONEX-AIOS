@@ -1,0 +1,5 @@
+# FR-23 reviewed Trivy exceptions. Each entry is a documented, path-scoped
+# decision (see docs/project/receipts/FR23-final-security-review-20261107.md).
+# Never add a vulnerability ID here to make the gate pass: upgrade instead.
+misconfigurations: []
+vulnerabilities: []

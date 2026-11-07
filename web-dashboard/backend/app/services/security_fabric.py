@@ -42,6 +42,10 @@ LEVEL_MAX_PROFILE = {
 }
 VERIFICATION_METHODS = ("http_file", "dns_txt")
 HTTP_VERIFICATION_PATH = "/.well-known/aionex-security-verification.txt"
+# The proof file holds one challenge line; a larger body is not a valid proof.
+VERIFICATION_MAX_RESPONSE_BYTES = 4096
+# Tests inject an ``httpx.MockTransport`` here; production uses the default.
+_VERIFICATION_TRANSPORT: httpx.AsyncBaseTransport | None = None
 SUBSCRIPTION_ACCESS_DEFAULTS: dict[str, Any] = {
     # Subscribers on an entitled plan get scanning automatically. A plan is
     # entitled when its code is listed in ``plan_codes``; when that list is
@@ -678,15 +682,57 @@ def verification_instructions(target: SecurityTarget, challenge: str) -> dict[st
     }
 
 
+def _pinned_verification_request(
+    target: SecurityTarget, address: str
+) -> tuple[str, dict[str, str], dict[str, Any]]:
+    """URL, headers and extensions that connect to ``address`` for ``target``.
+
+    The TCP connection goes to the already validated address; the Host header
+    and the TLS SNI/certificate name stay the target hostname, so certificate
+    verification is unchanged.
+    """
+
+    parsed = urlsplit(target.origin)
+    scheme = parsed.scheme
+    port = parsed.port or (443 if scheme == "https" else 80)
+    literal = f"[{address}]" if ipaddress.ip_address(address).version == 6 else address
+    url = f"{scheme}://{literal}:{port}{HTTP_VERIFICATION_PATH}"
+    default_port = 443 if scheme == "https" else 80
+    host_header = target.hostname if port == default_port else f"{target.hostname}:{port}"
+    headers = {"Host": host_header, "User-Agent": "AIONEX-Security-Verification/1.0"}
+    extensions: dict[str, Any] = {"sni_hostname": target.hostname} if scheme == "https" else {}
+    return url, headers, extensions
+
+
 async def _http_file_value(target: SecurityTarget) -> str | None:
-    url = target.origin.rstrip("/") + HTTP_VERIFICATION_PATH
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
-        response = await client.get(
-            url, headers={"User-Agent": "AIONEX-Security-Verification/1.0"}
-        )
-    if response.status_code != 200:
+    """Fetch the HTTP proof file without a DNS-rebinding window (FR-23).
+
+    The hostname is resolved and checked here and the request is pinned to
+    that exact address, so an answer that changes between the SSRF check and
+    the connect cannot steer the request to an internal address. Redirects are
+    not followed, at most ``VERIFICATION_MAX_RESPONSE_BYTES`` are read and a
+    transport failure is reported as "not confirmed" instead of a 500.
+    """
+
+    addresses = assert_public_target(target.hostname)
+    url, headers, extensions = _pinned_verification_request(target, addresses[0])
+    body = bytearray()
+    try:
+        async with httpx.AsyncClient(
+            timeout=10.0, follow_redirects=False, transport=_VERIFICATION_TRANSPORT
+        ) as client:
+            async with client.stream(
+                "GET", url, headers=headers, extensions=extensions
+            ) as response:
+                if response.status_code != 200:
+                    return None
+                async for chunk in response.aiter_bytes():
+                    body.extend(chunk)
+                    if len(body) > VERIFICATION_MAX_RESPONSE_BYTES:
+                        return None
+    except httpx.HTTPError:
         return None
-    return response.text.strip()
+    return body.decode("utf-8", "replace").strip()
 
 
 async def _confirm_ownership(

@@ -1369,6 +1369,19 @@ def checkout_snapshot(item: BillingCheckoutSession) -> dict[str, Any]:
     }
 
 
+def _digest_equal(expected: str, supplied: str) -> bool:
+    """Constant-time digest comparison that never raises on hostile input.
+
+    ``hmac.compare_digest`` raises ``TypeError`` for a ``str`` holding
+    non-ASCII characters, which a forged signature header can carry; comparing
+    UTF-8 bytes turns that into an ordinary mismatch (400, not 500).
+    """
+
+    return hmac.compare_digest(
+        expected.encode("utf-8"), str(supplied).encode("utf-8", "surrogateescape")
+    )
+
+
 def _stripe_signature(raw: bytes, header: str) -> str:
     values: dict[str, list[str]] = {}
     for part in header.split(","):
@@ -1391,9 +1404,7 @@ def _stripe_signature(raw: bytes, header: str) -> str:
     expected = hmac.new(
         secret, timestamp.encode() + b"." + raw, hashlib.sha256
     ).hexdigest()
-    if not any(
-        hmac.compare_digest(expected, supplied) for supplied in values.get("v1", [])
-    ):
+    if not any(_digest_equal(expected, supplied) for supplied in values.get("v1", [])):
         raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature")
     return expected
 
@@ -1418,7 +1429,7 @@ def _paddle_signature(raw: bytes, header: str) -> str:
         timestamp.encode() + b":" + raw,
         hashlib.sha256,
     ).hexdigest()
-    if not hmac.compare_digest(expected, supplied):
+    if not _digest_equal(expected, supplied):
         raise HTTPException(status_code=400, detail="Invalid Paddle webhook signature")
     return expected
 
@@ -1510,7 +1521,7 @@ async def verify_webhook(
         }[normalized]
         supplied = lowered.get("x-aios-signature", "")
         expected = hmac.new((secret or "").encode(), raw, hashlib.sha256).hexdigest()
-        if not secret or not hmac.compare_digest(expected, supplied):
+        if not secret or not _digest_equal(expected, supplied):
             raise HTTPException(
                 status_code=400, detail="Invalid local-provider webhook signature"
             )

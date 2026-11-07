@@ -1,0 +1,35 @@
+# FR-23 Semgrep scope: shipped source only. Every exclusion is reviewed in
+# docs/project/receipts/FR23-final-security-review-20261107.md.
+# A .semgrepignore replaces Semgrep's built-in defaults, so they are restated.
+
+# Dependencies, build output and caches (not first-party source).
+node_modules/
+.npm/
+.yarn/
+build/
+dist/
+.next/
+out/
+vendor/
+coverage/
+*.min.js
+*.map
+
+# Test suites: assertions, fixtures and fake credentials that never ship in
+# an image. The Security Lab acceptance fixtures are deliberately vulnerable.
+tests/
+test/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+web-dashboard/backend/tests/
+
+# Documentation, receipts and release notes (prose and sample snippets).
+docs/
+*.md
+
+# Semgrep's own state.
+.semgrep
+.semgrep_logs/
