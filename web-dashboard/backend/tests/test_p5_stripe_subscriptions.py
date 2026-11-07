@@ -468,10 +468,10 @@ async def test_checkout_session_targets_portal_reuses_customer_and_maps_coupon(
             assert body["allow_promotion_codes"] == "true"
             assert calls[1].headers["Idempotency-Key"] == f"p5-checkout-b-{suffix}"
     finally:
+        await catalog.cleanup(organization.id)
         async with SessionLocal() as session:
             await session.execute(delete(BillingCoupon).where(BillingCoupon.code == f"P5{suffix}".upper()))
             await session.commit()
-        await catalog.cleanup(organization.id)
 
 
 @pytest.mark.asyncio
@@ -579,11 +579,11 @@ async def test_card_checkout_rejects_unmapped_coupon_and_tax_and_blocks_second_s
             assert exists.value.status_code == 409
             assert exists.value.detail["code"] == "SUBSCRIPTION_EXISTS"
     finally:
+        await catalog.cleanup(organization.id)
         async with SessionLocal() as session:
             await session.execute(delete(BillingCoupon).where(BillingCoupon.code == f"RAW{suffix}".upper()))
             await session.execute(delete(BillingTaxRate).where(BillingTaxRate.code == tax_code))
             await session.commit()
-        await catalog.cleanup(organization.id)
 
 
 # --------------------------------------------------------------------- signatures
