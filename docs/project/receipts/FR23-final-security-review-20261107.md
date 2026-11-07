@@ -6,12 +6,11 @@
 - **بوابات CI جديدة** (`.github/workflows/fr23-security-gates.yml`، كل الـ actions مثبتة بالـ SHA): Semgrep بقواعد مثبتة على commit واحد، وGitleaks على كل تاريخ الريبو، وTrivy للمكتبات وإعدادات Docker/Kubernetes، وpip-audit/npm audit للملفات اللي ماكانش حد بيفحصها. البوابة بتقع على أي ثغرة عالية أو حرجة.
 - **أهم اللي لقيناه واتصلح:**
   - **حرجة:** بوابة المستخدم `vip-frontend` كانت على Next.js 15.5.27 وفيه ثغرة تنفيذ كود عن بعد من غير تسجيل دخول (GHSA-2464-fhr4-w9xw). اترفعت لـ 15.5.29. **لازم تتنشر بسرعة.**
-  - **عالية:** عامل TripoSR (بيعالج صور المستخدمين) كان على Pillow 12.3.0 وفيه ثغرات heap overflow حرجة. اترفع Pillow لـ 13.0.0 ومعاه Brotli وmsgpack وrembg.
   - **متوسطة:** التحقق من ملكية الموقع بملف HTTP في Security Lab كان ممكن يتلف بـ DNS rebinding ويوصل لعنوان داخلي. دلوقتي الطلب بيتثبت على نفس الـ IP اللي اتفحص، وحجم الرد محدود.
   - **متوسطة:** الحزمة الرئيسية كانت بتسمح بـ cryptography أقدم من 47 (46.0.7 فيها 4 ثغرات). بقت `>=50.0.2,<51`.
   - **منخفضة:** قراءة `AndroidManifest.xml` من كود المستخدم بقت بـ defusedxml، وطلبات Meta الموقّعة القديمة (أكتر من 24 ساعة) بتترفض، وتوقيع webhook فيه حروف غير ASCII بقى 400 بدل 500، ومكتبات HTTP مش هتسجل روابط فيها توكنات، وnginx بيرفض أي حرف تحكم في المسار.
   - كل إصلاح ليه اختبار رجوع (regression test).
-- **اللي فاضل (خطر متبقي موثق):** مكتبات Go داخل أدوات الفحص المبنية محليًا (محتاجة إعادة بناء)، وصور RunPod شغالة كـ root، وأدوات الفحص النشط بتعمل DNS بنفسها فلازم جدار egress لعامل الفحص. كلها اتسجلت في "سجل ما قبل الإطلاق".
+- **اللي فاضل (خطر متبقي موثق):** **عالية:** عامل TripoSR (بيعالج صور المستخدمين) على Pillow 12.3.0 وفيه ثغرات حرجة، والإصلاح الوحيد Pillow 13 بيتعارض مع rembg، فاتسجل استثناء بينتهي 2026-12-15 وممنوع تشغيل عمال TripoSR قبل إعادة البناء. وكمان مكتبات Go داخل أدوات الفحص المبنية محليًا (محتاجة إعادة بناء)، وصور RunPod شغالة كـ root، وأدوات الفحص النشط بتعمل DNS بنفسها فلازم جدار egress لعامل الفحص. كلها اتسجلت في "سجل ما قبل الإطلاق".
 - **مش ادعاء أمان مطلق:** ده فحص للكود. الفحص الحي بعد النشر (FR-23C/E) لسه في نافذة ما قبل الإطلاق.
 
 ## Scope
@@ -59,7 +58,7 @@ Severity follows CVSS where an advisory exists, otherwise impact x reachability 
 | ID | Severity | Location | Issue | Fix | Regression test | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | FR23-01 | Critical | `vip-frontend/package.json`, lockfile | Public portal on Next.js 15.5.27: GHSA-2464-fhr4-w9xw (unauthenticated RCE in the image path) and CVE-2026-94482 (DoS). The portal was outside the Dependency Security npm audit. | `next` 15.5.29 with the exact lockfile from the Dependabot branch | Trivy and npm-audit gates on `vip-frontend`; `tests/test_fr06_dependency_security_refresh.py` pins 15.5.29 | Fixed (deploy pending: T-12) |
-| FR23-02 | High | `infra/runpod/triposr/requirements.txt` | TripoSR worker decodes user images with Pillow 12.3.0 (6 critical heap overflows / code execution, 20+ DoS), Brotli 1.2.0 (critical OOB write), msgpack 1.2.1, rembg 2.0.78 | Pillow 13.0.0, Brotli 1.2.1, msgpack 1.2.3, rembg 2.0.82 | Trivy fs gate; Phase 34F TripoSR image build, `pip check` and image vulnerability gate | Fixed (image rebuild pending: T-13) |
+| FR23-02 | High (residual) | `infra/runpod/triposr/requirements.txt` | The TripoSR worker decodes user images with Pillow 12.3.0 (6 critical heap overflows / code execution, 20+ DoS), Brotli 1.2.0 (critical OOB write), msgpack 1.2.1, rembg 2.0.78 | Not fixable in code today: the only Pillow fix is 13.0.0, and every current rembg release (incl. 2.0.82) requires `pillow<13`. The Phase 34F image build on this PR proved `ResolutionImpossible`, so the bump was reverted. The 31 IDs are listed in `.trivyignore.yaml`, path-scoped, and **expire 2026-12-15**. Mitigation: RunPod endpoints at workersMax=0 (O-07) and RunPod sandbox | The Trivy fs gate re-opens them on expiry; the Phase 34F image gate blocks any TripoSR image change until it is fixed | Residual, blocks enabling TripoSR workers (T-13) |
 | FR23-03 | Medium | `web-dashboard/backend/app/services/security_fabric.py` `_http_file_value` | Ownership proof fetch: the SSRF guard resolved the hostname, then httpx resolved it again (DNS-rebinding window to loopback/metadata/private); the whole body was read; transport errors surfaced as 500 | Request pinned to the validated address (Host header and TLS SNI keep the hostname, so certificate checks are unchanged), redirects off, body capped at 4 KiB, `httpx.HTTPError` means "not confirmed" | `tests/test_fr23_security_review.py`: pinned address/Host/SNI, IPv6 and port, rebinding to 127.0.0.1/169.254.169.254/10.0.0.7/::1 never connects, oversized and 302 bodies, connect error | Fixed |
 | FR23-04 | Medium | `pyproject.toml` | Root package allowed `cryptography>=41.0.7,<47`; resolution picks 46.0.7 with PYSEC-2026-3552/3553/3554 and GHSA-537c-gmf6-5ccf | `cryptography>=50.0.2,<51` (the backend pin) | pip-audit gate on the root package; Core contracts suite | Fixed |
 | FR23-05 | Low | `web-dashboard/backend/app/services/security_mobile.py` | `AndroidManifest.xml` from scanned (untrusted) source trees parsed with stdlib ElementTree | `defusedxml` with `forbid_dtd=True`; refused documents are skipped | `tests/test_security_mobile.py::test_fr23_android_manifest_refuses_dtd_and_entity_expansion` | Fixed |
@@ -112,7 +111,7 @@ Scope exclusions in `.semgrepignore`: dependencies/build output, test suites (fi
 
 ### Trivy (first run)
 
-31 vulnerabilities in the TripoSR manifest, 2 in `vip-frontend`, 15 in the `security-build` Go locks, and 4 DS-0002 misconfigurations. FR23-01, FR23-02 fixed; FR23-10, FR23-12, FR23-13 documented in `.trivyignore.yaml` with statements and expiry dates.
+31 vulnerabilities in the TripoSR manifest, 2 in `vip-frontend`, 15 in the `security-build` Go locks, and 4 DS-0002 misconfigurations. FR23-01 fixed; FR23-02 (after the image build proved Pillow 13 unresolvable with rembg), FR23-10, FR23-12 and FR23-13 documented in `.trivyignore.yaml` with statements and expiry dates.
 
 ### Dependency audit (first run)
 
@@ -122,10 +121,11 @@ pip-audit on the root package: cryptography 46.0.7, fixed by FR23-04.
 
 1. **Security Lab scan egress (FR23-11).** Needs a network-level egress policy for `security-scan-worker` that drops RFC 1918, loopback, link-local and metadata ranges, or a dedicated network without the data services.
 2. **Scanner Go modules (FR23-10).** Expire 2026-12-31 in the gate; rebuild the five locks and re-pin `expected_binary_sha256`.
-3. **Root RunPod images (FR23-12).** Expire 2027-01-31; move TripoSR to a non-root user when its image is rebuilt; Hunyuan3D stays quarantined (FR-16D).
-4. **No per-user limit on Security Lab ownership verification.** Bounded by nginx per-IP limits, the per-subscriber target limits and the fixed proof path; low.
-5. **Backend billing webhook body** is read before its 2 MB check; nginx caps the body at 2 MB first; low.
-6. **Live verification not done here.** FR-23C (isolated DAST, authz/IDOR/upload probes against a running stack) and FR-23E (re-scan after merge and deploy) belong to the pre-launch window. This review does not claim the system is absolutely secure.
+3. **TripoSR Pillow (FR23-02).** High; gate exception expires 2026-12-15. Needs a rembg release allowing Pillow 13 (or dropping rembg's Pillow cap via a reviewed fork/vendoring), then rebuild the image. Do not raise workersMax before that.
+4. **Root RunPod images (FR23-12).** Expire 2027-01-31; move TripoSR to a non-root user when its image is rebuilt; Hunyuan3D stays quarantined (FR-16D).
+5. **No per-user limit on Security Lab ownership verification.** Bounded by nginx per-IP limits, the per-subscriber target limits and the fixed proof path; low.
+6. **Backend billing webhook body** is read before its 2 MB check; nginx caps the body at 2 MB first; low.
+7. **Live verification not done here.** FR-23C (isolated DAST, authz/IDOR/upload probes against a running stack) and FR-23E (re-scan after merge and deploy) belong to the pre-launch window. This review does not claim the system is absolutely secure.
 
 ## Pre-launch register entries added
 
