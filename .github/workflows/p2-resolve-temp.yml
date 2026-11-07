@@ -16,6 +16,20 @@ jobs:
       - name: Trivy converter
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.72.0 image --quiet --scanners vuln --severity HIGH,CRITICAL --format table conv:test || true
+  node-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Node release and gltf-transform lock
+        run: |
+          curl -fsSL https://nodejs.org/dist/index.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('NODE24', [r['version'] for r in d if r['version'].startswith('v24.')][:3])"
+          v=$(curl -fsSL https://nodejs.org/dist/index.json | python3 -c "import json,sys; d=json.load(sys.stdin); print([r['version'] for r in d if r['version'].startswith('v24.')][0])")
+          curl -fsSL "https://nodejs.org/dist/$v/SHASUMS256.txt" | grep -E "linux-x64.tar.xz$" | sed "s/^/NODESHA $v /"
+          mkdir -p /tmp/gt && cd /tmp/gt
+          printf '%s' '{"name":"aionex-hunyuan-gltf-tools","version":"1.0.0","private":true,"engines":{"node":">=24 <25"},"dependencies":{"@gltf-transform/cli":"4.4.2","sharp":"0.35.5"},"overrides":{"sharp":"0.35.5"}}' > package.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          echo "===== LOCK BEGIN"; cat package-lock.json; echo "===== LOCK END"
+          npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm audit --omit=dev || true
   hunyuan-info:
     runs-on: ubuntu-latest
     timeout-minutes: 40
