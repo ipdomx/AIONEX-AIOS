@@ -237,3 +237,17 @@ async def test_source_tool_parses_large_json_before_diagnostic_truncation(monkey
     result = await security_tools.run_source_tool("bandit", tmp_path)
     assert result["status"] == "completed"
     assert result["finding_count"] == 1
+
+
+def test_t04_network_tool_bounds(tmp_path: Path, monkeypatch):
+    # testssl checks one address only; nuclei selects templates by detected technology.
+    testssl = security_tools._network_command("testssl", "https://fixture.invalid", "fixture.invalid")
+    assert testssl[testssl.index("--ip") + 1] == "one"
+    monkeypatch.setenv("AIOS_NUCLEI_TEMPLATES", str(tmp_path))
+    nuclei = security_tools._network_command("nuclei", "https://fixture.invalid", "fixture.invalid")
+    assert "-as" in nuclei and nuclei[nuclei.index("-ud") + 1] == str(tmp_path)
+    assert "-t" not in nuclei
+    assert nuclei[nuclei.index("-etags") + 1] == "dos,fuzz,intrusive"
+    assert security_tools.network_tool_timeout("testssl") == 420
+    assert security_tools.network_tool_timeout("nuclei") == 1200
+    assert security_tools.network_tool_timeout("katana") == 180

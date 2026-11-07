@@ -65,7 +65,7 @@ DEFAULT_POLICY: dict[str, Any] = {
     "enabled": True,
     "managed_domain_suffixes": ["vip-e.net"],
     "max_concurrent_scans_per_user": 2,
-    "max_scan_runtime_seconds": 1800,
+    "max_scan_runtime_seconds": 3600,
     "active_on_verified_targets": True,
     "deep_validation_requires_clone": True,
     "learning_enabled": True,

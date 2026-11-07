@@ -1100,7 +1100,10 @@ def _network_command(tool_id: str, origin: str, hostname: str) -> list[str]:
             "1",
         ]
         if templates and Path(templates).is_dir():
-            command.extend(["-t", templates])
+            # Automatic scan: fingerprint the target and run only the templates that
+            # match its technologies. The full set (about 16k requests at 5 req/s)
+            # cannot finish inside a scan; this keeps coverage relevant and bounded.
+            command.extend(["-ud", templates, "-as"])
         return command
     if tool_id == "katana":
         return [
@@ -1140,10 +1143,22 @@ def _network_command(tool_id: str, origin: str, hostname: str) -> list[str]:
             hostname,
         ]
     if tool_id == "testssl":
-        return ["testssl.sh", "--quiet", "--warnings", "off", "--color", "0", origin]
+        # One address only: CDN-fronted hosts resolve to several IPs that serve the
+        # same TLS configuration, and testing each of them multiplies the runtime.
+        return ["testssl.sh", "--quiet", "--warnings", "off", "--color", "0", "--ip", "one", origin]
     if tool_id == "zap-baseline":
         return ["zap-baseline.py", "-t", origin, "-I", "-m", "2"]
     raise ValueError(f"No bounded network adapter for {tool_id}")
+
+
+# Measured on the owner-verified production domain (2026-11-07, T-04): testssl with
+# --ip one ~105s, nuclei automatic scan ~585s. Limits keep about 2x headroom.
+NETWORK_TOOL_TIMEOUTS: dict[str, int] = {"testssl": 420, "nuclei": 1200}
+DEFAULT_NETWORK_TOOL_TIMEOUT = 180
+
+
+def network_tool_timeout(tool_id: str) -> int:
+    return NETWORK_TOOL_TIMEOUTS.get(tool_id, DEFAULT_NETWORK_TOOL_TIMEOUT)
 
 
 async def _run_network_tool(
@@ -1152,8 +1167,10 @@ async def _run_network_tool(
     origin: str,
     hostname: str,
     execution_mode: str,
-    timeout: int = 180,
+    timeout: int | None = None,
 ) -> dict[str, Any]:
+    if timeout is None:
+        timeout = network_tool_timeout(tool_id)
     spec = CATALOG_BY_ID.get(tool_id)
     if spec is None or not spec.active or spec.requires_source:
         raise ValueError("Unsupported network tool")
@@ -1362,7 +1379,7 @@ async def run_source_tool(tool_id: str, source: Path, *, timeout: int = 300) -> 
 
 
 async def run_network_tool(
-    tool_id: str, *, origin: str, hostname: str, execution_mode: str, timeout: int = 180,
+    tool_id: str, *, origin: str, hostname: str, execution_mode: str, timeout: int | None = None,
 ) -> dict[str, Any]:
     runtime = current_runtime()
     if runtime is None:

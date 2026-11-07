@@ -354,7 +354,7 @@ class SecurityScanWorker:
         async def operation_body() -> None:
             async with self.sessions() as session:
                 policy = await get_policy(session)
-                timeout_seconds = max(60, min(int(policy.get("max_scan_runtime_seconds", 1800)), 7200))
+                timeout_seconds = max(60, min(int(policy.get("max_scan_runtime_seconds", 3600)), 7200))
             async with asyncio.timeout(timeout_seconds):
                 await self._operate(runtime)
         operation = asyncio.create_task(operation_body())
