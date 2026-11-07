@@ -88,6 +88,9 @@ class Action:
     weight: int
     ai: bool = False
     write: bool = False
+    # Plan-gated routes (Ads is a paid-plan feature): the synthetic free accounts
+    # are correctly refused with a JSON 403, which is a policy outcome, not an error.
+    entitlement_gated: bool = False
 
 
 WORKLOAD: tuple[Action, ...] = (
@@ -101,7 +104,7 @@ WORKLOAD: tuple[Action, ...] = (
     Action("social_providers", 4),
     Action("social_connections", 4),
     Action("ads_access", 4),
-    Action("ads_connections", 3),
+    Action("ads_connections", 3, entitlement_gated=True),
     Action("notifications", 5),
     Action("ai_message", 2, ai=True, write=True),
 )
@@ -274,6 +277,8 @@ def classify(action: Action, response: HttpResponse | None, error: str | None) -
         return "ok"
     if status >= 500:
         return "server_error"
+    if action.entitlement_gated and status == 403:
+        return "policy"
     if action.ai and status in (402, 403, 409, 422, 429):
         # Governed AI admission (plan/quota/consent/capacity) is a legitimate
         # policy denial; it is counted separately, never hidden.
