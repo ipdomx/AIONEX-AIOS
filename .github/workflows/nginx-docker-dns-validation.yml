@@ -6,12 +6,16 @@ on:
     paths:
       - "web-dashboard/docker/nginx.conf"
       - "web-dashboard/docker-compose.production.yml"
+      - "web-dashboard/docker/nginx-p6-loadtest-entrypoint.sh"
+      - "scripts/capacity/p6_loadtest_exemption.py"
       - ".github/workflows/nginx-docker-dns-validation.yml"
   push:
     branches: [main]
     paths:
       - "web-dashboard/docker/nginx.conf"
       - "web-dashboard/docker-compose.production.yml"
+      - "web-dashboard/docker/nginx-p6-loadtest-entrypoint.sh"
+      - "scripts/capacity/p6_loadtest_exemption.py"
       - ".github/workflows/nginx-docker-dns-validation.yml"
   workflow_dispatch:
 
@@ -34,6 +38,32 @@ jobs:
           docker run --rm \
             -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx.conf:/etc/nginx/nginx.conf:ro" \
             nginx:1.27-alpine nginx -t
+
+      - name: Validate P6 load-test window render (fail-closed)
+        run: |
+          set -Eeuo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/realip" "$work/exempt" "$work/expired"
+          printf 'set_real_ip_from 172.18.0.31/32;\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n' > "$work/realip/trusted-cloudflared.conf"
+          python3 scripts/capacity/p6_loadtest_exemption.py --address 192.0.32.10 --run-id p6-ci-check --hours 1 --output "$work/exempt/exempt.conf"
+          printf '# expires_epoch=1000000000\n192.0.32.10/32 1;\n' > "$work/expired/exempt.conf"
+          chmod -R a+rX "$work"
+          run_entrypoint() {
+            docker run --rm \
+              -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx.conf:/etc/nginx/nginx.conf:ro" \
+              -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx-p6-loadtest-entrypoint.sh:/p6.sh:ro" \
+              -v "$work/realip:/etc/nginx/aionex-realip:ro" \
+              -v "$1:/etc/nginx/aionex-p6-loadtest:ro" \
+              --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 \
+              --add-host portal:127.0.0.1 --add-host realtime-livekit:127.0.0.1 \
+              nginx:1.27-alpine sh /p6.sh --check
+          }
+          run_entrypoint "$work/exempt"
+          if run_entrypoint "$work/expired"; then
+            echo "expired exemption must refuse to start" >&2
+            exit 1
+          fi
+          echo "P6 load-test window renders, validates, and refuses expired exemptions."
 
       - name: Verify frontend and backend recover without restarting Nginx
         run: |

@@ -1,0 +1,12 @@
+# P6 gate 6.1 ONLY: time-boxed Nginx overlay for the 5000-user load test.
+# Requires the FR09 trusted real-IP file (scripts/security/fr09_cloudflared_realip_admission.py)
+# and an unexpired exempt.conf (scripts/capacity/p6_loadtest_exemption.py).
+# Use together with docker-compose.p6-capacity-tuning.yml; remove this overlay
+# right after the run (redeploy nginx with docker-compose.fr09-trusted-realip.yml).
+services:
+  nginx:
+    entrypoint: ["/bin/sh", "/etc/nginx/nginx-p6-loadtest-entrypoint.sh"]
+    volumes:
+      - ./docker/nginx-p6-loadtest-entrypoint.sh:/etc/nginx/nginx-p6-loadtest-entrypoint.sh:ro
+      - ${AIOS_NGINX_TRUSTED_REALIP_DIR:?AIOS_NGINX_TRUSTED_REALIP_DIR_is_required}:/etc/nginx/aionex-realip:ro
+      - ${AIOS_P6_LOADTEST_EXEMPT_DIR:?AIOS_P6_LOADTEST_EXEMPT_DIR_is_required}:/etc/nginx/aionex-p6-loadtest:ro

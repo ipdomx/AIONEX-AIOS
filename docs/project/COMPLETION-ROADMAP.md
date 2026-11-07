@@ -75,11 +75,12 @@
 - [x] 5.3 الدفع على Stripe من البداية للنهاية: اشتراك وwebhook وتجديد وإلغاء، بقرار المالك على توقيت التفعيل. الكود: Checkout لكل باقة وفترة (شهري وسنوي) يرجع لـ `https://ai.vip-e.net/<locale>/billing`، ويعيد استخدام عميل Stripe، ويربط الكوبونات والضرائب بـ Stripe أو يرفضها، وIdempotency-Key على كل كتابة. الـ webhooks موقّعة، ومكررة بـ event id، وآمنة على ترتيب الوصول (الحالة والفترة من كائن Stripe)، والأحداث الفاشلة بتتعالج تاني عند إعادة Stripe. الترقية والتخفيض بـ proration، والإلغاء في نهاية الفترة أو فوري، والاستئناف، و`past_due` يقفل المدفوع ويسيب المجاني والتقارير. الصلاحيات (فحص الثغرات لأعلى باقة، والإعلانات، و3D، وAIONEX AI) بتتغير فورًا. الفواتير والإيصالات بتتسجل وتتبعت عبر communication worker، وMRR في لوحة المالك. دليل التشغيل: `docs/project/STRIPE-GO-LIVE-RUNBOOK.md`. (code merged; live verification deferred to pre-launch)
 
 ### المرحلة 6: بوابات إطلاق الويب
-- [ ] 6.1 اختبار 5000 مستخدم حقيقي، مع P95 أقل من 500ms (FR-09 وNS-13).
-- [ ] 6.2 مراقبة 72 ساعة متصلة (NS-12).
-- [ ] 6.3 مرونة البث وإعادة الاتصال (NS-14A).
-- [ ] 6.4 استعادة كاملة من R2: التطبيق والمصادقة والميديا (FR-08 وFR-24).
-- [ ] 6.5 إخراج السيرفر القديم من الخدمة (NS-15 وNS-16).
+قائمة التشغيل المرتبة لكل التحققات الحية: `docs/project/PRE-LAUNCH-RUNBOOK.md`.
+- [ ] 6.1 اختبار 5000 مستخدم حقيقي، مع P95 أقل من 500ms (FR-09 وNS-13). الأداة `scripts/capacity/p6_mixed_load.py` والتحليل والضبط في `P6-CAPACITY-ANALYSIS.md`. (tooling merged; execution in pre-launch window)
+- [ ] 6.2 مراقبة 72 ساعة متصلة (NS-12). الأداة `scripts/ops/p6_72h_observer.py` وشهادة PASS/FAIL. (tooling merged; execution in pre-launch window)
+- [ ] 6.3 مرونة البث وإعادة الاتصال (NS-14A). الأداة `scripts/resilience/p6_stream_fault_matrix.py`. (tooling merged; execution in pre-launch window)
+- [ ] 6.4 استعادة كاملة من R2: التطبيق والمصادقة والميديا (FR-08 وFR-24). الأداة `scripts/recovery/p6_isolated_restore_drill.py`. (tooling merged; execution in pre-launch window)
+- [ ] 6.5 إخراج السيرفر القديم من الخدمة (NS-15 وNS-16). الأداة `scripts/ops/p6_old_server_decommission_verify.py` (قراءة فقط). (tooling merged; execution in pre-launch window)
 - [ ] 6.6 الإصدار النهائي للويب (FR-25).
 
 ### المرحلة 7 (الأخيرة، مع إطلاق التطبيق)

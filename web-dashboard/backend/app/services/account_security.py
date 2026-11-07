@@ -16,7 +16,7 @@ from email.message import EmailMessage
 from urllib.parse import quote
 
 import jwt
-from app.core.auth import UserRecord, auth_service, pwd_context
+from app.core.auth import UserRecord, auth_service, hash_password, verify_password
 from app.core.config import settings
 from app.db.models import (
     AuditEvent,
@@ -259,10 +259,10 @@ async def confirm_password_reset(
     user = await session.get(User, record.user_id)
     if user is None or user.deleted_at is not None:
         raise HTTPException(status_code=400, detail="Password reset token is invalid or expired")
-    if pwd_context.verify(new_password, user.password_hash):
+    if await verify_password(new_password, user.password_hash):
         raise HTTPException(status_code=409, detail="New password must differ from the current password")
 
-    user.password_hash = pwd_context.hash(new_password)
+    user.password_hash = await hash_password(new_password)
     user.auth_version += 1
     record.used_at = now
     await session.execute(
@@ -369,7 +369,7 @@ async def disable_mfa(
     code: str,
 ) -> dict[str, object]:
     db_user = await session.get(User, user.id)
-    if db_user is None or not pwd_context.verify(current_password, db_user.password_hash):
+    if db_user is None or not await verify_password(current_password, db_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     record = await session.get(UserMFA, user.id)
     if record is None or not record.enabled:

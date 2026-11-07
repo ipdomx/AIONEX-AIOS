@@ -1,0 +1,159 @@
+# P6 gate 6.4: throwaway, isolated full-restore drill (DB + media/assets + auth).
+#
+# ALWAYS driven by scripts/recovery/p6_isolated_restore_drill.py, which passes
+# -p aionex-restore-drill-<utc> and refuses to start unless the rendered config
+# passes its production guards. Nothing here references a production
+# container, volume or network:
+#   * drill_isolated is internal (no egress, no host ports): the restored app
+#     cannot reach providers, Telegram, Stripe, Meta or R2;
+#   * only the one-shot `fetch` service sits on drill_egress, to read R2;
+#   * all volumes are project-scoped named volumes, removed with `down -v`.
+services:
+  scratch-init:
+    image: ${DRILL_BACKEND_IMAGE:-aionex-aios-backend:local}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ceu"]
+    command: ["install -d -m 0700 -o aionex -g aionex /scratch /restore"]
+    volumes:
+      - drill_scratch:/scratch
+      - drill_assets:/restore
+    network_mode: none
+
+  fetch:
+    image: ${DRILL_BACKEND_IMAGE:-aionex-aios-backend:local}
+    profiles: ["fetch"]
+    command: ["python", "-m", "app.services.restore_drill_fetch", "fetch", "--backup-dir", "/scratch"]
+    env_file: ["${DRILL_ENV_FILE:?DRILL_ENV_FILE is required}"]
+    environment:
+      AIOS_RESTORE_DRILL: "1"
+      ENVIRONMENT: restore-drill
+      BACKUP_DIR: /scratch
+      BACKUP_OFFSITE_ENABLED: "true"
+      BACKUP_OFFSITE_ENCRYPTION_REQUIRED: "true"
+      AIOS_R2_BACKUP_SECRET_SOURCE: /run/drill-secrets/r2-backup-source.env
+      AIOS_BACKUP_ENCRYPTION_KEYRING_SOURCE: /run/drill-secrets/keyring.json
+    volumes:
+      - drill_scratch:/scratch
+      - ${DRILL_R2_SECRET_FILE:?DRILL_R2_SECRET_FILE is required}:/run/drill-secrets/r2-backup-source.env:ro
+      - ${DRILL_KEYRING_FILE:?DRILL_KEYRING_FILE is required}:/run/drill-secrets/keyring.json:ro
+    networks: [drill_egress]
+    security_opt: ["no-new-privileges:true"]
+
+  postgres:
+    image: ${DRILL_POSTGRES_IMAGE:-aionex-aios-postgres:16-hardened}
+    user: "70:70"
+    env_file: ["${DRILL_ENV_FILE:?DRILL_ENV_FILE is required}"]
+    volumes:
+      - drill_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready --host 127.0.0.1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" --quiet']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 4g
+    cpus: "2.0"
+    networks: [drill_isolated]
+
+  db-restore:
+    image: ${DRILL_POSTGRES_IMAGE:-aionex-aios-postgres:16-hardened}
+    profiles: ["restore"]
+    user: "0:0"
+    env_file: ["${DRILL_ENV_FILE:?DRILL_ENV_FILE is required}"]
+    entrypoint: ["/bin/sh", "-ceu"]
+    command:
+      - >-
+        PGPASSWORD="$$POSTGRES_PASSWORD" pg_restore --host postgres --username "$$POSTGRES_USER"
+        --dbname "$$POSTGRES_DB" --exit-on-error --no-owner --no-privileges /scratch/drill-database.dump
+    volumes:
+      - drill_scratch:/scratch:ro
+    networks: [drill_isolated]
+
+  assets-restore:
+    image: ${DRILL_BACKEND_IMAGE:-aionex-aios-backend:local}
+    profiles: ["restore"]
+    command: ["python", "-m", "app.services.restore_drill_fetch", "extract",
+              "--archive", "/scratch/drill-assets.tar", "--destination", "/restore"]
+    env_file: ["${DRILL_ENV_FILE:?DRILL_ENV_FILE is required}"]
+    environment:
+      AIOS_RESTORE_DRILL: "1"
+      ENVIRONMENT: restore-drill
+    volumes:
+      - drill_scratch:/scratch:ro
+      - drill_assets:/restore
+    network_mode: none
+
+  redis:
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--protected-mode", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [drill_isolated]
+
+  backend:
+    image: ${DRILL_BACKEND_IMAGE:-aionex-aios-backend:local}
+    profiles: ["app"]
+    command: ["sh", "-c", "alembic upgrade head && exec python main.py"]
+    env_file: ["${DRILL_ENV_FILE:?DRILL_ENV_FILE is required}"]
+    environment:
+      AIOS_RESTORE_DRILL: "1"
+      ENVIRONMENT: restore-drill
+      DEBUG: "false"
+      WORKERS: "2"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      BACKUP_OFFSITE_ENABLED: "false"
+      IDENTITY_MEDIA_LIVE_ENABLED: "false"
+      REALTIME_MEDIA_LIVE_ENABLED: "false"
+      MEDIA_STORAGE_TYPE: local
+      THREE_D_STORAGE_TYPE: local
+      THREE_D_STORAGE_ROOT: /restore/three_d_asset_data
+      PROJECT_EXECUTION_OUTPUT_ROOT: /restore/project_execution_data
+      ACADEMY_COURSE_PACKAGE_ROOT: /restore/course_package_data
+      MEDIA_STORAGE_ROOT: /restore/media_asset_data
+      STUDIO_ASSET_ROOT: /restore/studio_asset_data
+      PORTAL_ASSET_ROOT: /restore/portal_asset_data
+      MOBILE_RELEASE_ROOT: /restore/mobile_release_data
+      REALTIME_RECORDING_ROOT: /restore/realtime_recording_data
+      AUDIO_SONG_ARTIFACT_BRIDGE_ROOT: /restore/audio_song_ingress_data
+      SECURITY_SOURCE_ROOT: /restore/security_source_data
+      SECURITY_REMEDIATION_ROOT: /restore/security_remediation_data
+    volumes:
+      - drill_assets:/restore:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    mem_limit: 3g
+    cpus: "2.0"
+    networks: [drill_isolated]
+
+  smoke:
+    image: ${DRILL_BACKEND_IMAGE:-aionex-aios-backend:local}
+    profiles: ["smoke"]
+    user: "0:0"
+    entrypoint: ["python", "/drill/smoke.py"]
+    environment:
+      DRILL_BASE_URL: http://backend:8000
+      DRILL_CANARY_EMAIL: ${DRILL_CANARY_EMAIL:?DRILL_CANARY_EMAIL is required}
+      DRILL_CANARY_PASSWORD_FILE: /drill-secrets/canary-password
+      DRILL_STUDIO_ASSET_ID: ${DRILL_STUDIO_ASSET_ID:-}
+    volumes:
+      - ./smoke.py:/drill/smoke.py:ro
+      - ${DRILL_CANARY_PASSWORD_FILE:?DRILL_CANARY_PASSWORD_FILE is required}:/drill-secrets/canary-password:ro
+    networks: [drill_isolated]
+
+networks:
+  drill_isolated:
+    internal: true
+  drill_egress: {}
+
+volumes:
+  drill_scratch: {}
+  drill_assets: {}
+  drill_pgdata: {}
