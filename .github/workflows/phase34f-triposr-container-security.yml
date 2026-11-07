@@ -6,11 +6,13 @@ on:
     paths:
       - ".github/workflows/phase34f-triposr-container-security.yml"
       - "infra/runpod/triposr/**"
+      - "infra/runpod/hunyuan3d/input_guard.py"
   push:
     branches: [main]
     paths:
       - ".github/workflows/phase34f-triposr-container-security.yml"
       - "infra/runpod/triposr/**"
+      - "infra/runpod/hunyuan3d/input_guard.py"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +36,8 @@ jobs:
         run: |
           python -m compileall -q \
             infra/runpod/triposr/handler.py \
+            infra/runpod/triposr/input_guard.py \
+            infra/runpod/triposr/fetch_models.py \
             infra/runpod/triposr/vendor/tsr
           python - <<'PY'
           from hashlib import sha256
@@ -60,6 +64,12 @@ jobs:
           assert re.fullmatch(r"FROM [^ ]+@sha256:[0-9a-f]{64}", first_line)
           assert "ENTRYPOINT" in dockerfile
           assert "secrets." not in dockerfile
+          assert "--require-hashes" in dockerfile and "USER aionex" in dockerfile
+          lock = (root / "requirements.lock").read_text()
+          for line in requirements:
+              name, pinned = line.split("==", 1)
+              assert re.search(rf"(?im)^{re.escape(name).replace('_', '[-_]')}=={re.escape(pinned)}\b", lock), line
+          assert (root / "input_guard.py").read_bytes() == Path("infra/runpod/hunyuan3d/input_guard.py").read_bytes()
           PY
       - name: Reclaim runner disk for the pinned CUDA image
         run: |
@@ -86,6 +96,9 @@ jobs:
         run: mkdir -p artifacts
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
+        env:
+          # The runner /tmp quota is too small to unpack the 21 GB image layers.
+          TMPDIR: ${{ runner.temp }}
         with:
           image: aionex-aios-triposr:phase34fg
           format: cyclonedx-json

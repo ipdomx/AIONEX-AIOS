@@ -1,5 +1,9 @@
 FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime@sha256:7b324d212a4450795b49edba9949b7cdc72429148a64e974334bfe5774d51385
-ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1 PYOPENGL_PLATFORM=egl MGL_BACKEND=egl U2NET_HOME=/models/rembg
+# FR-16D hardening applied to the TripoSR fallback: hash-locked dependencies,
+# checksum-verified model assets converted to safetensors (no pickle at
+# runtime), offline runtime, non-root user, bounded request validation.
+ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONUNBUFFERED=1 \
+    PYOPENGL_PLATFORM=egl MGL_BACKEND=egl U2NET_HOME=/models/rembg
 RUN set -eux; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y; \
@@ -7,26 +11,36 @@ RUN set -eux; \
     apt-get purge -y --auto-remove linux-libc-dev curl gnupg gnupg-l10n gnupg-utils gpg gpg-agent gpgconf gpgsm dirmngr || true; \
     rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements.txt
-RUN python -m pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==80.9.0 wheel==0.46.3 \
- && python -m pip install --no-cache-dir -r /tmp/requirements.txt \
+COPY requirements.lock /tmp/requirements.lock
+# Every wheel/sdist is verified against requirements.lock; the second, offline
+# install proves that the Dependabot-managed requirements.txt pins are exactly
+# what the lock installed.
+RUN python -m pip install --no-cache-dir --require-hashes --no-deps --no-build-isolation -r /tmp/requirements.lock \
+ && python -m pip install --no-cache-dir --no-index -r /tmp/requirements.txt \
  && python -m pip check \
  && python -c "from transformers.models.vit.modeling_vit import ViTModel; assert ViTModel is not None"
-RUN mkdir -p /models/TripoSR /models/dino-vitb16 /models/rembg \
- && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='stabilityai/TripoSR', revision='5b521936b01fbe1890f6f9baed0254ab6351c04a', local_dir='/models/TripoSR')" \
- && cp -L /models/TripoSR/model.ckpt /models/TripoSR/model.ckpt.bin \
- && rm /models/TripoSR/model.ckpt \
- && mv /models/TripoSR/model.ckpt.bin /models/TripoSR/model.ckpt \
- && python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='facebook/dino-vitb16', revision='f205d5d8e640a89a2b8ef0369670dfc37cc07fc2', filename='config.json', local_dir='/models/dino-vitb16')" \
- && sed -i 's#facebook/dino-vitb16#/models/dino-vitb16#' /models/TripoSR/config.yaml \
- && U2NET_HOME=/models/rembg python -c "import rembg; rembg.new_session('u2net')"
+# Model assets: pinned revisions, SHA-256 verified (fetch_models.py), TripoSR
+# checkpoint converted to safetensors; dino config at /models/dino-vitb16.
+# Replaces the unverified huggingface_hub snapshot_download used before FR-16D.
+ARG TRIPOSR_MODEL_REVISION=5b521936b01fbe1890f6f9baed0254ab6351c04a
+ARG DINO_REVISION=f205d5d8e640a89a2b8ef0369670dfc37cc07fc2
+COPY fetch_models.py /tmp/fetch_models.py
+RUN python /tmp/fetch_models.py /models "$TRIPOSR_MODEL_REVISION" "$DINO_REVISION" && rm -f /tmp/fetch_models.py
 COPY vendor/tsr /opt/triposr/tsr
 COPY vendor/LICENSE /opt/triposr/LICENSE
 COPY vendor/UPSTREAM_COMMIT /opt/triposr/UPSTREAM_COMMIT
-COPY handler.py /opt/triposr/handler.py
+COPY handler.py input_guard.py /opt/triposr/
 RUN rm -rf /opt/conda/lib/python3.11/site-packages/pip* \
            /opt/conda/lib/python3.11/site-packages/setuptools* \
            /opt/conda/lib/python3.11/site-packages/wheel* \
-           /root/.cache /tmp/requirements.txt \
- && rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.11
+           /opt/conda/pkgs /root/.cache /tmp/requirements.txt /tmp/requirements.lock \
+ && rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.11 \
+ && groupadd --gid 10001 aionex \
+ && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex \
+ && chown -R root:root /opt/triposr /models && chmod -R go-w /opt/triposr /models
+ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 \
+    HF_HOME=/tmp/aionex-hf HOME=/tmp PYTHONDONTWRITEBYTECODE=1 AIONEX_TRIPOSR_WORKDIR=/tmp/aionex-triposr
+USER aionex
 WORKDIR /opt/triposr
+RUN python -I -c "import sys; sys.path.insert(0, '/opt/triposr'); import handler; handler.install_runtime_guards(); assert handler.handler({'input': {}}) == {'error': 'input.image required'}; assert 'error' in handler.handler({'input': {'image': 'eA==', 'model': 'x'}}); print('TripoSR hardened runtime contract: PASS')"
 ENTRYPOINT ["python","-u","/opt/triposr/handler.py"]

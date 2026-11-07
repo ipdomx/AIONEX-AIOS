@@ -165,13 +165,17 @@ def process_request(job: Path, runner: Runner = run_sandboxed) -> dict[str, Any]
         return _fail("request_invalid")
     formats = [fmt for fmt in request.get("formats") or [] if fmt in FORMATS]
     thumbnail = bool(request.get("thumbnail"))
+    try:
+        thumbnail_size = max(64, min(2048, int(request.get("thumbnail_size") or THUMBNAIL_SIZE)))
+    except (TypeError, ValueError):
+        return _fail("request_invalid")
     out = job / "out"
     out.mkdir(mode=0o700, exist_ok=True)
     spec = {
         "input": str(source),
         "input_format": "glb",
         "outputs": [{"format": fmt, "path": str(out / fmt / ("model." + fmt))} for fmt in formats],
-        "thumbnail": {"path": str(out / "preview.png"), "size": THUMBNAIL_SIZE} if thumbnail else None,
+        "thumbnail": {"path": str(out / "preview.png"), "size": thumbnail_size} if thumbnail else None,
         "result": str(job / "blender-result.json"),
     }
     spec_path = job / "blender-spec.json"

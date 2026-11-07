@@ -81,7 +81,7 @@ import json, os, sys
 from pathlib import Path
 sys.path.insert(0, "/opt/aionex")
 import converter_daemon as daemon
-daemon.THUMBNAIL_SIZE = 64
+daemon.THUMBNAIL_SIZE = 64  # request omits thumbnail_size, so the default applies
 job = Path(os.environ["HOME"]) / "job"
 result = daemon.process_request(job)
 print(json.dumps(result))
