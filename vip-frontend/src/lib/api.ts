@@ -630,6 +630,7 @@ export function createBillingCheckout(
     period_code: string;
     coupon_code?: string | null;
     billing_country?: string | null;
+    locale?: string | null;
   },
   idempotencyKey: string,
 ): Promise<BillingCheckout> {
@@ -648,8 +649,35 @@ export function cancelBillingSubscription(
   );
 }
 
-export function createBillingPortalSession(): Promise<{ url: string }> {
-  return jsonRequest<{ url: string }>("/billing/portal-session", "POST", {});
+export function createBillingPortalSession(
+  locale?: string,
+): Promise<{ url: string }> {
+  return jsonRequest<{ url: string }>("/billing/portal-session", "POST", {
+    locale: locale || null,
+  });
+}
+
+export function changeBillingSubscription(
+  payload: { plan_code: string; period_code: string },
+  idempotencyKey: string,
+): Promise<BillingSubscriptionSummary> {
+  return jsonRequest<BillingSubscriptionSummary>(
+    "/billing/subscription/change",
+    "POST",
+    payload,
+    { headers: { "Idempotency-Key": idempotencyKey } },
+  );
+}
+
+export function resumeBillingSubscription(
+  idempotencyKey: string,
+): Promise<BillingSubscriptionSummary> {
+  return jsonRequest<BillingSubscriptionSummary>(
+    "/billing/subscription/resume",
+    "POST",
+    {},
+    { headers: { "Idempotency-Key": idempotencyKey } },
+  );
 }
 
 export function setDefaultBillingPaymentMethod(

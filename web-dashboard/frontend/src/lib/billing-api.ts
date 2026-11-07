@@ -167,6 +167,20 @@ export type MobileStoreControl = {
   catalog_options: Array<{ plan_id: string; plan_code: string; price_id: string; period_code: string; currency: string; amount_minor: number | null }>;
 };
 
+export type BillingSubscriptionRow = {
+  id: string;
+  organization_id: string;
+  organization: string;
+  provider: string;
+  plan: string;
+  plan_name: string;
+  status: string;
+  cancel_at_period_end: boolean;
+  current_period_end: string | null;
+  currency: string | null;
+  monthly_amount_minor: number;
+};
+
 export type BillingOverview = {
   catalog: {
     source_version: number;
@@ -200,7 +214,16 @@ export type BillingOverview = {
     active_accounts: number;
     wallet_balance_minor: number;
     usage_charge_minor: number;
+    mrr_minor: number;
+    mrr_currency: string;
+    mrr_by_currency: Record<string, number>;
+    active_subscriptions: number;
+    trialing_subscriptions: number;
+    past_due_subscriptions: number;
+    canceling_subscriptions: number;
+    canceled_subscriptions: number;
   };
+  subscriptions: BillingSubscriptionRow[];
   providers: BillingProvider[];
   mobile_stores: MobileStoreControl;
 };

@@ -22,12 +22,14 @@ import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
 import {
   cancelBillingSubscription,
+  changeBillingSubscription,
   createBillingCheckout,
   createBillingPortalSession,
   getBillingSummary,
   getPublicBillingCatalog,
   listBillingPaymentMethods,
   removeBillingPaymentMethod,
+  resumeBillingSubscription,
   setDefaultBillingPaymentMethod,
   validateBillingCoupon,
 } from "@/lib/api";
@@ -165,6 +167,15 @@ export function BillingClient() {
     user?.permissions.includes("*") ||
     user?.permissions.includes("billing:write"),
   );
+  // An existing card subscription is changed in place (Stripe proration)
+  // instead of starting a second checkout.
+  const currentSubscription = summary?.subscription ?? null;
+  const cardSubscription =
+    currentSubscription !== null &&
+    currentSubscription.provider === "stripe" &&
+    ["active", "trialing"].includes(currentSubscription.status)
+      ? currentSubscription
+      : null;
 
   function selectPlan(plan: BillingCatalogPlan, period?: BillingCatalogPeriod) {
     setSelectedPlanCode(plan.code);
@@ -205,12 +216,22 @@ export function BillingClient() {
     setError("");
     setSuccess("");
     try {
+      if (cardSubscription) {
+        await changeBillingSubscription(
+          { plan_code: selectedPlan.code, period_code: selectedPeriod.id },
+          idempotencyKey(),
+        );
+        setSuccess(t("planChangeRequested"));
+        await load();
+        return;
+      }
       const result = await createBillingCheckout(
         {
           plan_code: selectedPlan.code,
           period_code: selectedPeriod.id,
           coupon_code: coupon.trim() || null,
           billing_country: country.trim().toUpperCase() || null,
+          locale,
         },
         idempotencyKey(),
       );
@@ -245,7 +266,7 @@ export function BillingClient() {
         window.location.assign(target.toString());
         return;
       }
-      const result = await createBillingPortalSession();
+      const result = await createBillingPortalSession(locale);
       const target = new URL(result.url);
       if (target.protocol !== "https:") throw new Error(t("unsafeCheckout"));
       window.location.assign(target.toString());
@@ -268,6 +289,22 @@ export function BillingClient() {
     } catch (cancelError) {
       setError(
         cancelError instanceof Error ? cancelError.message : t("cancelError"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resumeSubscription() {
+    setBusy(true);
+    setError("");
+    try {
+      await resumeBillingSubscription(idempotencyKey());
+      setSuccess(t("resumeSuccess"));
+      await load();
+    } catch (resumeError) {
+      setError(
+        resumeError instanceof Error ? resumeError.message : t("resumeError"),
       );
     } finally {
       setBusy(false);
@@ -352,6 +389,9 @@ export function BillingClient() {
             {t("checkoutReturnedCancelled")}
           </StatusMessage>
         )}
+        {summary.subscription?.status === "past_due" && (
+          <StatusMessage tone="error">{t("pastDueNotice")}</StatusMessage>
+        )}
         {error && <StatusMessage tone="error">{error}</StatusMessage>}
         {success && <StatusMessage tone="success">{success}</StatusMessage>}
 
@@ -435,6 +475,16 @@ export function BillingClient() {
                     {t("cancellationScheduled")}
                   </span>
                 )}
+                {summary.subscription?.cancel_at_period_end &&
+                  summary.subscription.provider === "stripe" && (
+                    <Button
+                      variant="secondary"
+                      disabled={busy || !canManage}
+                      onClick={() => void resumeSubscription()}
+                    >
+                      <RefreshCw className="h-4 w-4" /> {t("resumeSubscription")}
+                    </Button>
+                  )}
                 <Button
                   disabled={busy}
                   onClick={() => void openBillingPortal()}
@@ -597,9 +647,11 @@ export function BillingClient() {
                 ) : (
                   <CreditCard className="h-4 w-4" />
                 )}
-                {selectedPeriod.checkout_available
-                  ? t("continueToPayment")
-                  : t("checkoutUnavailable")}
+                {!selectedPeriod.checkout_available
+                  ? t("checkoutUnavailable")
+                  : cardSubscription
+                    ? t("changePlan")
+                    : t("continueToPayment")}
               </Button>
               {!canManage && (
                 <p className="mt-3 text-xs text-amber-200">

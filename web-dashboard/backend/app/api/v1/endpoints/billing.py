@@ -23,7 +23,7 @@ from app.db.models import (
     BillingUsageRecord,
     BillingWalletEntry,
 )
-from app.services import billing
+from app.services import billing, stripe_billing
 
 router = APIRouter()
 
@@ -33,10 +33,20 @@ class CheckoutRequest(BaseModel):
     period_code: str = Field(min_length=1, max_length=80)
     coupon_code: str | None = Field(default=None, max_length=80)
     billing_country: str | None = Field(default=None, min_length=2, max_length=2)
+    locale: str | None = Field(default=None, max_length=10)
 
 
 class CancelSubscriptionRequest(BaseModel):
     immediately: bool = False
+
+
+class ChangeSubscriptionRequest(BaseModel):
+    plan_code: str = Field(min_length=1, max_length=80)
+    period_code: str = Field(min_length=1, max_length=80)
+
+
+class PortalSessionRequest(BaseModel):
+    locale: str | None = Field(default=None, max_length=10)
 
 
 class CouponValidationRequest(BaseModel):
@@ -59,6 +69,8 @@ class CouponCreateRequest(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     max_redemptions: int | None = Field(default=None, ge=1, le=100_000_000)
     expires_at: datetime | None = None
+    stripe_coupon: str | None = Field(default=None, max_length=255)
+    stripe_promotion_code: str | None = Field(default=None, max_length=255)
 
 
 class TaxRateRequest(BaseModel):
@@ -117,6 +129,7 @@ async def public_provider_readiness():
         "environment": billing.settings.PAYMENTS_ENVIRONMENT,
         "providers": billing.provider_readiness(),
         "stores_card_data": False,
+        "stripe_webhook": stripe_billing.webhook_contract(),
     }
 
 
@@ -261,16 +274,26 @@ async def checkout(
         period_code=data.period_code,
         coupon_code=data.coupon_code,
         billing_country=data.billing_country,
+        locale=data.locale,
         idempotency_key=idempotency_key,
     )
 
 
 @router.post("/portal-session")
 async def portal_session(
+    data: PortalSessionRequest | None = None,
     actor: UserRecord = Depends(require_permissions("billing:write")),
     session: AsyncSession = Depends(get_db),
+    idempotency_key: str | None = Header(
+        default=None, alias="Idempotency-Key", min_length=12, max_length=160
+    ),
 ):
-    return await billing.create_billing_portal_session(session, actor)
+    return await billing.create_billing_portal_session(
+        session,
+        actor,
+        locale=data.locale if data is not None else None,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.post("/subscription/cancel")
@@ -278,9 +301,43 @@ async def cancel_subscription(
     data: CancelSubscriptionRequest,
     actor: UserRecord = Depends(require_permissions("billing:write")),
     session: AsyncSession = Depends(get_db),
+    idempotency_key: str | None = Header(
+        default=None, alias="Idempotency-Key", min_length=12, max_length=160
+    ),
 ):
     return await billing.cancel_subscription(
-        session, actor, immediately=data.immediately
+        session, actor, immediately=data.immediately, idempotency_key=idempotency_key
+    )
+
+
+@router.post("/subscription/change")
+async def change_subscription(
+    data: ChangeSubscriptionRequest,
+    actor: UserRecord = Depends(require_permissions("billing:write")),
+    session: AsyncSession = Depends(get_db),
+    idempotency_key: str | None = Header(
+        default=None, alias="Idempotency-Key", min_length=12, max_length=160
+    ),
+):
+    return await stripe_billing.change_subscription_plan(
+        session,
+        actor,
+        plan_code=data.plan_code,
+        period_code=data.period_code,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/subscription/resume")
+async def resume_subscription(
+    actor: UserRecord = Depends(require_permissions("billing:write")),
+    session: AsyncSession = Depends(get_db),
+    idempotency_key: str | None = Header(
+        default=None, alias="Idempotency-Key", min_length=12, max_length=160
+    ),
+):
+    return await stripe_billing.resume_subscription(
+        session, actor, idempotency_key=idempotency_key
     )
 
 
@@ -354,6 +411,8 @@ async def owner_coupon_create(
         currency=data.currency,
         max_redemptions=data.max_redemptions,
         expires_at=data.expires_at,
+        stripe_coupon=data.stripe_coupon,
+        stripe_promotion_code=data.stripe_promotion_code,
     )
 
 

@@ -643,7 +643,13 @@
     "sourceMobileStore": "Abonnement via boutique mobile",
     "sourceWeb": "Abonnement Web",
     "manageStoreSubscription": "Gérer dans la boutique",
-    "restorePurchases": "Restaurer les achats"
+    "restorePurchases": "Restaurer les achats",
+    "changePlan": "Changer d'offre",
+    "planChangeRequested": "Changement d'offre envoyé à Stripe. Les montées en gamme facturent la différence au prorata maintenant et s'appliquent après paiement ; les baisses créditent le temps non utilisé sur la prochaine facture.",
+    "resumeSubscription": "Conserver l'abonnement",
+    "resumeSuccess": "L'annulation programmée a été retirée. Votre abonnement sera renouvelé.",
+    "resumeError": "Impossible de reprendre l'abonnement.",
+    "pastDueNotice": "Votre dernier paiement a échoué. Les fonctions payantes sont suspendues jusqu'au paiement de la facture. Mettez à jour votre moyen de paiement dans le portail du fournisseur."
   },
   "notifications": {
     "eyebrow": "Centre de communication",

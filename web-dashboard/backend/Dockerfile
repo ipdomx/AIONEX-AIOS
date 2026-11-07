@@ -24,8 +24,18 @@ ENV PATH="/opt/venv/bin:$PATH" \
 FROM python:3.11-alpine3.23@sha256:f73754c398b259dfbbe482361dca8b464dea57da74efe5214966ca2ee767ee12 AS runtime
 
 WORKDIR /app
+# Security floors (CVE-2026-107891 musl, CVE-2026-85091 zlib). Alpine retires
+# superseded revisions, so require a minimum, keep signed APK verification, and
+# fail the build if the resolved version is older than the fixed revision.
 RUN set -eux; \
     apk upgrade --no-cache sqlite-libs libcrypto3 libssl3 libuuid; \
+    apk add --no-cache --upgrade 'musl>=1.2.5-r24' 'musl-utils>=1.2.5-r24' 'zlib>=1.3.2-r1'; \
+    for floor in musl:1.2.5-r24 musl-utils:1.2.5-r24 zlib:1.3.2-r1; do \
+      name="${floor%%:*}"; minimum="${floor#*:}"; \
+      installed="$(apk list --installed "$name" | awk -v n="$name" '$1 ~ ("^" n "-[0-9]") {print $1; found=1; exit} END{if(!found)exit 1}')"; \
+      comparison="$(apk version -t "${installed#"$name"-}" "$minimum")"; \
+      case "$comparison" in '='|'>') ;; *) echo "$installed is below $minimum" >&2; exit 1 ;; esac; \
+    done; \
     apk add --no-cache ca-certificates curl bash su-exec postgresql16-client libpq libgcc libstdc++; \
     rm -rf /usr/local/lib/python3.11/ensurepip \
            /usr/local/lib/python3.11/site-packages/pip* \

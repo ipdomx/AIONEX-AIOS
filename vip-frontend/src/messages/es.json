@@ -643,7 +643,13 @@
     "sourceMobileStore": "Suscripción de tienda móvil",
     "sourceWeb": "Suscripción web",
     "manageStoreSubscription": "Gestionar en la tienda",
-    "restorePurchases": "Restaurar compras"
+    "restorePurchases": "Restaurar compras",
+    "changePlan": "Cambiar plan",
+    "planChangeRequested": "Cambio de plan enviado a Stripe. Las mejoras cobran ahora la diferencia prorrateada y se aplican al pagarse; las reducciones abonan el tiempo no usado en la próxima factura.",
+    "resumeSubscription": "Mantener suscripción",
+    "resumeSuccess": "Se eliminó la cancelación programada. Tu suscripción se renovará.",
+    "resumeError": "No se pudo reanudar la suscripción.",
+    "pastDueNotice": "Tu último pago falló. Las funciones de pago están en pausa hasta que se pague la factura. Actualiza tu método de pago en el portal del proveedor."
   },
   "notifications": {
     "eyebrow": "Centro de comunicación",

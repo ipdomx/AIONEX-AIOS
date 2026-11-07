@@ -1114,6 +1114,21 @@ class Settings(BaseSettings):
     STRIPE_API_BASE: str = Field(
         default="https://api.stripe.com", validation_alias="STRIPE_API_BASE"
     )
+    # P5.3: portal return URLs are built per locale as
+    # ``<base>/<locale>/billing?checkout=...`` for Stripe Checkout and the
+    # Stripe customer portal.
+    PAYMENTS_PORTAL_BASE_URL: str = Field(
+        default="https://ai.vip-e.net", validation_alias="PAYMENTS_PORTAL_BASE_URL"
+    )
+    # Stripe Tax (automatic_tax). When off, a local exclusive tax rate must be
+    # mapped to a Stripe tax rate in STRIPE_TAX_RATES ("LOCALCODE=txr_...,...").
+    STRIPE_AUTOMATIC_TAX: bool = Field(
+        default=False, validation_alias="STRIPE_AUTOMATIC_TAX"
+    )
+    STRIPE_TAX_RATES: str = Field(default="", validation_alias="STRIPE_TAX_RATES")
+    STRIPE_PORTAL_CONFIGURATION_ID: Optional[str] = Field(
+        default=None, validation_alias="STRIPE_PORTAL_CONFIGURATION_ID"
+    )
     PAYPAL_CLIENT_ID: Optional[str] = Field(
         default=None, validation_alias="PAYPAL_CLIENT_ID"
     )
