@@ -198,6 +198,53 @@ async def test_catalog_overlays_free_limits_and_creates_durable_account(
 
 
 @pytest.mark.asyncio
+async def test_unchanged_catalog_sync_skips_full_account_walk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # P6 6.1: sync_catalog runs on read paths (ads/access, billing summary). An
+    # unchanged catalogue must not walk every organization or lock the plan rows.
+    suffix = uuid4().hex[:12]
+    organization, _user = await identity(suffix)
+    plan = {
+        "id": "free", "enabled": True, "featured": False, "order": 1,
+        "name": {"en": "Free"}, "description": {"en": "Free"}, "features": [],
+        "limits": {}, "entitlements": ["projects.core"], "metering": {},
+        "cta_label": {"en": "Start"}, "checkout_provider": "none",
+        "periods": [{"id": "monthly", "months": 1, "price": 0, "currency": "USD",
+                     "enabled": True, "label": {"en": "Monthly"}, "checkout_reference": ""}],
+    }
+
+    async def portal(_session):
+        return published([plan])
+
+    async def free_policy(_session):
+        return dict(DEFAULT_FREE_TIER_POLICY)
+
+    walks: list[bool] = []
+    real = billing._ensure_accounts_for_organizations
+
+    async def spy(session, *, all_organizations=True):
+        walks.append(all_organizations)
+        return await real(session, all_organizations=all_organizations)
+
+    monkeypatch.setattr(billing, "get_published_portal", portal)
+    monkeypatch.setattr(billing, "get_free_tier_policy", free_policy)
+    monkeypatch.setattr(billing, "_ensure_accounts_for_organizations", spy)
+    try:
+        async with SessionLocal() as session:
+            await billing.sync_catalog(session)
+            await session.commit()
+        async with SessionLocal() as session:
+            await billing.sync_catalog(session)
+            account = await billing.ensure_billing_account(session, organization.id)
+            await session.commit()
+        assert walks[-1] is False and walks[-2] is False
+        assert account.organization_id == organization.id
+    finally:
+        await cleanup(organization.id, ["free"])
+
+
+@pytest.mark.asyncio
 async def test_stripe_checkout_is_idempotent_and_never_stores_card_data(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

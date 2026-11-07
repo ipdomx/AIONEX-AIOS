@@ -158,7 +158,9 @@ def test_pinned_source_compiler_and_no_checksum_bypass():
     assert '"GOFLAGS": "-mod=readonly"' in source
     assert '"GOSUMDB": "off"' not in source
     assert 'sha(binary) != lock["expected_binary_sha256"]' in source
-    assert 'original_sums <= completed_sums' in source
+    # FR23-10: the reviewed, SHA-pinned go.mod/go.sum replace the upstream pair.
+    assert 'for name in ("go.mod", "go.sum"):' in source
+    assert "shutil.copyfile(args.lock_dir / name, source / name)" in source
 
 
 def test_real_lock_is_stable_and_preserves_test_selection():

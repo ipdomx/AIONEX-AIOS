@@ -1,0 +1,13 @@
+[Unit]
+Description=AIONEX O-01 keep Nginx RealIP trust pinned to the current cloudflared peer
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/aionex-realip-watch watch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

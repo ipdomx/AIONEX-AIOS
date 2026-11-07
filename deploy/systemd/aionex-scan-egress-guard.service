@@ -1,0 +1,13 @@
+[Unit]
+Description=AIONEX T-17 egress guard for active-scanning containers
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/aionex-scan-egress-guard watch
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

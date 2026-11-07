@@ -1,9 +1,10 @@
 """Pinned local httpx rebuild with an explicit offline upstream-test scope.
 
 The official v1.12.0 binary is NOT installed: its embedded Go is older than the
-reviewed toolchain. Source/go.mod stay unchanged; go.sum adds verified checksums. The one
-local-version marker is explicit. Full upstream network/ASN integration coverage is not
-claimed; selected native tests and a separate loopback image verifier are used.
+reviewed toolchain. Source stays unchanged; the reviewed go.mod/go.sum only raise
+vulnerable dependencies to patched minimums (FR23-10). The one local-version marker
+is explicit. Full upstream network/ASN integration coverage is not claimed; selected
+native tests and a separate loopback image verifier are used.
 """
 from __future__ import annotations
 
@@ -163,15 +164,10 @@ def main() -> None:
     toolchain = extract_verified(inputs / "go.tar.gz", lock["toolchain_sha256"], output / "toolchain")
     source = extract_verified(inputs / "source.tar.gz", lock["source_sha256"], output / "source")
     before = source_fingerprint(source)
-    # go.mod is unchanged; download-all filled missing transitive checksums.
-    # Keep every original checksum and pin the completed file before building.
-    if sha(source / "go.mod") != lock["files"]["go.mod"]:
-        raise ValueError("Upstream dependency graph changed")
-    original_sums = set((source / "go.sum").read_text().splitlines())
-    completed_sums = set((args.lock_dir / "go.sum").read_text().splitlines())
-    if not original_sums <= completed_sums:
-        raise ValueError("Original upstream checksums not preserved")
-    shutil.copyfile(args.lock_dir / "go.sum", source / "go.sum")
+    # Reviewed go.mod/go.sum (pinned by SHA-256 in the lock) only raise vulnerable
+    # dependencies to patched minimums; the upstream source itself is unchanged.
+    for name in ("go.mod", "go.sum"):
+        shutil.copyfile(args.lock_dir / name, source / name)
     version_change = label_source(source, lock)
     expected = dict(before)
     expected["runner/banner.go"] = version_change["after_sha256"]
