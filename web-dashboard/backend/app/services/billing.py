@@ -551,7 +551,13 @@ async def _ensure_accounts_for_organizations(
                 limits=dict(plan.limits or {}),
                 entitlements=list(plan.entitlements or []),
             )
-            session.add(account)
+            # Concurrent first requests may initialize the same organization; the
+            # unique organization_id makes the loser a no-op instead of a 500.
+            try:
+                async with session.begin_nested():
+                    session.add(account)
+            except IntegrityError:
+                continue
         else:
             # Preserve explicit Owner plan assignments, while keeping the
             # selected plan's limits and entitlements synchronized with the
