@@ -55,7 +55,7 @@ def test_routing_requires_current_terms_and_never_serves_hunyuan_output_outside_
 
 
 def test_worldwide_fallback_is_real_pinned_triposr_not_placeholder():
-    assert "pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime@sha256:" in TRIPOSR_DOCKER
+    assert "pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:" in TRIPOSR_DOCKER
     assert "torchmcubes" not in TRIPOSR_DOCKER
     assert "snapshot_download" in TRIPOSR_DOCKER
     assert "scikit-image==0.26.0" in (ROOT / "infra/runpod/triposr/requirements.txt").read_text()

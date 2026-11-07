@@ -1403,7 +1403,13 @@
       "obj": "Exportar OBJ",
       "refresh": "Actualizar enlaces seguros",
       "objNote": "El OBJ se convierte en tu navegador a partir de la vista previa y solo contiene geometría (sin texturas).",
-      "expiry": "Los enlaces seguros caducan en unos {minutes} min."
+      "expiry": "Los enlaces seguros caducan en unos {minutes} min.",
+      "server": {
+        "obj": "Descargar OBJ (con texturas)",
+        "fbx": "Descargar FBX",
+        "usdz": "Descargar USDZ"
+      },
+      "serverUnavailable": "Las conversiones FBX/USDZ no están disponibles para este modelo."
     },
     "status": {
       "queued": "En cola",

@@ -1403,7 +1403,13 @@
       "obj": "Exporter en OBJ",
       "refresh": "Actualiser les liens sécurisés",
       "objNote": "L'OBJ est converti dans votre navigateur à partir de l'aperçu et ne contient que la géométrie (sans textures).",
-      "expiry": "Les liens sécurisés expirent dans environ {minutes} min."
+      "expiry": "Les liens sécurisés expirent dans environ {minutes} min.",
+      "server": {
+        "obj": "Télécharger OBJ (avec textures)",
+        "fbx": "Télécharger FBX",
+        "usdz": "Télécharger USDZ"
+      },
+      "serverUnavailable": "Les conversions FBX/USDZ ne sont pas disponibles pour ce modèle."
     },
     "status": {
       "queued": "En file d'attente",

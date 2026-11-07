@@ -2,6 +2,10 @@
 
 ## Current status: image quarantined
 
+A hardened successor image is defined in source (FR-16D, 2026-11-07) but has not
+been built for RunPod or accepted. Use a **new** template pinned to its digest
+(see the FR-16D receipt, section 4); never reactivate the template below.
+
 The image in this record is **not approved for production**.
 [`HUNYUAN_RUNTIME_SECURITY_APPROVED`](../../../web-dashboard/backend/app/services/three_d_provider_policy.py)
 is `False` in the reviewed source and the deployed backend. The 2026-10-17
