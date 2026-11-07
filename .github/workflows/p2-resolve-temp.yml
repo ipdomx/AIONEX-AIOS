@@ -16,62 +16,39 @@ jobs:
       - name: Trivy converter
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.72.0 image --quiet --scanners vuln --severity HIGH,CRITICAL --format table conv:test || true
-  node-lock:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Node release and gltf-transform lock
-        run: |
-          curl -fsSL https://nodejs.org/dist/index.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('NODE24', [r['version'] for r in d if r['version'].startswith('v24.')][:3])"
-          v=$(curl -fsSL https://nodejs.org/dist/index.json | python3 -c "import json,sys; d=json.load(sys.stdin); print([r['version'] for r in d if r['version'].startswith('v24.')][0])")
-          curl -fsSL "https://nodejs.org/dist/$v/SHASUMS256.txt" | grep -E "linux-x64.tar.xz$" | sed "s/^/NODESHA $v /"
-          mkdir -p /tmp/gt && cd /tmp/gt
-          printf '%s' '{"name":"aionex-hunyuan-gltf-tools","version":"1.0.0","private":true,"engines":{"node":">=24 <25"},"dependencies":{"@gltf-transform/cli":"4.4.2","sharp":"0.35.5"},"overrides":{"sharp":"0.35.5"}}' > package.json
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          echo "===== LOCK BEGIN"; cat package-lock.json; echo "===== LOCK END"
-          npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm audit --omit=dev || true
   hunyuan-info:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - name: Import trace and lock
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Lock, patch and import trace
         run: |
-          git clone -q https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 /tmp/hy && cd /tmp/hy && git checkout -q 82920d643c0dc2f7bfd7255f45f62d386edfe60c
-          echo "===== modules tail"; sed -n 795,835p hy3dpaint/hunyuanpaintpbr/unet/modules.py
-          echo "===== lightning users"; git grep -n -E "pytorch_lightning|import timm|from timm|torchdiffeq|diso|torch_cluster|sageattention|peft|rembg|pythreejs|matplotlib" -- 'hy3dshape/hy3dshape/*.py' 'hy3dpaint/*.py'
-          echo "===== try/except around"; git grep -n -B2 -A2 -E "^\s*(import|from) (diso|sageattention|torch_cluster|peft)" -- '*.py' | head -60
+          set -x
           python3 -m pip install -q uv
+          W=$PWD
           mkdir -p /tmp/lock && cd /tmp/lock
-          cat > hunyuan.in <<'R'
-          diffusers
-          transformers<5
-          accelerate
-          safetensors
-          huggingface-hub<1
-          omegaconf
-          einops
-          trimesh
-          pymeshlab
-          pygltflib
-          xatlas
-          opencv-python-headless
-          numpy<2.4
-          scipy
-          scikit-image
-          pillow
-          pyyaml
-          tqdm
-          runpod
-          pybind11
-          timm
-          R
           printf 'torch==2.9.1\ntorchvision==0.24.1\ntriton==3.5.1\nsetuptools==79.0.1\n' > c.txt
-          uv pip compile hunyuan.in -c c.txt --python-version 3.11 --python-platform x86_64-manylinux_2_28 --no-header --no-annotate -o plain.txt || true
-          echo "===== PLAIN"; cat plain.txt | grep -v -E "^nvidia"
-          python3 -m venv /tmp/v && /tmp/v/bin/pip install -q uv && /tmp/v/bin/uv pip install -q --python /tmp/v/bin/python --index-url https://download.pytorch.org/whl/cpu torch==2.9.1 torchvision==0.24.1 && /tmp/v/bin/uv pip install -q --python /tmp/v/bin/python -r plain.txt --no-deps 2>&1 | tail -5 || true
-          cd /tmp/hy && cat > /tmp/trace.py <<'PY'
-          import importlib, sys, types
+          uv pip compile $W/infra/runpod/hunyuan3d/requirements.in -c c.txt --python-version 3.11 --python-platform x86_64-manylinux_2_35 --generate-hashes --no-header --no-emit-package torch --no-emit-package torchvision --no-emit-package triton --no-emit-package setuptools -o lock.txt
+          grep -v -E "^nvidia" lock.txt > /dev/null; python3 - <<'PY'
+          import re
+          text = open("/tmp/lock/lock.txt").read()
+          blocks = re.split(r"\n(?=[a-z0-9])", text)
+          keep = [b for b in blocks if not b.startswith(("nvidia-", "#"))]
+          open("/tmp/lock/lock.clean.txt", "w").write("\n".join(keep).strip() + "\n")
+          PY
+          echo "===== HLOCK BEGIN"; cat lock.clean.txt; echo "===== HLOCK END"
+          printf 'pybind11\n' > b.in; uv pip compile b.in --python-version 3.11 --python-platform x86_64-manylinux_2_35 --generate-hashes --no-header -o b.txt; echo "===== BLOCK BEGIN"; cat b.txt; echo "===== BLOCK END"
+          git clone -q https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 /tmp/hy && cd /tmp/hy && git checkout -q 82920d643c0dc2f7bfd7255f45f62d386edfe60c
+          sha256sum hy3dpaint/hunyuanpaintpbr/unet/modules.py hy3dpaint/hunyuanpaintpbr/unet/attn_processor.py hy3dpaint/textureGenPipeline.py hy3dpaint/utils/multiview_utils.py
+          python3 $W/infra/runpod/hunyuan3d/patch_hunyuan_runtime.py /tmp/hy || true
+          git diff --stat; git status --short | head -50
+          uv venv -q --python 3.11 /tmp/v
+          uv pip install -q --python /tmp/v/bin/python --index-url https://download.pytorch.org/whl/cpu torch==2.9.1 torchvision==0.24.1
+          uv pip install -q --python /tmp/v/bin/python --require-hashes --no-deps -r /tmp/lock/lock.clean.txt 2>&1 | tail -5
+          cat > /tmp/trace.py <<'PY'
+          import sys, types, traceback
           sys.path[:0] = ["/tmp/hy", "/tmp/hy/hy3dshape", "/tmp/hy/hy3dpaint"]
+          sys.modules["bpy"] = types.ModuleType("bpy")
           stubbed = []
           for _ in range(40):
               try:
@@ -81,14 +58,18 @@ jobs:
                   import hy3dshape
                   from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline
                   from textureGenPipeline import Hunyuan3DPaintConfig, Hunyuan3DPaintPipeline
-                  import hunyuanpaintpbr
+                  from hunyuanpaintpbr.pipeline import HunyuanPaintPipeline
+                  from hunyuanpaintpbr.unet.modules import UNet2p5DConditionModel, Dino_v2
+                  from utils.image_super_utils import imageSuperNet
                   break
               except ModuleNotFoundError as exc:
-                  print("MISSING", exc.name, "from", exc.__traceback__.tb_next and exc.__traceback__)
-                  import traceback; traceback.print_exc(limit=-3)
+                  frame = [f for f in traceback.extract_tb(exc.__traceback__) if "/tmp/hy" in f.filename][-1:]
+                  print("MISSING", exc.name, frame)
                   stubbed.append(exc.name)
                   sys.modules[exc.name] = types.ModuleType(exc.name)
+              except Exception as exc:
+                  traceback.print_exc(); break
           print("STUBBED", stubbed)
-          print("LOADED_THIRD_PARTY", sorted({m.split(".")[0] for m in sys.modules}))
+          print("LOADED", sorted({m.split(".")[0] for m in sys.modules if not m.startswith("_")}))
           PY
-          /tmp/v/bin/python /tmp/trace.py 2>&1 | tail -120
+          /tmp/v/bin/python /tmp/trace.py 2>&1 | tail -80
