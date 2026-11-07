@@ -19,7 +19,7 @@ jobs:
           docker run --rm --entrypoint python pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime -m pip list --format=freeze > base.txt; sed 's/^/BASE /' base.txt
           docker run --rm --entrypoint cat pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime /etc/os-release | head -2
           python3 -m pip install -q uv
-          grep -i -E '^(torch|torchvision|torchaudio|triton|setuptools|filelock|sympy|networkx|jinja2|markupsafe|mpmath|typing.extensions)==' base.txt > c.txt; cat c.txt
+          grep -i -E '^(torch|torchvision|torchaudio|triton|setuptools|filelock|sympy|networkx|jinja2|markupsafe|mpmath|typing.extensions)==' base.txt | sed 's/+cu[0-9]*//' > c.txt; cat c.txt
           PYV=$(docker run --rm --entrypoint python pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')")
           uv pip compile infra/runpod/hunyuan3d/requirements.in -c c.txt --python-version $PYV --python-platform x86_64-manylinux_2_35 --generate-hashes --no-header --no-annotate --no-emit-package torch --no-emit-package torchvision --no-emit-package triton --no-emit-package setuptools -o h.txt
           echo "===== HLOCK BEGIN"; grep -v -E "^\s*# via" h.txt; echo "===== HLOCK END"
