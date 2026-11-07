@@ -1,0 +1,35 @@
+#!/bin/bash
+# AIONEX O-01: keep Nginx RealIP trust pinned to the *current* cloudflared container.
+# The trust file admits exactly one TCP peer (the cloudflared IP). If cloudflared is recreated with a
+# new IP, Nginx would silently fall back to the tunnel IP for every visitor, so all rate limits would
+# become one shared bucket. On every cloudflared start this re-admits the peer and, only when the
+# trust file changed and `nginx -t` passes, reloads Nginx gracefully (no dropped connections).
+#   aionex-realip-watch once | watch
+set -euo pipefail
+ADMIT=/opt/AIOS/scripts/security/fr09_cloudflared_realip_admission.py
+[ -x /usr/local/libexec/aionex/fr09_cloudflared_realip_admission.py ] && ADMIT=/usr/local/libexec/aionex/fr09_cloudflared_realip_admission.py
+TRUST=/var/lib/aionex-migration/fr09-trusted-realip/trusted-cloudflared.conf
+NGINX=web-dashboard-nginx-1
+CONF=/tmp/aionex-nginx-fr09-realip.conf
+
+once() {
+  before=$(sha256sum "$TRUST" 2>/dev/null | cut -d' ' -f1 || true)
+  python3 -I "$ADMIT" --apply >/dev/null
+  after=$(sha256sum "$TRUST" | cut -d' ' -f1)
+  if [ "$before" != "$after" ]; then
+    docker exec "$NGINX" nginx -t -c "$CONF" -q && docker exec "$NGINX" nginx -s reload -c "$CONF"
+    echo "realip: trust updated and nginx reloaded"
+  else
+    echo "realip: trust unchanged"
+  fi
+}
+
+case "${1:-once}" in
+  once) exec 9>/run/aionex-realip-watch.lock; flock 9; once;;
+  watch)
+    once || true
+    docker events --filter label=com.docker.compose.project=web-dashboard \
+      --filter label=com.docker.compose.service=cloudflared --filter event=start --format '{{.Actor.ID}}' |
+      while read -r _; do sleep 2; once || true; done;;
+  *) echo "usage: $0 once|watch"; exit 2;;
+esac

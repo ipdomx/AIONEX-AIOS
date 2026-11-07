@@ -1,0 +1,59 @@
+#!/bin/bash
+# AIONEX T-17 (FR23-11): egress guard for active-scanning containers.
+# Active scanners resolve and connect on their own, so the platform-level SSRF guard is not enough.
+# This keeps the scanning containers (security-scan-worker, security-zap) away from every private,
+# loopback, link-local, CGNAT, metadata and multicast range, and from the host itself. The only
+# internal destinations allowed are Postgres, Redis and the ZAP API the worker needs.
+# Rules are keyed by the containers' current IPs and re-applied on every container start.
+# Install: /usr/local/sbin/aionex-scan-egress-guard + deploy/systemd/aionex-scan-egress-guard.service
+#   aionex-scan-egress-guard apply | status | remove | watch
+set -euo pipefail
+P=web-dashboard
+CHAIN=AIONEX-SCAN-EGRESS
+INCHAIN=AIONEX-SCAN-HOST
+PRIVATE="0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.0.0.0/24 192.168.0.0/16 198.18.0.0/15 224.0.0.0/4 240.0.0.0/4"
+
+ip_of() { docker ps -q --filter "label=com.docker.compose.project=$P" --filter "label=com.docker.compose.service=$1" \
+  | head -1 | xargs -r docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' | awk '{print $1}'; }
+
+remove() {
+  for c in DOCKER-USER INPUT; do
+    while iptables -S $c | grep -q -- "-j $CHAIN\|-j $INCHAIN"; do
+      r=$(iptables -S $c | grep -m1 -- "-j $CHAIN\|-j $INCHAIN" | sed 's/^-A/-D/'); eval iptables $r; done
+  done
+  for ch in $CHAIN $INCHAIN; do iptables -F $ch 2>/dev/null || true; iptables -X $ch 2>/dev/null || true; done
+}
+
+apply() {
+  scan=$(ip_of security-scan-worker); zap=$(ip_of security-zap)
+  pg=$(ip_of postgres); rd=$(ip_of redis)
+  [ -n "$scan" ] && [ -n "$pg" ] && [ -n "$rd" ] || { echo "guard: required container IP missing" >&2; exit 2; }
+  iptables -N ${CHAIN}.new 2>/dev/null || iptables -F ${CHAIN}.new
+  iptables -A ${CHAIN}.new -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+  iptables -A ${CHAIN}.new -s $scan -d $pg -p tcp --dport 5432 -j RETURN
+  iptables -A ${CHAIN}.new -s $scan -d $rd -p tcp --dport 6379 -j RETURN
+  [ -n "$zap" ] && iptables -A ${CHAIN}.new -s $scan -d $zap -p tcp --dport 8080 -j RETURN
+  for net in $PRIVATE; do iptables -A ${CHAIN}.new -d $net -j REJECT --reject-with icmp-admin-prohibited; done
+  iptables -A ${CHAIN}.new -j RETURN
+  iptables -N ${INCHAIN}.new 2>/dev/null || iptables -F ${INCHAIN}.new
+  iptables -A ${INCHAIN}.new -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+  iptables -A ${INCHAIN}.new -j REJECT --reject-with icmp-admin-prohibited
+  remove
+  iptables -E ${CHAIN}.new $CHAIN; iptables -E ${INCHAIN}.new $INCHAIN
+  for ip in $scan $zap; do
+    iptables -I DOCKER-USER 1 -s $ip -j $CHAIN
+    iptables -I INPUT 1 -s $ip -j $INCHAIN
+  done
+  echo "guard applied: scan=$scan zap=${zap:-none} pg=$pg redis=$rd"
+}
+
+case "${1:-apply}" in
+  apply) exec 9>/run/aionex-scan-egress-guard.lock; flock 9; apply;;
+  remove) remove; echo removed;;
+  status) iptables -S DOCKER-USER; iptables -S INPUT | grep $INCHAIN || true; iptables -S $CHAIN 2>/dev/null | wc -l;;
+  watch)
+    apply || true
+    docker events --filter "label=com.docker.compose.project=$P" --filter event=start --format '{{.Actor.Attributes.name}}' |
+      while read -r name; do apply || true; done;;
+  *) echo "usage: $0 apply|status|remove|watch"; exit 2;;
+esac

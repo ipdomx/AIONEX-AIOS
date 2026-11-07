@@ -285,6 +285,10 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
     source_plans = list(pricing.get("plans") or [])
     seen_codes: set[str] = set()
     result: list[dict[str, Any]] = []
+    # Read paths call this on every request. Rows are only locked and written when
+    # the published catalogue actually differs, so concurrent readers never queue
+    # behind each other on the plan rows (P6 6.1 finding, 2026-11-07).
+    changed = False
 
     for raw in source_plans:
         code = _normalized_plan_code(str(raw.get("id") or ""))
@@ -320,10 +324,19 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
             "periods": [],
         }
         plan_hash = _catalog_hash(public_plan | {"periods": raw.get("periods") or []})
-        plan = await session.scalar(
-            select(BillingPlan).where(BillingPlan.code == code).with_for_update()
+        plan = await session.scalar(select(BillingPlan).where(BillingPlan.code == code))
+        plan_current = (
+            plan is not None
+            and plan.source_hash == plan_hash
+            and plan.source_version == source_version
+            and plan.default_currency == _currency(pricing.get("default_currency"))
         )
+        if plan is not None and not plan_current:
+            plan = await session.scalar(
+                select(BillingPlan).where(BillingPlan.code == code).with_for_update()
+            )
         if plan is None:
+            changed = True
             plan = BillingPlan(
                 code=code,
                 name=_localized_english(raw.get("name"), code.title()),
@@ -338,7 +351,8 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
             )
             session.add(plan)
             await session.flush()
-        else:
+        elif not plan_current:
+            changed = True
             plan.name = _localized_english(raw.get("name"), code.title())
             plan.description = _localized_english(raw.get("description"), "")
             plan.status = "active" if raw.get("enabled") else "inactive"
@@ -362,15 +376,12 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
                 ).strip()
                 or None
             )
-            price = await session.scalar(
-                select(BillingPrice)
-                .where(
-                    BillingPrice.plan_id == plan.id,
-                    BillingPrice.period_code == period_code,
-                    BillingPrice.currency == currency,
-                )
-                .with_for_update()
+            price_lookup = select(BillingPrice).where(
+                BillingPrice.plan_id == plan.id,
+                BillingPrice.period_code == period_code,
+                BillingPrice.currency == currency,
             )
+            price = await session.scalar(price_lookup)
             values = {
                 "months": int(raw_period.get("months") or 0),
                 "amount_minor": _minor(raw_period.get("price")),
@@ -389,7 +400,15 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
                     ),
                 },
             }
-            if price is None:
+            if price is not None and any(
+                getattr(price, key) != value for key, value in values.items()
+            ):
+                price = await session.scalar(price_lookup.with_for_update())
+                changed = True
+                for key, value in values.items():
+                    setattr(price, key, value)
+            elif price is None:
+                changed = True
                 price = BillingPrice(
                     plan_id=plan.id,
                     period_code=period_code,
@@ -398,9 +417,6 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
                 )
                 session.add(price)
                 await session.flush()
-            else:
-                for key, value in values.items():
-                    setattr(price, key, value)
             public_plan["periods"].append(
                 {
                     "id": period_code,
@@ -434,16 +450,18 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
             )
         ).all()
         for price in stale_prices:
-            if (price.period_code, price.currency) not in period_codes:
+            if (price.period_code, price.currency) not in period_codes and price.enabled:
+                changed = True
                 price.enabled = False
         result.append(public_plan)
 
     existing = (await session.scalars(select(BillingPlan))).all()
     for plan in existing:
-        if plan.source_version > 0 and plan.code not in seen_codes:
+        if plan.source_version > 0 and plan.code not in seen_codes and plan.status != "inactive":
+            changed = True
             plan.status = "inactive"
 
-    await _ensure_accounts_for_organizations(session)
+    await _ensure_accounts_for_organizations(session, all_organizations=changed)
     await session.flush()
     return {
         "enabled": bool(pricing.get("enabled", True)),
@@ -487,8 +505,20 @@ async def _internal_plan(session: AsyncSession, organization_plan: str) -> Billi
     return plan
 
 
-async def _ensure_accounts_for_organizations(session: AsyncSession) -> None:
-    organizations = (await session.scalars(select(Organization))).all()
+async def _ensure_accounts_for_organizations(
+    session: AsyncSession, *, all_organizations: bool = True
+) -> None:
+    """Create missing billing accounts; resync every account only after a catalogue change.
+
+    Walking every organization costs several queries each, so it must not run on
+    the per-request read path (it made /ads/access take 30s+ with 5000 tenants).
+    """
+    statement = select(Organization)
+    if not all_organizations:
+        statement = statement.outerjoin(
+            BillingAccount, BillingAccount.organization_id == Organization.id
+        ).where(BillingAccount.id.is_(None))
+    organizations = (await session.scalars(statement)).all()
     for organization in organizations:
         account = await session.scalar(
             select(BillingAccount).where(
@@ -548,6 +578,18 @@ async def ensure_billing_account(
         raise HTTPException(
             status_code=503, detail="Billing account could not be initialized"
         )
+    active_users = int(
+        await session.scalar(
+            select(func.count(User.id)).where(
+                User.organization_id == organization_id,
+                User.deleted_at.is_(None),
+                User.status.in_(("active", "online")),
+            )
+        )
+        or 0
+    )
+    if account.licensed_seats < max(active_users, 1):
+        account.licensed_seats = max(active_users, 1)
     return account
 
 
