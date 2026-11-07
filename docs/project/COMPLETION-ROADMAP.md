@@ -47,8 +47,8 @@
 ### المرحلة 2: الـ 3D
 - [x] 2.1 صفحة 3D مستقلة للمستخدم في `vip-frontend`: توليد من صورة أو نص، ومعرض، وعارض، وتنزيل GLB/OBJ. (code merged; live verification pending)
 - [ ] 2.2 تجربة حية على TripoSR (RunPod) بتكلفة محدودة بموافقة المالك، وإيصال. ملاحظة 2026-11-06: الـ endpointين على RunPod كانوا متوقفين (`ENDPOINT_PAUSED`، HTTP 409)، فاتضافت معالجة الأخطاء: تسجيل HTTP status وكود المزود، والإيقاف و401/403 أخطاء دائمة بلا إعادة محاولة ولا تحسب على الـ circuit (`THREE_D_PROVIDER_PAUSED` / `THREE_D_PROVIDER_AUTH`)، والتحويل للـ fallback لو واحد بس متوقف، وحالة `provider_state` في رد الـ access. (code merged; live verification deferred to pre-launch)
-- [ ] 2.3 Hunyuan3D: إعادة بناء الصورة وفحصها أمنيًا (FR-16D)، ثم رفع الحجر.
-- [ ] 2.4 Blender على السيرفر (أو صورة worker) لتحويل الصيغ والمعاينات.
+- [x] 2.3 Hunyuan3D: إعادة بناء الصورة وفحصها أمنيًا (FR-16D)، ثم رفع الحجر. اتعادت كتابة الصورة من صفر: صور pytorch مثبتة بالـ digest بدل الـ base المجهولة، وكود Hunyuan على الـ commit المراجع مع patches بتمنع تنزيل الكود من الـ Hub وأي pickle وأي shell، ومكتبات بـ `--require-hashes`، وأوزان safetensors بس متحققة بـ SHA-256 من revision ثابت، ومستخدم مش root، وحدود على الطلب والمخرج. الأسباب الكاملة للحجر والمعالجة والمخاطر الباقية وخطوات النشر في `docs/project/receipts/FR16D-hunyuan-security-review-20261107.md`. الحجر `HUNYUAN_RUNTIME_SECURITY_APPROVED=False` باقي لحد T-11 وقرار O-09. (code merged; deploy/live verification in pre-launch window)
+- [x] 2.4 Blender على السيرفر (أو صورة worker) لتحويل الصيغ والمعاينات. sidecar اسمه `three-d-converter` فيه Blender 5.2.3 متحقق بالـ checksum، من غير شبكة خالص، وكل تحويل في sandbox (timeout وrlimits ومجلدات مؤقتة وfactory startup ومن غير autoexec). بيطلع OBJ وFBX وUSDZ وصورة معاينة، والواجهة بتعرض بس الصيغ اللي اتعملت فعلًا للموديل ده. (code merged; deploy/live verification in pre-launch window)
 - [ ] 2.5 قبول 2D (FR-16B)، واستعادة أصل 3D غير فارغ (A04).
 
 ### المرحلة 3: إدارة حسابات Facebook وInstagram (Meta)
@@ -105,6 +105,7 @@
 - [ ] O-06 Meta Ads: توكن إعلانات جديد طويل الأجل، لأن القديم `marketing-api-token` انتهى 2026-10-13.
 - [ ] O-07 RunPod: فحص endpoint `aionex-triposr-phase34g-production` (`rrcr2ftk4sqq1j`) من اللوحة، لأن الـ scaler ما شغّلش worker حتى مع workersMax=1 يوم 2026-11-06. الـ endpointين حاليًا workersMax=0. البديل إعادة بناء الـ endpoint.
 - [ ] O-08 الموافقة على تكلفة التجارب الحية: 3D، وإعلانات بإنفاق محدود، وStripe live، وAI خارجي إن لزم.
+- [ ] O-09 قرار رفع حجر Hunyuan3D: بعد نجاح T-11 وإيصال القبول الحي بس، يتغير `HUNYUAN_RUNTIME_SECURITY_APPROVED` لـ `True` في PR محمي، ويتنشر الـ backend. الرجوع بيتم بقلب القيمة تاني، وTripoSR يفضل شغال. (الخطوة 6 في إيصال FR-16D)
 
 ### تقني (يتنفذ في نافذة ما قبل الإطلاق)
 - [ ] T-01 نشر `src/aios/gpu_worker/runpod.py` (PR #1032): العمال بيقروا `/opt/AIOS/src` من checkout قديم (`f2527cf3`)، فلازم overlay أو تحديث آمن.
@@ -117,6 +118,8 @@
 - [ ] T-08 تجارب حية: نشر Meta، والصندوق، والإعلانات، وStripe، و3D، والصور والفيديو والصوت والأكاديمية (البند 5.1).
 - [ ] T-09 تنظيف السيرفر (0.4): worktrees قديمة، وحاويات `aionex-pr872*`، ونسخ النشر القديمة في `/var/lib/aionex-migration/*/static`.
 - [ ] T-10 nginx الإنتاج: التعديلات بتتطبق على `/tmp/aionex-nginx-fr09-realip.conf` (live) وعلى ملف المصدر على السيرفر. لازم ريستارت مُتحكَّم فيه للحاوية يتأكد إنها بتبني نفس الإعداد.
+- [ ] T-11 بناء صورة Hunyuan3D المقواة (`--target release`) ورفعها، ثم إنشاء أو تحديث endpoint على RunPod بـ template جديد مثبت على الـ digest (US بس). بعدها Trivy على الـ digest نفسه، والتجربة الحية للـ PBR من غير fallback (seed مرتين بنفس الـ SHA-256)، وطلب مرفوض للتأكد من الحدود. الخطوات بالتفصيل في الإيصال `FR16D-hunyuan-security-review-20261107.md` (الجزء 4). محتاج موافقة التكلفة O-08.
+- [ ] T-12 نشر صورة Blender converter: `docker compose build three-d-converter`، ثم تشغيل الـ sidecar وإعادة إنشاء `three-d-worker` عشان يركب الـ spool. التأكد من `--healthcheck`، وإن `status.json` بيقول Blender 5.2.3، وإن موديل TripoSR جديد طلع له OBJ وFBX وUSDZ ومعاينة، وإن الواجهة بتعرض الصيغ دي بس.
 
 ## طريقة التحديث
 - كل بند يُعلَّم `[x]` في نفس الـ PR الذي يغلقه، مع رابط PR والإيصال الحي.
