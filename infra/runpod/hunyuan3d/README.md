@@ -11,8 +11,8 @@ pickle-free guards and request limits (`input_guard.py`). CI builds and scans th
 `runtime` target (`.github/workflows/fr16d-3d-runtime-container-security.yml`).
 The findings, residual risk and the exact pre-launch deploy steps are in
 [FR16D-hunyuan-security-review-20261107.md](../../../docs/project/receipts/FR16D-hunyuan-security-review-20261107.md).
-The quarantine below stays in force until that receipt's live test (T-11) passes
-and the owner decides O-09.
+The quarantine below stays in force until that receipt's live test (T-18) passes
+and the owner decides O-10.
 
 ## Current status: quarantined; not approved for production
 

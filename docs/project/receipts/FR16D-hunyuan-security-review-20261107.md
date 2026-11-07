@@ -3,7 +3,7 @@
 Status: **source, image definitions and CI gate are in the PR. Deploy and the live GPU test are not done.**
 `HUNYUAN_RUNTIME_SECURITY_APPROVED` stays `False` in
 `web-dashboard/backend/app/services/three_d_provider_policy.py`. Lifting it is
-owner decision O-09 in the pre-launch register, and it comes only after T-11.
+owner decision O-10 in the pre-launch register, and it comes only after T-18.
 
 Scope: code, images and docs. No server access, no RunPod calls, no deploys,
 no paid GPU work. The upstream source was audited with read-only clones on
@@ -82,7 +82,7 @@ does not use it.
 1. **No functional evidence yet.** The CUDA extensions are compiled for sm_80
    to sm_90 and the Diffusers/Transformers versions are newer than the Phase 34C
    acceptance. The patched loaders have only been checked by imports, not run
-   against weights. A real non-fallback PBR run on a GPU is required (T-11)
+   against weights. A real non-fallback PBR run on a GPU is required (T-18)
    before anyone may call this image functional.
 2. **One-time restricted unpickling at build time.** It uses
    `weights_only=True` on SHA-256-pinned files in a stage that is thrown away.
@@ -96,7 +96,7 @@ does not use it.
 5. **Licence.** The Tencent Hunyuan 3D Community License territory rules stay
    enforced by `three_d_provider_policy.py`. This review does not change them.
 
-## 4. Deploy steps for the pre-launch window (T-11, then O-09)
+## 4. Deploy steps for the pre-launch window (T-18, then O-10)
 
 1. Build on a builder with at least 120 GB of free disk and egress to Docker
    Hub, GitHub, huggingface.co, download.blender.org, nodejs.org and npm:
@@ -131,7 +131,7 @@ does not use it.
    Also send a negative request (an oversized image and an unknown field) and
    confirm it is rejected before GPU work.
 6. Write a receipt with the digest, scan hashes, job IDs, timings and output
-   hashes. Only then may the owner decide O-09: set
+   hashes. Only then may the owner decide O-10: set
    `HUNYUAN_RUNTIME_SECURITY_APPROVED = True`, replace
    `HUNYUAN_QUARANTINED_IMAGE_DIGEST` with the retired digest list in a
    protected PR, and deploy the backend. Rollback is to flip the constant back,
@@ -177,4 +177,4 @@ The pinned Blender 5.2.3 also powers the new `three-d-converter` sidecar.
 - CI scan of the converter image: Ubuntu 24.04 with **0 HIGH/CRITICAL**, and
   the conversion contract passes at build time.
 
-Deploy is T-12.
+Deploy is T-19.

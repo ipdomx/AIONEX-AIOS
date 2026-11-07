@@ -494,7 +494,7 @@ async def test_poll_fallback_is_idempotent_with_webhook_deliveries(inbox_case):
 async def test_data_deletion_deletes_tokens_and_inbox_and_returns_a_status_url(inbox_case):
     case = inbox_case
     await _deliver(case, feed_payload())
-    request = signed_request({"algorithm": "HMAC-SHA256", "issued_at": 1, "user_id": META_USER})
+    request = signed_request({"algorithm": "HMAC-SHA256", "issued_at": int(datetime.now(UTC).timestamp()), "user_id": META_USER})
     forged = await case.client.post(
         PREFIX + "/meta/data-deletion",
         data={"signed_request": signed_request({"algorithm": "HMAC-SHA256", "user_id": META_USER}, "wrong-secret")},
@@ -528,7 +528,7 @@ async def test_data_deletion_deletes_tokens_and_inbox_and_returns_a_status_url(i
 async def test_deauthorize_revokes_tokens_but_keeps_inbox_history(inbox_case):
     case = inbox_case
     await _deliver(case, feed_payload())
-    request = signed_request({"algorithm": "HMAC-SHA256", "issued_at": 1, "user_id": META_USER})
+    request = signed_request({"algorithm": "HMAC-SHA256", "issued_at": int(datetime.now(UTC).timestamp()), "user_id": META_USER})
     response = await case.client.post(PREFIX + "/meta/deauthorize", data={"signed_request": request})
     assert response.status_code == 200, response.text
     assert response.json()["success"] is True and response.json()["confirmation_code"]

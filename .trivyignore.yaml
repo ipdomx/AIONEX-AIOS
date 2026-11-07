@@ -1,0 +1,236 @@
+# FR-23 reviewed Trivy exceptions. Each entry is a documented, path-scoped
+# decision recorded in docs/project/receipts/FR23-final-security-review-20261107.md.
+# A vulnerability entry always carries an expiry so the gate re-opens it.
+# Never add an entry just to make the gate pass: upgrade instead.
+
+misconfigurations:
+  # Proven false positive: the image starts as root only so the entrypoint can
+  # install root-owned secret files, then always drops to the unprivileged
+  # "aionex" user (scripts/docker-entrypoint.sh: exec su-exec aionex). The
+  # Kubernetes project-worker additionally runs with runAsNonRoot/runAsUser 1000.
+  - id: DS-0002
+    paths:
+      - "web-dashboard/backend/Dockerfile"
+    statement: "FR23-T1 privilege drop in entrypoint (su-exec aionex); not a root workload"
+  # Accepted risk, tracked in the pre-launch register: offline build-only image
+  # (Android APK/AAB builder) and the RunPod GPU worker images, which run as
+  # root inside RunPod's isolated serverless sandbox. Hunyuan3D is quarantined
+  # (FR-16D). Moving TripoSR/Hunyuan3D to a non-root user is a pre-launch item.
+  - id: DS-0002
+    paths:
+      - "deploy/mobile/android-builder/Dockerfile"
+      - "infra/runpod/triposr/Dockerfile"
+      - "infra/runpod/hunyuan3d/Dockerfile"
+    statement: "FR23-T2 accepted until the RunPod non-root migration; see pre-launch register"
+    expired_at: 2027-01-31
+
+vulnerabilities:
+  # Accepted risk with expiry: Go modules of the Security Lab's locally built
+  # scanner binaries (security-build/*). Each lock pins the module graph AND
+  # the expected binary SHA-256, so a bump needs a rebuild to re-pin the
+  # binary hash (owner pre-launch action FR23-P3). The binaries only run in
+  # the isolated, non-root Security Lab worker; every listed issue is a DoS in
+  # parsing (compress, x/net html/http2, go-jose) or a Docker-engine issue the
+  # Trivy CLI does not exercise (no Docker daemon in that container).
+  - id: CVE-2026-63209
+    paths:
+      - "web-dashboard/backend/security-build/gitleaks/go.mod"
+      - "web-dashboard/backend/security-build/httpx/go.mod"
+    statement: "FR23-T3 klauspost/compress DoS; rebuild lock with 1.18.7"
+    expired_at: 2026-12-31
+  - id: CVE-2026-116587
+    paths:
+      - "web-dashboard/backend/security-build/grype/go.mod"
+      - "web-dashboard/backend/security-build/syft/go.mod"
+      - "web-dashboard/backend/security-build/trivy/go.mod"
+    statement: "FR23-T3 go-jose DoS; rebuild lock with 4.1.6"
+    expired_at: 2026-12-31
+  - id: CVE-2026-78661
+    paths:
+      - "web-dashboard/backend/security-build/grype/go.mod"
+      - "web-dashboard/backend/security-build/httpx/go.mod"
+      - "web-dashboard/backend/security-build/syft/go.mod"
+      - "web-dashboard/backend/security-build/trivy/go.mod"
+    statement: "FR23-T3 x/net/html DoS; rebuild lock with x/net 0.62.0"
+    expired_at: 2026-12-31
+  - id: CVE-2026-78669
+    paths:
+      - "web-dashboard/backend/security-build/grype/go.mod"
+      - "web-dashboard/backend/security-build/httpx/go.mod"
+      - "web-dashboard/backend/security-build/syft/go.mod"
+      - "web-dashboard/backend/security-build/trivy/go.mod"
+    statement: "FR23-T3 x/net http2 DoS; rebuild lock with x/net 0.62.0"
+    expired_at: 2026-12-31
+  - id: CVE-2026-41567
+    paths:
+      - "web-dashboard/backend/security-build/trivy/go.mod"
+    statement: "FR23-T4 docker/docker engine issue, no upstream fix; Trivy runs without a Docker daemon"
+    expired_at: 2026-12-31
+  - id: CVE-2026-42306
+    paths:
+      - "web-dashboard/backend/security-build/trivy/go.mod"
+    statement: "FR23-T4 moby engine issue, no upstream fix; Trivy runs without a Docker daemon"
+    expired_at: 2026-12-31
+  # Accepted risk with a SHORT expiry (FR23-02, pre-launch T-13): TripoSR worker
+  # manifest. Pillow's only fix is 13.0.0, but rembg (all current releases,
+  # incl. 2.0.82) requires pillow<13, so pip cannot resolve the fix today
+  # (verified by the Phase 34F image build in PR #1038). Brotli 1.2.1, msgpack
+  # 1.2.3 and rembg 2.0.82 are also held: any change to infra/runpod/triposr
+  # runs the image gate, which cannot pass while Pillow is <13. Mitigation until
+  # then: the RunPod endpoints are at workersMax=0 (register O-07) and the
+  # worker runs in RunPod's isolated sandbox. Do not extend without a rebuild plan.
+  - id: CVE-2026-111497
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112390
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112392
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112393
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112397
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112398
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112399
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112400
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112402
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112403
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112404
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112405
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112406
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112892
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112893
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112894
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112895
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112896
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112897
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112900
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-112902
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-114613
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-115924
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96637
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96639
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96640
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96642
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96643
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96644
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: CVE-2026-96778
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15
+  - id: GHSA-78g4-xqwv-q3g8
+    paths:
+      - "infra/runpod/triposr/requirements.txt"
+    statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
+    expired_at: 2026-12-15

@@ -10,7 +10,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlsplit
-from xml.sax.saxutils import escape as xml_escape
+from xml.sax.saxutils import escape as xml_escape  # nosemgrep -- FR-23: output escaping only, nothing is parsed
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import func, select

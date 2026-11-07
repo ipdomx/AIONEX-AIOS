@@ -1,5 +1,6 @@
 """Logging configuration."""
 
+import logging
 import sys
 from typing import Any
 
@@ -7,8 +8,23 @@ import structlog
 from loguru import logger
 
 
+# HTTP client libraries log full request URLs at INFO/DEBUG. Meta Graph OAuth
+# exchanges and token inspection carry the app access token, client secret or
+# authorization code in the query string, so these loggers never go below
+# WARNING whatever the root level is (FR-23 log-leakage hardening).
+URL_LOGGING_LIBRARIES = ("httpx", "httpcore", "urllib3", "botocore", "hpack")
+
+
+def quiet_url_logging() -> None:
+    for name in URL_LOGGING_LIBRARIES:
+        library_logger = logging.getLogger(name)
+        if library_logger.level < logging.WARNING:
+            library_logger.setLevel(logging.WARNING)
+
+
 def setup_logging():
     """Configure structured logging."""
+    quiet_url_logging()
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,

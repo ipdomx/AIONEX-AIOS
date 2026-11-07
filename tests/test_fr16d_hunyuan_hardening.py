@@ -46,7 +46,7 @@ def _encode(image, fmt: str = "PNG") -> str:
 def test_quarantine_gate_is_not_lifted_by_this_change() -> None:
     assert "HUNYUAN_RUNTIME_SECURITY_APPROVED = False" in POLICY
     roadmap = (ROOT / "docs/project/COMPLETION-ROADMAP.md").read_text()
-    for item in ("T-11", "T-12", "O-09"):
+    for item in ("T-18", "T-19", "O-10"):
         assert f"- [ ] {item} " in roadmap
 
 
