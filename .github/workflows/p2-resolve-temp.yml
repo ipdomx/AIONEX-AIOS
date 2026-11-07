@@ -20,17 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - name: Source details
+      - name: Import trace and lock
         run: |
           git clone -q https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 /tmp/hy && cd /tmp/hy && git checkout -q 82920d643c0dc2f7bfd7255f45f62d386edfe60c
-          echo "===== IMPORTS"
-          git ls-files 'hy3dshape/hy3dshape/*.py' 'hy3dpaint/*.py' | grep -v -E '/(src|train)|train\.py|hy3dpaint/hunyuanpaintpbr/model\.py' | xargs grep -h -E '^\s*(import|from) ' | sed 's/^\s*//' | sort | uniq -c | sort -rn
-          for f in hy3dshape/hy3dshape/__init__.py hy3dshape/hy3dshape/utils/utils.py hy3dshape/hy3dshape/utils/__init__.py hy3dpaint/utils/simplify_mesh_utils.py hy3dpaint/utils/uvwrap_utils.py hy3dpaint/hunyuanpaintpbr/__init__.py hy3dpaint/custom_rasterizer/setup.py hy3dpaint/DifferentiableRenderer/MeshRender.py hy3dpaint/convert_utils.py hy3dpaint/torchvision_fix.py; do echo "===== FILE $f"; head -c 9000 "$f"; echo; done
-          echo "===== modules tail"; sed -n 790,840p hy3dpaint/hunyuanpaintpbr/unet/modules.py
-          echo "===== pipeline_utils imports"; grep -n -E 'import|inpaint|cv2' hy3dpaint/utils/pipeline_utils.py | head -40
-          git ls-files hy3dpaint/custom_rasterizer hy3dpaint/DifferentiableRenderer hy3dshape/hy3dshape | head -200
-      - name: Hunyuan lock
-        run: |
+          echo "===== modules tail"; sed -n 795,835p hy3dpaint/hunyuanpaintpbr/unet/modules.py
+          echo "===== lightning users"; git grep -n -E "pytorch_lightning|import timm|from timm|torchdiffeq|diso|torch_cluster|sageattention|peft|rembg|pythreejs|matplotlib" -- 'hy3dshape/hy3dshape/*.py' 'hy3dpaint/*.py'
+          echo "===== try/except around"; git grep -n -B2 -A2 -E "^\s*(import|from) (diso|sageattention|torch_cluster|peft)" -- '*.py' | head -60
           python3 -m pip install -q uv
           mkdir -p /tmp/lock && cd /tmp/lock
           cat > hunyuan.in <<'R'
@@ -57,4 +52,29 @@ jobs:
           timm
           R
           printf 'torch==2.9.1\ntorchvision==0.24.1\ntriton==3.5.1\nsetuptools==79.0.1\n' > c.txt
-          uv pip compile hunyuan.in -c c.txt --python-version 3.11 --python-platform x86_64-manylinux_2_28 --no-header --no-annotate --no-emit-package torch --no-emit-package torchvision --no-emit-package triton --no-emit-package setuptools -o plain.txt; cat plain.txt | grep -v nvidia
+          uv pip compile hunyuan.in -c c.txt --python-version 3.11 --python-platform x86_64-manylinux_2_28 --no-header --no-annotate -o plain.txt || true
+          echo "===== PLAIN"; cat plain.txt | grep -v -E "^nvidia"
+          python3 -m venv /tmp/v && /tmp/v/bin/pip install -q uv && /tmp/v/bin/uv pip install -q --python /tmp/v/bin/python --index-url https://download.pytorch.org/whl/cpu torch==2.9.1 torchvision==0.24.1 && /tmp/v/bin/uv pip install -q --python /tmp/v/bin/python -r plain.txt --no-deps 2>&1 | tail -5 || true
+          cd /tmp/hy && cat > /tmp/trace.py <<'PY'
+          import importlib, sys, types
+          sys.path[:0] = ["/tmp/hy", "/tmp/hy/hy3dshape", "/tmp/hy/hy3dpaint"]
+          stubbed = []
+          for _ in range(40):
+              try:
+                  for name in list(sys.modules):
+                      if name.startswith(("hy3dshape", "textureGenPipeline", "hunyuanpaintpbr", "utils", "DifferentiableRenderer")):
+                          del sys.modules[name]
+                  import hy3dshape
+                  from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline
+                  from textureGenPipeline import Hunyuan3DPaintConfig, Hunyuan3DPaintPipeline
+                  import hunyuanpaintpbr
+                  break
+              except ModuleNotFoundError as exc:
+                  print("MISSING", exc.name, "from", exc.__traceback__.tb_next and exc.__traceback__)
+                  import traceback; traceback.print_exc(limit=-3)
+                  stubbed.append(exc.name)
+                  sys.modules[exc.name] = types.ModuleType(exc.name)
+          print("STUBBED", stubbed)
+          print("LOADED_THIRD_PARTY", sorted({m.split(".")[0] for m in sys.modules}))
+          PY
+          /tmp/v/bin/python /tmp/trace.py 2>&1 | tail -120
