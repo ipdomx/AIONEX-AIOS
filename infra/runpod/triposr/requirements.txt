@@ -4,7 +4,7 @@ Pillow==12.3.0
 einops==0.8.1
 transformers==5.10.1
 trimesh==4.8.3
-rembg==2.0.78
+rembg==2.0.82
 huggingface-hub==1.7.1
 fsspec==2026.6.0
 imageio==2.37.0
