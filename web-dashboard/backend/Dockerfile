@@ -29,8 +29,8 @@ WORKDIR /app
 # fail the build if the resolved version is older than the fixed revision.
 RUN set -eux; \
     apk upgrade --no-cache sqlite-libs libcrypto3 libssl3 libuuid; \
-    apk add --no-cache --upgrade 'musl>=1.2.5-r24' 'zlib>=1.3.2-r1'; \
-    for floor in musl:1.2.5-r24 zlib:1.3.2-r1; do \
+    apk add --no-cache --upgrade 'musl>=1.2.5-r24' 'musl-utils>=1.2.5-r24' 'zlib>=1.3.2-r1'; \
+    for floor in musl:1.2.5-r24 musl-utils:1.2.5-r24 zlib:1.3.2-r1; do \
       name="${floor%%:*}"; minimum="${floor#*:}"; \
       installed="$(apk list --installed "$name" | awk -v n="$name" '$1 ~ ("^" n "-[0-9]") {print $1; found=1; exit} END{if(!found)exit 1}')"; \
       comparison="$(apk version -t "${installed#"$name"-}" "$minimum")"; \
