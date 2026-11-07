@@ -32,7 +32,7 @@ COPY vendor/tsr /opt/triposr/tsr
 COPY vendor/LICENSE /opt/triposr/LICENSE
 COPY vendor/UPSTREAM_COMMIT /opt/triposr/UPSTREAM_COMMIT
 COPY handler.py input_guard.py /opt/triposr/
-RUN python -m pip uninstall -y uv wheel \
+RUN python -m pip uninstall -y uv wheel setuptools \
  && (python -m pip uninstall -y pip || true) \
  && rm -rf /root/.cache /tmp/requirements.txt /tmp/requirements.lock \
  && for tool in pip pip3 uv uvx; do rm -f "/usr/local/bin/$tool" "/usr/bin/$tool"; done \

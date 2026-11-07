@@ -124,7 +124,7 @@ COPY --from=tools /opt/gltf-tools /opt/gltf-tools
 COPY handler.py input_guard.py phase34c_blender.py /opt/
 RUN set -eux; \
     test -e /opt/gltf-tools/node_modules/.bin/gltf-transform; \
-    python -m pip uninstall -y uv wheel; \
+    python -m pip uninstall -y uv wheel setuptools; \
     python -m pip uninstall -y pip || true; \
     rm -rf /root/.cache; \
     for tool in pip pip3 uv uvx; do rm -f "/usr/local/bin/$tool" "/usr/bin/$tool"; done; \
