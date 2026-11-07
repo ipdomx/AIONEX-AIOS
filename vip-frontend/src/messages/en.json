@@ -1403,7 +1403,13 @@
       "obj": "Export OBJ",
       "refresh": "Refresh secure links",
       "objNote": "OBJ is converted in your browser from the preview and contains geometry only (no textures).",
-      "expiry": "Secure links expire in about {minutes} min."
+      "expiry": "Secure links expire in about {minutes} min.",
+      "server": {
+        "obj": "Download OBJ (with textures)",
+        "fbx": "Download FBX",
+        "usdz": "Download USDZ"
+      },
+      "serverUnavailable": "FBX/USDZ conversions are not available for this model."
     },
     "status": {
       "queued": "Queued",

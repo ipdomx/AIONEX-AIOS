@@ -49,8 +49,8 @@ jobs:
           for arg in re.findall(r"(?m)^ARG CUDA_(?:DEVEL|RUNTIME)=(\S+)$", dockerfile):
               assert re.fullmatch(r"[^ ]+@sha256:[0-9a-f]{64}", arg), arg
           assert "--require-hashes" in dockerfile and "USER aionex" in dockerfile
-          assert "ipdomx/aionex-hunyuan3d@" not in dockerfile, "opaque quarantined base must not return"
-          assert "curl -fsSL https://deb.nodesource.com" not in dockerfile
+          assert not re.search(r"(?m)^(FROM|ARG)\s.*ipdomx/aionex-hunyuan3d", dockerfile), "opaque quarantined base must not return"
+          assert "deb.nodesource.com" not in "\n".join(l for l in dockerfile.splitlines() if not l.lstrip().startswith("#"))
           for line in (root / "requirements.lock").read_text().splitlines():
               if re.match(r"^[A-Za-z0-9]", line):
                   assert re.match(r"^[A-Za-z0-9_.\-]+==\S+ \\$", line), line

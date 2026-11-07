@@ -1029,10 +1029,25 @@ export function ThreeDClient() {
                             <Download className="h-4 w-4" aria-hidden="true" />
                             {t("download.glb")}
                           </a>
-                          <Button variant="secondary" disabled={!model || busy === "obj"} onClick={() => void exportObj()}>
-                            <FileDown className="h-4 w-4" aria-hidden="true" />
-                            {t("download.obj")}
-                          </Button>
+                          {/* Server conversions are listed only when they exist for this artifact. */}
+                          {(links.exports ?? []).map((item) => (
+                            <a
+                              key={item.format}
+                              href={item.url}
+                              rel="noreferrer"
+                              className="portal-secondary-button inline-flex h-11 items-center gap-2 px-5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-500"
+                            >
+                              <Download className="h-4 w-4" aria-hidden="true" />
+                              {t(`download.server.${item.format}`)}
+                              <span dir="ltr" className="text-[11px] opacity-60">{formatBytes(item.size_bytes)}</span>
+                            </a>
+                          ))}
+                          {!(links.exports ?? []).some((item) => item.format === "obj") ? (
+                            <Button variant="secondary" disabled={!model || busy === "obj"} onClick={() => void exportObj()}>
+                              <FileDown className="h-4 w-4" aria-hidden="true" />
+                              {t("download.obj")}
+                            </Button>
+                          ) : null}
                           <Button variant="ghost" onClick={() => void refreshLinks()}>
                             <RefreshCw className="h-4 w-4" aria-hidden="true" />
                             {t("download.refresh")}
@@ -1042,7 +1057,8 @@ export function ThreeDClient() {
                           <li>
                             {links.filename} · <span dir="ltr">{formatBytes(links.size_bytes)}</span>
                           </li>
-                          <li>{t("download.objNote")}</li>
+                          {!(links.exports ?? []).some((item) => item.format === "obj") ? <li>{t("download.objNote")}</li> : null}
+                          {(links.exports ?? []).length === 0 ? <li>{t("download.serverUnavailable")}</li> : null}
                           <li>{t("download.expiry", { minutes: Math.max(1, Math.round(links.expires_in / 60)) })}</li>
                           <li className="break-all">
                             <ShieldCheck className="me-1 inline h-3 w-3" aria-hidden="true" />

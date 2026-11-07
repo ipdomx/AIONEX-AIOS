@@ -1403,7 +1403,13 @@
       "obj": "OBJ olarak dışa aktar",
       "refresh": "Güvenli bağlantıları yenile",
       "objNote": "OBJ, önizlemeden tarayıcınızda dönüştürülür ve yalnızca geometri içerir (doku yoktur).",
-      "expiry": "Güvenli bağlantıların süresi yaklaşık {minutes} dk içinde dolar."
+      "expiry": "Güvenli bağlantıların süresi yaklaşık {minutes} dk içinde dolar.",
+      "server": {
+        "obj": "OBJ indir (dokularla)",
+        "fbx": "FBX indir",
+        "usdz": "USDZ indir"
+      },
+      "serverUnavailable": "Bu model için FBX/USDZ dönüştürmeleri kullanılamıyor."
     },
     "status": {
       "queued": "Kuyrukta",

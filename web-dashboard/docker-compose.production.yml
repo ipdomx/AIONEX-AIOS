@@ -891,6 +891,34 @@ services:
     cap_drop: ["ALL"]
     networks: [aionex-network]
 
+  three-d-converter:
+    image: aionex-aios-blender-converter:local
+    build:
+      context: ../infra/blender-converter
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Headless Blender sidecar (roadmap 2.4): no network at all, read-only root,
+    # no capabilities. It only sees the conversion spool shared with three-d-worker.
+    network_mode: none
+    read_only: true
+    user: "1000:1000"
+    mem_limit: 4g
+    cpus: "2.0"
+    pids_limit: 256
+    stop_grace_period: 30s
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    volumes:
+      - three_d_conversion_spool:/var/lib/aionex/three-d-conversion:rw
+    healthcheck:
+      test: ["CMD", "python3", "-I", "/opt/aionex/converter_daemon.py", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
   three-d-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
@@ -910,12 +938,15 @@ services:
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-gpu.env
+      THREE_D_CONVERSION_SPOOL: /var/lib/aionex/three-d-conversion
     volumes:
       - ..:/workspace:ro
       - ./secrets/RUNPOD_GPU.env:/run/secrets/aionex/runpod-gpu.env:ro
       - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
+      - three_d_conversion_spool:/var/lib/aionex/three-d-conversion:rw
     depends_on:
       backend: {condition: service_healthy}
+      three-d-converter: {condition: service_started}
     healthcheck:
       test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.three_d_worker", "--healthcheck"]
       interval: 30s
@@ -1435,6 +1466,7 @@ volumes:
   project_npm_cache_data:
   studio_asset_data:
   three_d_asset_data:
+  three_d_conversion_spool:
   audio_song_ingress_data:
   media_asset_data:
   mobile_release_data:

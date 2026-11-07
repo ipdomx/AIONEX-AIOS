@@ -1403,7 +1403,13 @@
       "obj": "OBJ exportieren",
       "refresh": "Sichere Links aktualisieren",
       "objNote": "OBJ wird in Ihrem Browser aus der Vorschau umgewandelt und enthält nur Geometrie (keine Texturen).",
-      "expiry": "Sichere Links laufen in etwa {minutes} Min. ab."
+      "expiry": "Sichere Links laufen in etwa {minutes} Min. ab.",
+      "server": {
+        "obj": "OBJ herunterladen (mit Texturen)",
+        "fbx": "FBX herunterladen",
+        "usdz": "USDZ herunterladen"
+      },
+      "serverUnavailable": "FBX/USDZ-Konvertierungen sind für dieses Modell nicht verfügbar."
     },
     "status": {
       "queued": "In Warteschlange",
