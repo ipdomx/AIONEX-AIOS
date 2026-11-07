@@ -404,6 +404,17 @@ export default function OwnerBillingPage() {
             money(overview.summary.usage_charge_minor),
             CreditCard,
           ],
+          ["MRR", money(overview.summary.mrr_minor), CircleDollarSign],
+          [
+            "Active subscriptions",
+            overview.summary.active_subscriptions,
+            Building2,
+          ],
+          [
+            "Past due subscriptions",
+            overview.summary.past_due_subscriptions,
+            ReceiptText,
+          ],
         ].map(([label, value, Icon]) => {
           const MetricIcon = Icon as typeof Building2;
           return (

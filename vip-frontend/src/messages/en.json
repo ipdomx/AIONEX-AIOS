@@ -643,7 +643,13 @@
     "sourceMobileStore": "Mobile store subscription",
     "sourceWeb": "Web subscription",
     "manageStoreSubscription": "Manage in store",
-    "restorePurchases": "Restore purchases"
+    "restorePurchases": "Restore purchases",
+    "changePlan": "Change plan",
+    "planChangeRequested": "Plan change sent to Stripe. Upgrades are charged the prorated difference now and apply once paid; downgrades credit unused time on the next invoice.",
+    "resumeSubscription": "Keep subscription",
+    "resumeSuccess": "The scheduled cancellation was removed. Your subscription will renew.",
+    "resumeError": "The subscription could not be resumed.",
+    "pastDueNotice": "Your last payment failed. Paid features are paused until the invoice is paid. Update your payment method from the provider portal."
   },
   "notifications": {
     "eyebrow": "Communication center",
