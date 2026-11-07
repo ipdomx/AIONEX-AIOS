@@ -25,6 +25,7 @@ ARG HUNYUAN_COMMIT=82920d643c0dc2f7bfd7255f45f62d386edfe60c
 ARG TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
 ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_BREAK_SYSTEM_PACKAGES=1
 RUN set -eux; \
+    rm -f /etc/apt/sources.list.d/*cuda* /etc/apt/sources.list.d/*nvidia*; \
     apt-get update; \
     apt-get install -y --no-install-recommends git ca-certificates g++; \
     rm -rf /var/lib/apt/lists/*
@@ -59,6 +60,7 @@ ARG NODE_VERSION=v24.22.2
 ARG NODE_SHA256=48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
+    rm -f /etc/apt/sources.list.d/*cuda* /etc/apt/sources.list.d/*nvidia*; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl xz-utils; \
     rm -rf /var/lib/apt/lists/*
@@ -92,6 +94,7 @@ RUN set -eux; \
 FROM ${CUDA_RUNTIME} AS deps
 ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_BREAK_SYSTEM_PACKAGES=1 PYTHONUNBUFFERED=1
 RUN set -eux; \
+    rm -f /etc/apt/sources.list.d/*cuda* /etc/apt/sources.list.d/*nvidia*; \
     apt-get update; \
     apt-get dist-upgrade -y; \
     apt-get install -y --no-install-recommends ca-certificates libgl1 libegl1 libglx0 libopengl0 libglib2.0-0 libgomp1 \
@@ -103,6 +106,7 @@ COPY --from=source /opt/wheels /tmp/wheels
 RUN set -eux; \
     python -m pip install --require-hashes --no-deps --no-build-isolation -r /tmp/requirements.lock; \
     python -m pip install --no-deps --no-index /tmp/wheels/*.whl; \
+    python -m pip uninstall -y spin; \
     python -m pip check; \
     rm -rf /tmp/wheels /tmp/requirements.lock /root/.cache
 

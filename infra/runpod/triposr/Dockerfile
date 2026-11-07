@@ -5,6 +5,7 @@ FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:b85566342b86d13a67712
 ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_BREAK_SYSTEM_PACKAGES=1 PYTHONUNBUFFERED=1 \
     PYOPENGL_PLATFORM=egl MGL_BACKEND=egl U2NET_HOME=/models/rembg
 RUN set -eux; \
+    rm -f /etc/apt/sources.list.d/*cuda* /etc/apt/sources.list.d/*nvidia*; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y; \
     apt-get install -y --no-install-recommends ca-certificates libgl1 libglib2.0-0 libegl1; \
@@ -17,6 +18,7 @@ COPY requirements.lock /tmp/requirements.lock
 # what the lock installed.
 RUN python -m pip install --no-cache-dir --require-hashes --no-deps --no-build-isolation -r /tmp/requirements.lock \
  && python -m pip install --no-cache-dir --no-index -r /tmp/requirements.txt \
+ && python -m pip uninstall -y spin \
  && python -m pip check \
  && python -c "from transformers.models.vit.modeling_vit import ViTModel; assert ViTModel is not None"
 # Model assets: pinned revisions, SHA-256 verified (fetch_models.py), TripoSR
