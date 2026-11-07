@@ -2,127 +2,59 @@ name: P2 temporary pin resolver
 on:
   push:
     branches: [feat/p2-hunyuan-hardening-blender-20261107]
-    paths: [".github/workflows/p2-resolve-temp.yml"]
+    paths: [".github/workflows/p2-resolve-temp.yml", "infra/blender-converter/**"]
 permissions:
   contents: read
 jobs:
-  resolve:
+  converter:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     steps:
-      - name: Base image digests
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Build converter
+        run: docker build --progress=plain -t conv:test infra/blender-converter 2>&1 | tail -150
+      - name: Trivy converter
         run: |
-          for ref in pytorch/pytorch:2.9.1-cuda12.8-cudnn9-devel pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime python:3.11-slim-bookworm python:3.11-slim-trixie debian:trixie-slim ubuntu:24.04 python:3.11-alpine3.23; do
-            echo "DIGEST $ref $(docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Digest}}')"
-          done
-      - name: Blender releases
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.72.0 image --quiet --scanners vuln --severity HIGH,CRITICAL --format table conv:test || true
+  hunyuan-info:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Source details
         run: |
-          curl -fsSL https://download.blender.org/release/ | grep -o 'Blender5\.[0-9]*/' | sort -u
-          curl -fsSL https://download.blender.org/release/Blender5.2/ | grep -o 'blender-5\.2\.[0-9]*-linux-x64[^"<]*' | sort -u
-          for f in $(curl -fsSL https://download.blender.org/release/Blender5.2/ | grep -o 'blender-5\.2\.[0-9]*\.sha256' | sort -u); do echo "== $f"; curl -fsSL "https://download.blender.org/release/Blender5.2/$f"; done
-          for f in $(curl -fsSL https://download.blender.org/release/Blender5.2/ | grep -o 'blender-5\.2\.[0-9]*\.md5' | sort -u); do echo "== $f"; curl -fsSL "https://download.blender.org/release/Blender5.2/$f" | grep linux || true; done
-      - name: Hugging Face trees
-        run: |
-          python3 - <<'PY'
-          import json, urllib.request
-          def get(url):
-              with urllib.request.urlopen(url, timeout=60) as r:
-                  return json.load(r)
-          for repo, rev in [("tencent/Hunyuan3D-2.1", "main"), ("facebook/dinov2-giant", "611a9d42f2335e0f921f1e313ad3c1b7178d206d"), ("stabilityai/TripoSR", "5b521936b01fbe1890f6f9baed0254ab6351c04a"), ("facebook/dino-vitb16", "f205d5d8e640a89a2b8ef0369670dfc37cc07fc2")]:
-              info = get(f"https://huggingface.co/api/models/{repo}/revision/{rev}")
-              sha = info.get("sha")
-              print("HFREPO", repo, rev, sha, info.get("lastModified"))
-              tree = get(f"https://huggingface.co/api/models/{repo}/tree/{sha}?recursive=true&expand=false")
-              for item in tree:
-                  if item.get("type") != "file":
-                      continue
-                  lfs = item.get("lfs") or {}
-                  print("HFFILE", repo, item["path"], item.get("size"), lfs.get("oid", "git:" + str(item.get("oid"))))
-          PY
-      - name: Small HF non-LFS files sha256
-        run: |
-          set -e
-          sha=$(curl -fsSL https://huggingface.co/api/models/tencent/Hunyuan3D-2.1/revision/main | python3 -c 'import json,sys;print(json.load(sys.stdin)["sha"])')
-          mkdir -p /tmp/hf && cd /tmp/hf
-          python3 - "$sha" <<'PY'
-          import hashlib, json, sys, urllib.request
-          sha = sys.argv[1]
-          repos = [("tencent/Hunyuan3D-2.1", sha), ("facebook/dinov2-giant", "611a9d42f2335e0f921f1e313ad3c1b7178d206d"), ("stabilityai/TripoSR", "5b521936b01fbe1890f6f9baed0254ab6351c04a"), ("facebook/dino-vitb16", "f205d5d8e640a89a2b8ef0369670dfc37cc07fc2")]
-          for repo, rev in repos:
-              tree = json.load(urllib.request.urlopen(f"https://huggingface.co/api/models/{repo}/tree/{rev}?recursive=true", timeout=60))
-              for item in tree:
-                  if item.get("type") != "file" or item.get("lfs"):
-                      continue
-                  body = urllib.request.urlopen(f"https://huggingface.co/{repo}/resolve/{rev}/{item['path']}", timeout=60).read()
-                  print("HFSMALL", repo, item["path"], len(body), hashlib.sha256(body).hexdigest())
-                  if item["path"].endswith((".json", ".yaml", ".yml", ".py", ".txt")) and len(body) < 20000:
-                      print("----- BEGIN", repo, item["path"]); print(body.decode("utf-8", "replace")); print("----- END")
-          PY
-      - name: rembg u2net and RealESRGAN checksums
-        run: |
-          curl -fsSL -o /tmp/u2net.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx && sha256sum /tmp/u2net.onnx && stat -c %s /tmp/u2net.onnx
-          curl -fsSL -o /tmp/RealESRGAN_x4plus.pth https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth && sha256sum /tmp/RealESRGAN_x4plus.pth && stat -c %s /tmp/RealESRGAN_x4plus.pth
-      - name: Hunyuan upstream source audit
-        run: |
-          git clone -q https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 /tmp/hy && cd /tmp/hy && git checkout -q 82920d643c0dc2f7bfd7255f45f62d386edfe60c && git log -1 --format='COMMIT %H %ad'
-          git ls-files | grep -v -E '\.(png|jpg|jpeg|gif|mp4|webp)$'
-          echo "===== requirements.txt"; cat requirements.txt
-          for f in $(git ls-files | grep -E '(setup\.py|compile.*\.sh|pyproject\.toml|\.yaml)$'); do echo "===== $f"; head -c 6000 "$f"; echo; done
-          echo "===== GREP"
-          git grep -n -E 'torch\.load|pickle|trust_remote_code|snapshot_download|hf_hub_download|from_pretrained|load_file|safetensors|requests\.|urllib|wget|subprocess|os\.system|eval\(|exec\(|custom_pipeline|\.ckpt|\.pth|\.bin|weights_only|huggingface_hub|HF_HOME|cache_dir|load_state_dict' -- '*.py' | cut -c1-260
-      - name: Hunyuan key files
-        run: |
-          cd /tmp/hy
-          for f in hy3dshape/hy3dshape/pipelines.py hy3dshape/hy3dshape/utils/utils.py hy3dpaint/textureGenPipeline.py hy3dpaint/utils/multiview_utils.py hy3dpaint/utils/image_super_utils.py hy3dpaint/convert_utils.py hy3dpaint/torchvision_fix.py hy3dpaint/DifferentiableRenderer/mesh_utils.py hy3dshape/hy3dshape/rembg.py; do echo "===== $f"; cat "$f" 2>/dev/null | head -c 30000; done
-          echo "===== unet model head"; head -c 12000 hy3dpaint/hunyuanpaintpbr/unet/model.py
-          echo "===== pipeline head"; grep -n -E 'def |from_pretrained|load|import' hy3dpaint/hunyuanpaintpbr/pipeline.py | head -80
-      - name: Base image Python inventory
-        run: |
-          docker run --rm --entrypoint sh pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime -c 'python -V; cat /etc/os-release | head -3; python -m pip list --format=freeze' | sed 's/^/RUNTIMEFREEZE /'
-      - name: Trivy base candidates
-        run: |
-          for ref in python:3.11-slim-bookworm python:3.11-slim-trixie debian:trixie-slim ubuntu:24.04; do
-            docker run --rm aquasec/trivy:0.72.0 image --quiet --scanners vuln --severity HIGH,CRITICAL --format json "$ref" > /tmp/t.json || true
-            python3 - "$ref" <<'PY'
-          import json, sys
-          d = json.load(open("/tmp/t.json"))
-          rows = []
-          for r in d.get("Results", []):
-              for v in r.get("Vulnerabilities") or []:
-                  rows.append((v["Severity"], v["PkgName"], v["VulnerabilityID"], v.get("Status"), v.get("FixedVersion")))
-          print("TRIVY", sys.argv[1], len(rows))
-          for row in rows: print("   ", *row)
-          PY
-          done
-      - name: TripoSR hashed lock
+          git clone -q https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 /tmp/hy && cd /tmp/hy && git checkout -q 82920d643c0dc2f7bfd7255f45f62d386edfe60c
+          echo "===== IMPORTS"
+          git ls-files 'hy3dshape/hy3dshape/*.py' 'hy3dpaint/*.py' | grep -v -E '/(src|train)|train\.py|hy3dpaint/hunyuanpaintpbr/model\.py' | xargs grep -h -E '^\s*(import|from) ' | sed 's/^\s*//' | sort | uniq -c | sort -rn
+          for f in hy3dshape/hy3dshape/__init__.py hy3dshape/hy3dshape/utils/utils.py hy3dshape/hy3dshape/utils/__init__.py hy3dpaint/utils/simplify_mesh_utils.py hy3dpaint/utils/uvwrap_utils.py hy3dpaint/hunyuanpaintpbr/__init__.py hy3dpaint/custom_rasterizer/setup.py hy3dpaint/DifferentiableRenderer/MeshRender.py hy3dpaint/convert_utils.py hy3dpaint/torchvision_fix.py; do echo "===== FILE $f"; head -c 9000 "$f"; echo; done
+          echo "===== modules tail"; sed -n 790,840p hy3dpaint/hunyuanpaintpbr/unet/modules.py
+          echo "===== pipeline_utils imports"; grep -n -E 'import|inpaint|cv2' hy3dpaint/utils/pipeline_utils.py | head -40
+          git ls-files hy3dpaint/custom_rasterizer hy3dpaint/DifferentiableRenderer hy3dshape/hy3dshape | head -200
+      - name: Hunyuan lock
         run: |
           python3 -m pip install -q uv
           mkdir -p /tmp/lock && cd /tmp/lock
-          docker run --rm --entrypoint python pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime -m pip list --format=freeze > base.txt
-          cat > triposr.in <<'R'
-          numpy==2.3.5
-          omegaconf==2.3.0
-          Pillow==12.3.0
-          einops==0.8.1
-          transformers==5.10.1
-          trimesh==4.8.3
-          rembg==2.0.82
-          huggingface-hub==1.7.1
-          fsspec==2026.6.0
-          imageio==2.37.0
-          runpod==1.11.0
-          xatlas==0.0.9
-          moderngl==5.12.0
-          onnxruntime==1.23.2
-          msgpack==1.2.3
-          soupsieve==2.9
-          urllib3==2.8.0
-          cryptography==50.0.0
-          pyOpenSSL==26.4.0
-          Brotli==1.2.1
-          scikit-image==0.26.0
+          cat > hunyuan.in <<'R'
+          diffusers
+          transformers<5
+          accelerate
           safetensors
+          huggingface-hub<1
+          omegaconf
+          einops
+          trimesh
+          pymeshlab
+          pygltflib
+          xatlas
+          opencv-python-headless
+          numpy<2.4
+          scipy
+          scikit-image
+          pillow
+          pyyaml
+          tqdm
+          runpod
+          pybind11
+          timm
           R
-          grep -i -E '^(torch|torchvision|torchaudio|triton|nvidia-|setuptools|filelock|sympy|networkx|jinja2|markupsafe|mpmath|typing.extensions|fsspec)' base.txt | grep -v -i fsspec > base-constraints.txt || true
-          cat base-constraints.txt
-          uv pip compile triposr.in -c base-constraints.txt --python-version 3.11 --python-platform x86_64-manylinux_2_28 --generate-hashes --no-header --no-annotate -o triposr.lock && echo "===== TRIPOSR LOCK" && cat triposr.lock
+          printf 'torch==2.9.1\ntorchvision==0.24.1\ntriton==3.5.1\nsetuptools==79.0.1\n' > c.txt
+          uv pip compile hunyuan.in -c c.txt --python-version 3.11 --python-platform x86_64-manylinux_2_28 --no-header --no-annotate --no-emit-package torch --no-emit-package torchvision --no-emit-package triton --no-emit-package setuptools -o plain.txt; cat plain.txt | grep -v nvidia
