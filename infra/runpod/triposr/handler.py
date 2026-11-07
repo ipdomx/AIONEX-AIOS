@@ -1,32 +1,45 @@
+"""AIONEX TripoSR MIT fallback RunPod handler (FR-16D hardening applied).
+
+Model assets are baked, checksum-verified safetensors; torch.load and Hub
+downloads are disabled in-process; requests are validated (size, type, pixel
+count, scalar ranges) before model work; outputs are size-limited.
+"""
 from __future__ import annotations
 
 import base64
 from hashlib import sha256
-from io import BytesIO
 import logging
 import os
 import json
+import shutil
 import struct
 from pathlib import Path
 import time
 import uuid
 
-import numpy as np
-from PIL import Image
-import rembg
-import runpod
-import torch
-import trimesh
+for _name in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):
+    os.environ[_name] = "1"
 
-from tsr.system import TSR
-from tsr.utils import remove_background, resize_foreground
-from tsr.bake_texture import bake_texture
+import numpy as np  # noqa: E402
+from PIL import Image  # noqa: E402
+import rembg  # noqa: E402
+import runpod  # noqa: E402
+import safetensors.torch  # noqa: E402
+import torch  # noqa: E402
+import trimesh  # noqa: E402
+from omegaconf import OmegaConf  # noqa: E402
+
+from input_guard import InputError, bounded_int, decode_image, reject_unknown_fields  # noqa: E402
+from tsr.system import TSR  # noqa: E402
+from tsr.utils import remove_background, resize_foreground  # noqa: E402
+from tsr.bake_texture import bake_texture  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("aionex-triposr-worker")
 MODEL_ROOT = "/models/TripoSR"
-SAVE = Path("/workspace/triposr_cache")
-SAVE.mkdir(parents=True, exist_ok=True)
+SAVE = Path(os.environ.get("AIONEX_TRIPOSR_WORKDIR", "/tmp/aionex-triposr"))
+MAX_OUTPUT_BYTES = int(os.environ.get("AIONEX_TRIPOSR_MAX_OUTPUT_BYTES", str(100 * 1024 * 1024)))
+INPUT_KEYS = frozenset({"image", "mc_resolution", "texture_size"})
 os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
 os.environ.setdefault("MGL_BACKEND", "egl")
 _MODEL = None
@@ -39,7 +52,14 @@ def get_model() -> TSR:
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA GPU is required")
         log.info("loading TripoSR fallback model")
-        _MODEL = TSR.from_pretrained(MODEL_ROOT, config_name="config.yaml", weight_name="model.ckpt")
+        # Equivalent to TSR.from_pretrained, but loads the build-time
+        # safetensors conversion instead of the pickled model.ckpt.
+        cfg = OmegaConf.load(os.path.join(MODEL_ROOT, "config.yaml"))
+        OmegaConf.resolve(cfg)
+        _MODEL = TSR(cfg)
+        _MODEL.load_state_dict(
+            safetensors.torch.load_file(os.path.join(MODEL_ROOT, "model.safetensors"), device="cpu")
+        )
         _MODEL.renderer.set_chunk_size(8192)
         _MODEL.to("cuda:0")
         log.info("TripoSR fallback model loaded")
@@ -53,8 +73,29 @@ def get_rembg():
     return _REMBG
 
 
-def prepare_image(raw: bytes) -> Image.Image:
-    image = Image.open(BytesIO(raw)).convert("RGBA")
+def _forbidden(name: str):
+    def _raise(*_args: object, **_kwargs: object):
+        raise RuntimeError(f"{name} is disabled in the AIONEX TripoSR runtime")
+
+    return _raise
+
+
+def install_runtime_guards() -> None:
+    torch.load = _forbidden("torch.load (pickle)")  # type: ignore[assignment]
+    torch.hub.load = _forbidden("torch.hub.load")  # type: ignore[assignment]
+    import huggingface_hub
+
+    for helper in ("snapshot_download", "hf_hub_download"):
+        if hasattr(huggingface_hub, helper):
+            setattr(huggingface_hub, helper, _forbidden(f"huggingface_hub.{helper}"))
+    import tsr.system
+    import tsr.models.tokenizers.image as image_tokenizer
+
+    tsr.system.hf_hub_download = _forbidden("huggingface_hub.hf_hub_download")
+    image_tokenizer.hf_hub_download = _forbidden("huggingface_hub.hf_hub_download")
+
+
+def prepare_image(image: Image.Image) -> Image.Image:
     image = remove_background(image, get_rembg())
     image = resize_foreground(image, 0.85)
     array = np.array(image).astype(np.float32) / 255.0
@@ -118,18 +159,24 @@ def handler(job: dict) -> dict:
     raw = payload.get("image")
     if not isinstance(raw, str) or not raw:
         return {"error": "input.image required"}
-    resolution = max(128, min(int(payload.get("mc_resolution", 192)), 256))
-    texture_resolution = max(512, min(int(payload.get("texture_size", 1024)), 2048))
     try:
-        source = base64.b64decode(raw, validate=True)
-        image = prepare_image(source)
+        reject_unknown_fields(payload, INPUT_KEYS)
+        resolution = max(128, min(bounded_int(payload, "mc_resolution", 192, 1, 4096), 256))
+        texture_resolution = max(512, min(bounded_int(payload, "texture_size", 1024, 1, 1 << 16), 2048))
+        source_image = decode_image(raw)
+    except InputError as exc:
+        return {"error": str(exc)}
+    work = SAVE / str(uuid.uuid4())
+    try:
+        image = prepare_image(source_image)
         model = get_model()
         with torch.no_grad():
             scene_codes = model([image], device="cuda:0")
             mesh = model.extract_mesh(scene_codes, False, resolution=resolution)[0]
-        work = SAVE / str(uuid.uuid4())
-        work.mkdir(parents=True, exist_ok=True)
+        work.mkdir(mode=0o700, parents=True, exist_ok=False)
         final, inspection = _textured_glb(model, scene_codes, mesh, work, texture_resolution)
+        if final.stat().st_size > MAX_OUTPUT_BYTES:
+            raise RuntimeError("fallback artifact exceeds the output size limit")
         body = final.read_bytes()
         if body[:4] != b"glTF":
             raise RuntimeError("fallback artifact is not GLB")
@@ -159,8 +206,12 @@ def handler(job: dict) -> dict:
     except Exception as exc:
         log.exception("TripoSR fallback handler failed")
         return {"error": f"{type(exc).__name__}: {exc}"}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 if __name__ == "__main__":
+    install_runtime_guards()
+    SAVE.mkdir(mode=0o700, parents=True, exist_ok=True)
     log.info("starting AIONEX TripoSR MIT fallback worker")
     runpod.serverless.start({"handler": handler})

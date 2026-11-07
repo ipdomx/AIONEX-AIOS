@@ -1,4 +1,4 @@
 Pillow==12.3.0
-msgpack==1.2.1
+msgpack==1.2.3
 soupsieve==2.9
 urllib3==2.8.0

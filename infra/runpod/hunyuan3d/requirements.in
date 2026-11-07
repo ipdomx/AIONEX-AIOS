@@ -1,0 +1,31 @@
+# Hunyuan3D 2.1 serverless inference runtime (FR-16D). torch/torchvision/triton
+# and the CUDA wheels come from the digest-pinned pytorch/pytorch base image.
+# Compile to requirements.lock with:
+#   uv pip compile requirements.in -c base-constraints.txt --generate-hashes \
+#     --python-version 3.12 --python-platform x86_64-manylinux_2_35 \
+#     --no-emit-package torch --no-emit-package torchvision --no-emit-package triton \
+#     --no-emit-package setuptools
+accelerate
+diffusers>=0.39
+transformers>=5.10
+huggingface-hub
+safetensors
+omegaconf
+einops
+timm
+torchdiffeq
+trimesh==4.4.7
+fast-simplification
+pymeshlab
+pygltflib
+xatlas
+opencv-python-headless<5
+numpy>=2.3,<2.4
+scipy
+scikit-image
+pillow>=13.0.0
+msgpack>=1.2.3
+soupsieve>=2.8.4
+pyyaml
+tqdm
+runpod>=1.12,<2
