@@ -1,0 +1,135 @@
+name: FR-16D Hunyuan3D and Blender Converter Container Security
+
+# Builds the hardened Hunyuan3D runtime (code + hash-locked dependencies, no
+# model weights: the weights stage adds only checksum-verified safetensors and
+# no packages) and the Blender converter sidecar, then applies the repository
+# gate: CycloneDX SBOM plus Trivy failing on any HIGH/CRITICAL, unfixed included.
+# No GPU, secrets, registry push or RunPod access.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fr16d-3d-runtime-container-security.yml"
+      - "infra/runpod/hunyuan3d/**"
+      - "infra/blender-converter/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fr16d-3d-runtime-container-security.yml"
+      - "infra/runpod/hunyuan3d/**"
+      - "infra/blender-converter/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fr16d-3d-runtime-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hunyuan-runtime-image:
+    name: Hunyuan3D hardened runtime, SBOM and image vulnerability gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Validate pinned, hardened source inputs
+        run: |
+          python -m compileall -q infra/runpod/hunyuan3d
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          root = Path("infra/runpod/hunyuan3d")
+          dockerfile = (root / "Dockerfile").read_text()
+          for arg in re.findall(r"(?m)^ARG CUDA_(?:DEVEL|RUNTIME)=(\S+)$", dockerfile):
+              assert re.fullmatch(r"[^ ]+@sha256:[0-9a-f]{64}", arg), arg
+          assert "--require-hashes" in dockerfile and "USER aionex" in dockerfile
+          assert not re.search(r"(?m)^(FROM|ARG)\s.*ipdomx/aionex-hunyuan3d", dockerfile), "opaque quarantined base must not return"
+          assert "deb.nodesource.com" not in "\n".join(l for l in dockerfile.splitlines() if not l.lstrip().startswith("#"))
+          for line in (root / "requirements.lock").read_text().splitlines():
+              if re.match(r"^[A-Za-z0-9]", line):
+                  assert re.match(r"^[A-Za-z0-9_.\-]+==\S+ \\$", line), line
+          lock = json.loads((root / "weights.lock.json").read_text())
+          for source in lock["sources"]:
+              assert re.fullmatch(r"[0-9a-f]{40}|v\d+\.\d+\.\d+", source["revision"])
+              assert source["revision"] in source["url"]
+              for item in source["files"]:
+                  assert re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) and item["size"] > 0
+                  assert not item["path"].endswith(".py")
+                  if item["path"].endswith((".ckpt", ".bin", ".pth")):
+                      assert item["convert"]["to"].endswith(".safetensors")
+          npm = json.loads((root / "gltf-tools/package-lock.json").read_text())
+          assert all(v.get("integrity", "").startswith("sha512-") for k, v in npm["packages"].items() if k)
+          PY
+      - name: Reclaim runner disk for the pinned CUDA devel and runtime images
+        run: |
+          set -Eeuo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          docker system prune --all --force
+          df -h /
+      - name: Build hardened Hunyuan3D runtime target without GPU, weights or secrets
+        run: docker build --pull --target runtime -t aionex-aios-hunyuan3d:fr16d infra/runpod/hunyuan3d
+      - name: Drop build cache before scanning
+        run: docker builder prune --all --force && docker image prune --force && df -h /
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
+        env:
+          TMPDIR: ${{ runner.temp }}
+        with:
+          image: aionex-aios-hunyuan3d:fr16d
+          format: cyclonedx-json
+          output-file: artifacts/aionex-aios-hunyuan3d.cdx.json
+          artifact-name: fr16d-hunyuan3d-sbom.cdx.json
+          upload-release-assets: false
+          syft-version: v1.50.0
+      - name: Fail on high or critical image vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        env:
+          TMPDIR: ${{ runner.temp }}
+        with:
+          version: v0.72.0
+          image-ref: aionex-aios-hunyuan3d:fr16d
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          timeout: 30m
+
+  blender-converter-image:
+    name: Blender converter sidecar, SBOM and image vulnerability gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Build pinned Blender converter (runs the conversion contract)
+        run: docker build --pull -t aionex-aios-blender-converter:fr16d infra/blender-converter
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
+        env:
+          TMPDIR: ${{ runner.temp }}
+        with:
+          image: aionex-aios-blender-converter:fr16d
+          format: cyclonedx-json
+          output-file: artifacts/aionex-aios-blender-converter.cdx.json
+          artifact-name: fr16d-blender-converter-sbom.cdx.json
+          upload-release-assets: false
+          syft-version: v1.50.0
+      - name: Fail on high or critical image vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.72.0
+          image-ref: aionex-aios-blender-converter:fr16d
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          timeout: 15m

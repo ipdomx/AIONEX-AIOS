@@ -9,7 +9,7 @@
     {
       "env_profile": ".env.production.example",
       "affected_service_definition_count": 22,
-      "base_compose_sha256": "8527ab8c50585463335c8a2ab10bb87454e676b5f3d9bdb1ae901f5edaa25397",
+      "base_compose_sha256": "76d3d4a7737019e18bcf07c4f226654b8b0eb8b7028dd40013949f5be674dd80",
       "compose_profile_scope": "*",
       "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
       "contract_sha256": "b40b03f52000cb537995d1e82f552c7f9ca65e073cdeea634f2b0975d3f06d07",
@@ -26,7 +26,7 @@
     {
       "env_profile": ".env.production",
       "affected_service_definition_count": 22,
-      "base_compose_sha256": "8527ab8c50585463335c8a2ab10bb87454e676b5f3d9bdb1ae901f5edaa25397",
+      "base_compose_sha256": "76d3d4a7737019e18bcf07c4f226654b8b0eb8b7028dd40013949f5be674dd80",
       "compose_profile_scope": "*",
       "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
       "contract_sha256": "b40b03f52000cb537995d1e82f552c7f9ca65e073cdeea634f2b0975d3f06d07",

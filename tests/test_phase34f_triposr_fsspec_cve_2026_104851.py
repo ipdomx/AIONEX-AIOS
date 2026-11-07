@@ -24,8 +24,13 @@ def test_triposr_pinned_dependency_is_actually_installed_into_scanned_image():
     dockerfile = (TRIPOSR / "Dockerfile").read_text()
     workflow = (ROOT / ".github/workflows/phase34f-triposr-container-security.yml").read_text()
     assert "COPY requirements.txt /tmp/requirements.txt" in dockerfile
-    assert "pip install --no-cache-dir -r /tmp/requirements.txt" in dockerfile
+    # FR-16D: the image installs the hash-locked closure, then proves offline
+    # that every requirements.txt pin (including fsspec) is what got installed.
+    assert "pip install --no-cache-dir --require-hashes --no-deps --no-build-isolation -r /tmp/requirements.lock" in dockerfile
+    assert "pip install --no-cache-dir --no-index -r /tmp/requirements.txt" in dockerfile
     assert "python -m pip check" in dockerfile
+    lock = (TRIPOSR / "requirements.lock").read_text()
+    assert "\nfsspec==2026.6.0 \\\n" in lock
     assert "docker build --pull -t aionex-aios-triposr:phase34fg infra/runpod/triposr" in workflow
     assert "Fail on high or critical image vulnerabilities" in workflow
     assert "ignore-unfixed: false" in workflow

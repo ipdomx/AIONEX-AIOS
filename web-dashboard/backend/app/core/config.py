@@ -525,6 +525,63 @@ class Settings(BaseSettings):
         validation_alias="THREE_D_MAX_OUTPUT_BYTES",
     )
 
+    # Headless Blender conversions/previews (FR-16 / roadmap 2.4). Blender runs
+    # only in the network-less three-d-converter sidecar; the worker reaches it
+    # through this spool. Without a fresh, pinned sidecar heartbeat no extra
+    # export format is produced or offered.
+    THREE_D_BLENDER_ENABLED: bool = Field(
+        default=True, validation_alias="THREE_D_BLENDER_ENABLED"
+    )
+    THREE_D_CONVERSION_SPOOL: str = Field(
+        default="/var/lib/aionex/three-d-conversion",
+        max_length=1024,
+        validation_alias="THREE_D_CONVERSION_SPOOL",
+    )
+    THREE_D_CONVERTER_STATUS_MAX_AGE_SECONDS: int = Field(
+        default=60, ge=15, le=600, validation_alias="THREE_D_CONVERTER_STATUS_MAX_AGE_SECONDS"
+    )
+    THREE_D_BLENDER_REQUIRED_SERIES: str = Field(
+        default="5.2",
+        pattern=r"^\d+\.\d+$",
+        validation_alias="THREE_D_BLENDER_REQUIRED_SERIES",
+    )
+    THREE_D_CONVERSION_TIMEOUT_SECONDS: int = Field(
+        default=120, ge=10, le=900, validation_alias="THREE_D_CONVERSION_TIMEOUT_SECONDS"
+    )
+    THREE_D_CONVERSION_MAX_INPUT_BYTES: int = Field(
+        default=100 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=500 * 1024 * 1024,
+        validation_alias="THREE_D_CONVERSION_MAX_INPUT_BYTES",
+    )
+    THREE_D_CONVERSION_MAX_OUTPUT_BYTES: int = Field(
+        default=200 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=1024 * 1024 * 1024,
+        validation_alias="THREE_D_CONVERSION_MAX_OUTPUT_BYTES",
+    )
+    THREE_D_CONVERSION_MAX_MESHES: int = Field(
+        default=1024, ge=1, le=100_000, validation_alias="THREE_D_CONVERSION_MAX_MESHES"
+    )
+    THREE_D_CONVERSION_MAX_ACCESSOR_ELEMENTS: int = Field(
+        default=50_000_000,
+        ge=1000,
+        le=500_000_000,
+        validation_alias="THREE_D_CONVERSION_MAX_ACCESSOR_ELEMENTS",
+    )
+    THREE_D_CONVERSION_MAX_TEXTURE_EDGE: int = Field(
+        default=8192, ge=256, le=16384, validation_alias="THREE_D_CONVERSION_MAX_TEXTURE_EDGE"
+    )
+    THREE_D_CONVERSION_MAX_TEXTURE_PIXELS: int = Field(
+        default=128 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=1024 * 1024 * 1024,
+        validation_alias="THREE_D_CONVERSION_MAX_TEXTURE_PIXELS",
+    )
+    THREE_D_THUMBNAIL_SIZE: int = Field(
+        default=512, ge=64, le=2048, validation_alias="THREE_D_THUMBNAIL_SIZE"
+    )
+
     STUDIO_ASSET_ROOT: str = Field(
         default="/var/lib/aionex/studio-assets",
         validation_alias="STUDIO_ASSET_ROOT",

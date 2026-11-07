@@ -20,6 +20,7 @@ from app.db.models import (
     uuid_str,
 )
 from app.services import communications
+from app.services.three_d_conversion import export_object_keys
 from app.services.three_d_policy import get_three_d_policy
 from app.services.three_d_storage import ThreeDObjectStore
 
@@ -568,6 +569,8 @@ async def cleanup_expired_three_d_data(
     artifacts_deleted = 0
     for artifact in expired:
         await asyncio.to_thread(storage.delete, artifact.object_key)
+        for export_object in export_object_keys(artifact.artifact_metadata):
+            await asyncio.to_thread(storage.delete, export_object)
         artifact.status = "expired"
         artifacts_deleted += 1
         session.add(

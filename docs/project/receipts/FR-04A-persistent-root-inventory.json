@@ -174,6 +174,16 @@
       "current_coverage": "intentionally_excluded",
       "observed_bytes": 63,
       "observed_files": 1
+    },
+    {
+      "name": "three_d_conversion_spool",
+      "runtime_name": "web-dashboard_three_d_conversion_spool",
+      "class": "runtime_spool",
+      "required_recovery": "exclude_ephemeral",
+      "current_coverage": "intentionally_excluded",
+      "observed_bytes": 0,
+      "observed_files": 0,
+      "note": "FR-16D/roadmap 2.4: transient three-d-worker <-> three-d-converter request spool; finished requests are deleted by both sides and stale entries are collected after 15 minutes. Durable exports live in three_d_asset_data."
     }
   ],
   "runtime_extra_mounts": [

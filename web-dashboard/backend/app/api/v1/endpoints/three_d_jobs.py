@@ -58,6 +58,12 @@ from app.services.three_d_product import (
     project_for_actor,
     validate_image_payload,
 )
+from app.services.three_d_conversion import (
+    EXPORT_FILENAMES,
+    EXPORT_MEDIA_TYPES,
+    THUMBNAIL_KEY,
+    stored_exports,
+)
 from app.services.three_d_storage import (
     GLB_MEDIA_TYPE,
     ThreeDObjectStore,
@@ -673,26 +679,35 @@ async def download_local_three_d_artifact(
             expires_at = expires_at.replace(tzinfo=now().tzinfo)
         if expires_at <= now():
             raise HTTPException(status_code=410, detail="3D artifact retention period has expired")
+    object_key, checksum, size_bytes = artifact.object_key, artifact.checksum, artifact.size_bytes
+    media_type, filename = GLB_MEDIA_TYPE, artifact.filename
+    if grant.variant != "glb":
+        entry = stored_exports(artifact.artifact_metadata).get(grant.variant)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="3D artifact format is unavailable")
+        object_key, checksum, size_bytes = entry["object_key"], entry["sha256"], entry["size_bytes"]
+        media_type = EXPORT_MEDIA_TYPES[grant.variant]
+        filename = EXPORT_FILENAMES[grant.variant]
     try:
         store = ThreeDObjectStore()
         if not store.is_local:
             raise ThreeDStorageError("3D local storage is not active")
         path = store.verified_local_path(
-            artifact.object_key,
-            checksum=artifact.checksum,
-            size_bytes=artifact.size_bytes,
+            object_key,
+            checksum=checksum,
+            size_bytes=size_bytes,
         )
     except ThreeDStorageError as exc:
         raise HTTPException(status_code=409, detail="3D artifact storage verification failed") from exc
     return FileResponse(
         path,
-        media_type=GLB_MEDIA_TYPE,
-        filename=artifact.filename,
+        media_type=media_type,
+        filename=filename,
         content_disposition_type="inline" if grant.inline else "attachment",
         headers={
             "Cache-Control": "private, no-store, max-age=0",
             "X-Content-Type-Options": "nosniff",
-            "X-AIONEX-Checksum-SHA256": artifact.checksum,
+            "X-AIONEX-Checksum-SHA256": checksum,
         },
     )
 
@@ -778,6 +793,39 @@ async def get_three_d_artifact_links(
             expires_seconds=ttl,
             inline=False,
         )
+    exports: list[dict[str, object]] = []
+    for kind, entry in stored_exports(artifact.artifact_metadata).items():
+        if bool(getattr(store, "is_local", False)):
+            export_url = local_artifact_url(
+                settings.PORTAL_PUBLIC_API_ORIGIN,
+                issue_local_artifact_token(
+                    project_id=project_id,
+                    job_id=job.id,
+                    artifact_id=artifact.id,
+                    inline=kind == THUMBNAIL_KEY,
+                    secret=settings.SECRET_KEY,
+                    ttl_seconds=ttl,
+                    variant=kind,
+                ),
+            )
+        else:
+            export_url = store.presigned_get(
+                entry["object_key"],
+                filename=EXPORT_FILENAMES[kind],
+                content_type=EXPORT_MEDIA_TYPES[kind],
+                expires_seconds=ttl,
+                inline=kind == THUMBNAIL_KEY,
+            )
+        exports.append(
+            {
+                "format": kind,
+                "filename": EXPORT_FILENAMES[kind],
+                "media_type": EXPORT_MEDIA_TYPES[kind],
+                "size_bytes": entry["size_bytes"],
+                "sha256": entry["sha256"],
+                "url": export_url,
+            }
+        )
     session.add(
         audit_job(
             job,
@@ -796,6 +844,11 @@ async def get_three_d_artifact_links(
         "sha256": artifact.checksum,
         "view_url": view_url,
         "download_url": download_url,
+        # Only formats really produced, validated and stored for this artifact.
+        "exports": [item for item in exports if item["format"] != THUMBNAIL_KEY],
+        "preview_url": next(
+            (item["url"] for item in exports if item["format"] == THUMBNAIL_KEY), None
+        ),
         "expires_in": ttl,
         "expires_at": (now() + timedelta(seconds=ttl)).isoformat(),
     }

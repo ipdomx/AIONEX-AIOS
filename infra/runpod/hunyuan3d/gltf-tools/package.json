@@ -1,0 +1,15 @@
+{
+  "name": "aionex-hunyuan-gltf-tools",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "@gltf-transform/cli": "4.4.2",
+    "sharp": "0.35.5"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
+  }
+}

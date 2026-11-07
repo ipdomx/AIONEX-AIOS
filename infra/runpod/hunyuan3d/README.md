@@ -1,5 +1,19 @@
 # AIONEX Hunyuan3D RunPod Serverless runtime
 
+## FR-16D hardened rebuild (2026-11-07): source ready, not deployed
+
+`Dockerfile` in this directory no longer extends the opaque quarantined base.
+It rebuilds the worker from digest-pinned public pytorch images, the reviewed
+upstream commit, a hash-locked `requirements.lock`, checksum-verified Blender and
+Node, an npm lockfile and checksum-verified safetensors weights
+(`weights.lock.json`, `fetch_weights.py`). It runs as a non-root user with offline,
+pickle-free guards and request limits (`input_guard.py`). CI builds and scans the
+`runtime` target (`.github/workflows/fr16d-3d-runtime-container-security.yml`).
+The findings, residual risk and the exact pre-launch deploy steps are in
+[FR16D-hunyuan-security-review-20261107.md](../../../docs/project/receipts/FR16D-hunyuan-security-review-20261107.md).
+The quarantine below stays in force until that receipt's live test (T-18) passes
+and the owner decides O-10.
+
 ## Current status: quarantined; not approved for production
 
 The historical Phase 34C image below is **security quarantined**. The

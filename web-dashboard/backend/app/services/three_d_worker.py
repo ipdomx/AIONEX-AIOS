@@ -39,6 +39,11 @@ from app.db.base import SessionLocal
 from app.services.host_maintenance_media_cycles import finish_started_cleanup, media_cycle_admission_open
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import billing, communications
+from app.services.three_d_conversion import (
+    ThreeDConversionError,
+    convert_glb,
+    export_key,
+)
 from app.services.three_d_policy import get_three_d_policy
 from app.services.three_d_provider_policy import provider_runtime_configured
 from app.services.three_d_resilience import (
@@ -715,6 +720,16 @@ class ThreeDGenerationWorker:
             )
             return
 
+        exports, export_capability, export_keys = await self._derive_exports(
+            output_key,
+            body,
+            metadata={
+                "organization_id": organization_id,
+                "project_id": project_id,
+                "job_id": job_id,
+            },
+        )
+
         async with SessionLocal() as session:
             job = await session.scalar(
                 select(ThreeDGenerationJob)
@@ -725,6 +740,8 @@ class ThreeDGenerationWorker:
                 .with_for_update()
             )
             if job is None:
+                for key in export_keys:
+                    await asyncio.to_thread(self.storage.delete, key)
                 return
             existing = await session.scalar(
                 select(ThreeDArtifact).where(ThreeDArtifact.job_id == job.id)
@@ -753,6 +770,8 @@ class ThreeDGenerationWorker:
                 "provider": job.provider,
                 "jurisdiction_country": job.request_options.get("jurisdiction_country"),
                 "terms_version": job.request_options.get("third_party_terms_version"),
+                "exports": exports,
+                "export_capability": export_capability,
             }
             if existing is None:
                 artifact = ThreeDArtifact(
@@ -828,6 +847,51 @@ class ThreeDGenerationWorker:
             artifact_bytes=len(body),
             estimated_cost_usd=job.estimated_cost_usd,
         )
+
+    async def _derive_exports(
+        self, output_key: str, body: bytes, *, metadata: dict[str, str]
+    ) -> tuple[dict[str, dict[str, object]], dict[str, object], list[str]]:
+        """Best-effort Blender exports and preview; never fails the 3D job.
+
+        Only formats that the sandboxed converter produced, that passed output
+        validation and that were stored with a matching checksum are recorded,
+        so the API can only ever offer formats that really exist.
+        """
+        try:
+            result = await asyncio.to_thread(convert_glb, body)
+        except ThreeDConversionError as exc:
+            logger.warning("3D export conversion rejected the artifact", reason=str(exc))
+            return {}, {"available": True, "reason": "input_rejected", "formats": []}, []
+        failures = dict(result.failures)
+        exports: dict[str, dict[str, object]] = {}
+        stored_keys: list[str] = []
+        for kind, item in result.files.items():
+            key = export_key(output_key, kind)
+            try:
+                stored = await asyncio.to_thread(
+                    self.storage.put_bytes, key, item.body, item.media_type, metadata=metadata
+                )
+            except ThreeDStorageError as exc:
+                failures[kind] = f"storage:{type(exc).__name__}"
+                continue
+            if stored.sha256 != item.sha256:
+                await asyncio.to_thread(self.storage.delete, key)
+                failures[kind] = "storage_checksum_mismatch"
+                continue
+            stored_keys.append(key)
+            exports[kind] = {
+                "object_key": key,
+                "filename": item.filename,
+                "media_type": item.media_type,
+                "sha256": item.sha256,
+                "size_bytes": len(item.body),
+            }
+        capability: dict[str, object] = {
+            **result.capability.as_metadata(),
+            "failures": failures,
+            "seconds": result.seconds,
+        }
+        return exports, capability, stored_keys
 
     async def _provider_failure(
         self, job: ThreeDGenerationJob, error_code: str

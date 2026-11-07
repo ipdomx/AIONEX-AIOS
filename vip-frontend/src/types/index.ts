@@ -536,6 +536,16 @@ export interface ThreeDGenerationJob {
   artifact: ThreeDArtifact | null;
 }
 
+/** A Blender-converted format that was really produced and stored for this artifact. */
+export interface ThreeDArtifactExport {
+  format: "obj" | "fbx" | "usdz";
+  filename: string;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+  url: string;
+}
+
 export interface ThreeDArtifactLinks {
   job_id: string;
   artifact_id: string;
@@ -545,6 +555,9 @@ export interface ThreeDArtifactLinks {
   sha256: string;
   view_url: string;
   download_url: string;
+  /** Server-side conversions; absent or empty when Blender was unavailable. */
+  exports?: ThreeDArtifactExport[];
+  preview_url?: string | null;
   expires_in: number;
   expires_at: string;
 }

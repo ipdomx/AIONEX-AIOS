@@ -46,18 +46,27 @@ class LocalArtifactGrant:
     artifact_id: str
     inline: bool
     expires_at_epoch: int
+    # "glb" is the generated artifact itself; other values name a verified
+    # Blender export/preview recorded in the artifact metadata.
+    variant: str = "glb"
+
+
+LOCAL_ARTIFACT_VARIANTS = frozenset({"glb", "obj", "fbx", "usdz", "thumbnail"})
 
 
 def _grant_payload(grant: LocalArtifactGrant) -> bytes:
+    payload: dict[str, object] = {
+        "artifact_id": grant.artifact_id,
+        "exp": int(grant.expires_at_epoch),
+        "inline": bool(grant.inline),
+        "job_id": grant.job_id,
+        "project_id": grant.project_id,
+        "v": 1,
+    }
+    if grant.variant != "glb":
+        payload["variant"] = grant.variant
     return json.dumps(
-        {
-            "artifact_id": grant.artifact_id,
-            "exp": int(grant.expires_at_epoch),
-            "inline": bool(grant.inline),
-            "job_id": grant.job_id,
-            "project_id": grant.project_id,
-            "v": 1,
-        },
+        payload,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
@@ -85,7 +94,10 @@ def issue_local_artifact_token(
     secret: str,
     ttl_seconds: int,
     now_epoch: int | None = None,
+    variant: str = "glb",
 ) -> str:
+    if variant not in LOCAL_ARTIFACT_VARIANTS:
+        raise ThreeDStorageError("3D artifact variant is invalid")
     if len(str(secret or "")) < 32:
         raise ThreeDStorageError("3D artifact signing secret is invalid")
     ttl = int(ttl_seconds)
@@ -106,6 +118,7 @@ def issue_local_artifact_token(
         artifact_id=artifact_id,
         inline=bool(inline),
         expires_at_epoch=current + ttl,
+        variant=variant,
     )
     encoded = _b64url(_grant_payload(grant))
     signature = hmac.new(
@@ -148,12 +161,16 @@ def verify_local_artifact_token(
         inline = payload["inline"]
         if not isinstance(inline, bool):
             raise TypeError
+        variant = payload.get("variant", "glb")
+        if variant not in LOCAL_ARTIFACT_VARIANTS or (variant == "glb" and "variant" in payload):
+            raise ValueError
         grant = LocalArtifactGrant(
             project_id=str(payload["project_id"]),
             job_id=str(payload["job_id"]),
             artifact_id=str(payload["artifact_id"]),
             inline=inline,
             expires_at_epoch=expiry,
+            variant=str(variant),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ThreeDStorageError("3D artifact token payload is invalid") from exc
