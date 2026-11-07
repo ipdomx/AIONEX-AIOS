@@ -6,9 +6,9 @@
 #     --no-emit-package torch --no-emit-package torchvision --no-emit-package triton \
 #     --no-emit-package setuptools
 accelerate
-diffusers==0.38.0
-transformers>=4.57,<5
-huggingface-hub<1
+diffusers>=0.39
+transformers>=5.10
+huggingface-hub
 safetensors
 omegaconf
 einops
@@ -23,7 +23,9 @@ opencv-python-headless<5
 numpy>=2.3,<2.4
 scipy
 scikit-image
-pillow
+pillow>=13.0.0
+msgpack>=1.2.3
+soupsieve>=2.8.4
 pyyaml
 tqdm
 runpod>=1.12,<2

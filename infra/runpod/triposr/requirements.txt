@@ -1,6 +1,6 @@
 numpy==2.3.5
 omegaconf==2.3.0
-Pillow==12.3.0
+Pillow==13.0.0
 einops==0.8.1
 transformers==5.10.1
 trimesh==4.8.3

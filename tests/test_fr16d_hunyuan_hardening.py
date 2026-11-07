@@ -12,7 +12,6 @@ import json
 from pathlib import Path
 import re
 
-from PIL import Image
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +22,9 @@ POLICY = (ROOT / "web-dashboard/backend/app/services/three_d_provider_policy.py"
 
 
 def _guard():
+    # The guard runs in the GPU images; skip only its behaviour tests where the
+    # contract job has no Pillow. Source contracts below never need it.
+    pytest.importorskip("PIL")
     spec = importlib.util.spec_from_file_location("aionex_input_guard", HUNYUAN / "input_guard.py")
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
@@ -30,7 +32,12 @@ def _guard():
     return module
 
 
-def _encode(image: Image.Image, fmt: str = "PNG") -> str:
+def _image(mode: str, size: tuple[int, int], color: object = 0):
+    image_module = pytest.importorskip("PIL.Image")
+    return image_module.new(mode, size, color)
+
+
+def _encode(image, fmt: str = "PNG") -> str:
     buffer = BytesIO()
     image.save(buffer, format=fmt)
     return base64.b64encode(buffer.getvalue()).decode()
@@ -111,7 +118,7 @@ def test_input_guard_copies_are_identical() -> None:
 
 def test_input_guard_accepts_a_normal_image() -> None:
     guard = _guard()
-    image = guard.decode_image(_encode(Image.new("RGB", (128, 96), "red")))
+    image = guard.decode_image(_encode(_image("RGB", (128, 96), "red")))
     assert image.size == (128, 96) and image.mode == "RGBA"
 
 
@@ -133,10 +140,10 @@ def test_input_guard_rejects_bad_payloads(raw: str, message: str) -> None:
 def test_input_guard_blocks_decompression_bombs_and_tiny_or_animated_images() -> None:
     guard = _guard()
     with pytest.raises(guard.InputError, match="dimensions"):
-        guard.decode_image(_encode(Image.new("1", (5000, 5000))))
+        guard.decode_image(_encode(_image("1", (5000, 5000))))
     with pytest.raises(guard.InputError, match="dimensions"):
-        guard.decode_image(_encode(Image.new("RGB", (32, 32))))
-    frames = [Image.new("RGB", (80, 80), color) for color in ("red", "blue")]
+        guard.decode_image(_encode(_image("RGB", (32, 32))))
+    frames = [_image("RGB", (80, 80), color) for color in ("red", "blue")]
     buffer = BytesIO()
     frames[0].save(buffer, format="WEBP", save_all=True, append_images=frames[1:])
     with pytest.raises(guard.InputError, match="single frame"):
