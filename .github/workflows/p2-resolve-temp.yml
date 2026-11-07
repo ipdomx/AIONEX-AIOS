@@ -24,6 +24,6 @@ jobs:
           uv pip compile infra/runpod/hunyuan3d/requirements.in -c c.txt --python-version $PYV --python-platform x86_64-manylinux_2_35 --generate-hashes --no-header --no-annotate --no-emit-package torch --no-emit-package torchvision --no-emit-package triton --no-emit-package setuptools -o h.txt
           echo "===== HLOCK BEGIN"; grep -v -E "^\s*# via" h.txt; echo "===== HLOCK END"
           printf 'pybind11\n' > b.in; uv pip compile b.in --python-version $PYV --python-platform x86_64-manylinux_2_35 --generate-hashes --no-header --no-annotate -o b.txt; echo "===== BLOCK BEGIN"; cat b.txt; echo "===== BLOCK END"
-          cp infra/runpod/triposr/requirements.txt t.in; echo "safetensors==0.8.0" >> /dev/null
+          sed -e "s/^rembg==.*/rembg/" infra/runpod/triposr/requirements.txt > t.in; cat t.in
           uv pip compile t.in -c c.txt --python-version $PYV --python-platform x86_64-manylinux_2_28 --generate-hashes --no-header --no-annotate --no-emit-package torch --no-emit-package torchvision --no-emit-package triton --no-emit-package setuptools -o t.txt
           echo "===== TLOCK BEGIN"; cat t.txt; echo "===== TLOCK END"
