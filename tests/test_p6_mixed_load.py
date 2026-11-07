@@ -110,6 +110,10 @@ def test_classification_separates_edge_blocks_policy_and_server_errors():
     assert load.classify(normal, response(200), None) == "ok"
     assert load.classify(normal, response(503, {"content-type": "text/html"}), None) == "server_error"
     assert load.classify(normal, response(403, {"server": "cloudflare", "content-type": "text/html"}), None) == "edge_block"
+    gated = load.Action("ads_connections", 3, entitlement_gated=True)
+    assert load.classify(gated, response(403, {"content-type": "application/json"}), None) == "policy"
+    assert load.classify(gated, response(403, {"server": "cloudflare", "content-type": "text/html"}), None) == "edge_block"
+    assert load.classify(normal, response(403, {"content-type": "application/json"}), None) == "client_error"
     assert load.classify(normal, response(200, {"cf-mitigated": "challenge"}), None) == "edge_block"
     assert load.classify(ai, response(429), None) == "policy"
     assert load.classify(normal, response(429), None) == "client_error"
