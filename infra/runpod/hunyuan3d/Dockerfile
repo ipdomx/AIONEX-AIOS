@@ -23,7 +23,7 @@ ARG CUDA_RUNTIME=pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:b85566342
 FROM ${CUDA_DEVEL} AS source
 ARG HUNYUAN_COMMIT=82920d643c0dc2f7bfd7255f45f62d386edfe60c
 ARG TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
-ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_BREAK_SYSTEM_PACKAGES=1
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends git ca-certificates g++; \
@@ -90,7 +90,7 @@ RUN set -eux; \
 
 # ---------------------------------------------------------------- dependencies
 FROM ${CUDA_RUNTIME} AS deps
-ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_BREAK_SYSTEM_PACKAGES=1 PYTHONUNBUFFERED=1
 RUN set -eux; \
     apt-get update; \
     apt-get dist-upgrade -y; \
@@ -120,12 +120,10 @@ COPY --from=tools /opt/gltf-tools /opt/gltf-tools
 COPY handler.py input_guard.py phase34c_blender.py /opt/
 RUN set -eux; \
     test -e /opt/gltf-tools/node_modules/.bin/gltf-transform; \
-    python -m pip uninstall -y uv; \
-    rm -rf /opt/conda/lib/python3.*/site-packages/pip* \
-           /opt/conda/lib/python3.*/site-packages/setuptools* \
-           /opt/conda/lib/python3.*/site-packages/wheel* \
-           /opt/conda/pkgs /root/.cache; \
-    rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.*; \
+    python -m pip uninstall -y uv wheel; \
+    python -m pip uninstall -y pip || true; \
+    rm -rf /root/.cache; \
+    for tool in pip pip3 uv uvx; do rm -f "/usr/local/bin/$tool" "/usr/bin/$tool"; done; \
     groupadd --gid 10001 aionex; \
     useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex; \
     chown -R root:root /opt/Hunyuan3D-2.1 /opt/blender /opt/node /opt/gltf-tools /opt/handler.py /opt/input_guard.py /opt/phase34c_blender.py; \
@@ -139,7 +137,7 @@ ENV HF_HUB_OFFLINE=1 \
     HF_HUB_DISABLE_TELEMETRY=1 \
     HF_HOME=/tmp/aionex-hf \
     HOME=/tmp \
-    PATH=/opt/node/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PATH=/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     PYTHONDONTWRITEBYTECODE=1 \
     AIONEX_HUNYUAN_WORKDIR=/tmp/aionex-hunyuan
 USER aionex
@@ -172,7 +170,7 @@ from utils.image_super_utils import imageSuperNet  # noqa: F401
 import custom_rasterizer  # noqa: F401
 print("Hunyuan hardened runtime contract: PASS")
 PY
-ENTRYPOINT ["/opt/conda/bin/python", "-u", "/opt/handler.py"]
+ENTRYPOINT ["python", "-u", "/opt/handler.py"]
 
 # --------------------------------------------------------------------- release
 FROM runtime AS release

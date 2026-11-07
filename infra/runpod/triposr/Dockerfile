@@ -2,7 +2,7 @@ FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:b85566342b86d13a67712
 # FR-16D hardening applied to the TripoSR fallback: hash-locked dependencies,
 # checksum-verified model assets converted to safetensors (no pickle at
 # runtime), offline runtime, non-root user, bounded request validation.
-ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONUNBUFFERED=1 \
+ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_BREAK_SYSTEM_PACKAGES=1 PYTHONUNBUFFERED=1 \
     PYOPENGL_PLATFORM=egl MGL_BACKEND=egl U2NET_HOME=/models/rembg
 RUN set -eux; \
     apt-get update; \
@@ -30,12 +30,10 @@ COPY vendor/tsr /opt/triposr/tsr
 COPY vendor/LICENSE /opt/triposr/LICENSE
 COPY vendor/UPSTREAM_COMMIT /opt/triposr/UPSTREAM_COMMIT
 COPY handler.py input_guard.py /opt/triposr/
-RUN python -m pip uninstall -y uv \
- && rm -rf /opt/conda/lib/python3.*/site-packages/pip* \
-           /opt/conda/lib/python3.*/site-packages/setuptools* \
-           /opt/conda/lib/python3.*/site-packages/wheel* \
-           /opt/conda/pkgs /root/.cache /tmp/requirements.txt /tmp/requirements.lock \
- && rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.* \
+RUN python -m pip uninstall -y uv wheel \
+ && (python -m pip uninstall -y pip || true) \
+ && rm -rf /root/.cache /tmp/requirements.txt /tmp/requirements.lock \
+ && for tool in pip pip3 uv uvx; do rm -f "/usr/local/bin/$tool" "/usr/bin/$tool"; done \
  && groupadd --gid 10001 aionex \
  && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex \
  && chown -R root:root /opt/triposr /models && chmod -R go-w /opt/triposr /models

@@ -24,7 +24,7 @@ from app.services.three_d_storage import (
     verify_local_artifact_token,
 )
 
-SECRET = "fr16d-test-secret-key-with-at-least-32-chars"
+SECRET = "0" * 48  # test-only HMAC key, not a credential
 IDS = (
     "11111111-1111-4111-8111-111111111111",
     "22222222-2222-4222-8222-222222222222",
