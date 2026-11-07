@@ -49,8 +49,8 @@ def test_current_lock_is_complete_and_hash_pinned(tmp_path):
     assert m.read_lock(path) == expected
     assert expected["local_version"] == "8.30.1+aios.1"
     assert expected["toolchain_version"] == "go1.27.1"
-    assert expected["modules"]["golang.org/x/crypto"] == "v0.55.0"
-    assert expected["modules"]["golang.org/x/text"] == "v0.41.0"
+    assert expected["modules"]["golang.org/x/crypto"] == "v0.58.0"
+    assert expected["modules"]["golang.org/x/text"] == "v0.43.0"
 
 
 @pytest.mark.parametrize("field,value", [

@@ -8,20 +8,20 @@
   "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
   "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
   "files": {
-    "go.mod": "3596cc302d71ab8ebb5995169befd2e8474f6aa6acd87bbcad41a2342906e3c5",
-    "go.sum": "2dbb47e9e603bc1aaf5726e3d2de7480572824c7b47986b49af26b820e25973a"
+    "go.mod": "36718642a25099c700cdfadd92daea09839dd40e2c6f1dc9f1c336fcf56e127f",
+    "go.sum": "c264cd24d7251d3ce43a7209d91bfa9a00be093e5dd1a1f4439994619c777b2c"
   },
   "modules": {
     "github.com/go-git/go-git/v5": "v5.19.2",
-    "golang.org/x/crypto": "v0.56.0",
+    "golang.org/x/crypto": "v0.58.0",
     "golang.org/x/mod": "v0.41.0",
-    "golang.org/x/net": "v0.58.0",
+    "golang.org/x/net": "v0.62.0",
     "google.golang.org/grpc": "v1.83.2",
     "github.com/moby/moby/client": "v0.6.0",
     "github.com/moby/moby/api": "v1.56.0"
   },
   "build_date": "2026-09-30T10:35:39Z",
-  "expected_binary_sha256": "2ba1610b27fa2478f5eb0a00df4a4c1f8f4fbd690934d8cae1aa8f3fa0943846",
+  "expected_binary_sha256": "d52f8f4fb0d1ee9fd6c84255d6bb2161a78576b6b9840f8a927c4edc04ad0772",
   "upstream_files": {
     "go.mod": "55dcebbf99c98ecfd8ead7bb622fdc90c6004d535e54f3ec60e5e2118c151d0b",
     "go.sum": "c1407aaae73c62f0c445c06fe76a3b578533002549aaee982d6c1f752174021f"

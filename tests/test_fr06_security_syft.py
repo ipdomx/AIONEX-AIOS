@@ -35,7 +35,7 @@ def test_exact_lock_and_real_repository_lock_accepted(locked):
     assert m.read_lock(folder) == value
     real = m.read_lock(ROOT / "web-dashboard/backend/security-build/syft")
     assert real["toolchain_version"] == "go1.27.1"
-    assert real["modules"]["golang.org/x/crypto"] == "v0.56.0"
+    assert real["modules"]["golang.org/x/crypto"] == "v0.58.0"
 
 
 @pytest.mark.parametrize("field", ["upstream_version", "local_version", "upstream_commit", "source_url", "source_sha256",

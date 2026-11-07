@@ -8,8 +8,8 @@
   "toolchain_url": "https://go.dev/dl/go1.26.8.linux-amd64.tar.gz",
   "toolchain_sha256": "d0f743b33e8d8945e6b1f432edd15785c70507121d6e2a723b21285eddf8b57b",
   "files": {
-    "go.mod": "a1adf033e5b293b8356ae06ee999e3e82ed809de19295b2043f322f95de5792c",
-    "go.sum": "0748c819a83424837302f61ccc7b34f4310af11ab7d50d413c43b5695ee15c47"
+    "go.mod": "e12047a776284071ddb455c979f665691ee85e0cc002961ff24a2331943f62b9",
+    "go.sum": "9f5acbd2a2e08913f3531dc87ab18cf32ef2064416db7967044fa850bc7676f4"
   },
   "upstream_files": {
     "go.mod": "85697654fc5fea7d0a0082920bed1116af5d06dbd2be0fcc0c281b68a35c8e33",
@@ -17,11 +17,11 @@
   },
   "modules": {
     "google.golang.org/grpc": "v1.83.2",
-    "golang.org/x/crypto": "v0.55.0",
-    "golang.org/x/net": "v0.58.0",
-    "golang.org/x/mod": "v0.40.0",
+    "golang.org/x/crypto": "v0.58.0",
+    "golang.org/x/net": "v0.62.0",
+    "golang.org/x/mod": "v0.41.0",
     "github.com/go-git/go-git/v5": "v5.19.2",
     "oras.land/oras-go/v2": "v2.6.2"
   },
-  "expected_binary_sha256": "cf393282a6cf02605112e6886f466cb3c335826dff8172271de3b04441ab8b4d"
+  "expected_binary_sha256": "d2cb1fccf01cc472765c4af4dbc69394880d8f16c559fc445e2c62ac33a423db"
 }
