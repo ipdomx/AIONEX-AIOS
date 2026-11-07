@@ -170,5 +170,5 @@ def test_triposr_is_hash_locked_safetensors_and_non_root() -> None:
     handler = (TRIPOSR / "handler.py").read_text()
     assert "safetensors.torch.load_file" in handler and "install_runtime_guards()" in handler
     requirements = (TRIPOSR / "requirements.txt").read_text()
-    for pin in ("rembg==2.0.82", "msgpack==1.2.3", "Brotli==1.2.1"):
+    for pin in ("rembg==2.0.87", "msgpack==1.2.3", "Brotli==1.2.1"):
         assert pin in requirements

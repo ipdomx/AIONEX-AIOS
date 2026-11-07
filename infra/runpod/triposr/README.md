@@ -10,7 +10,7 @@ This fallback returns a valid GLB using TripoSR vertex colors. It is not represe
   is the hash-locked closure installed with `--require-hashes --no-deps`; the build
   then runs `pip install --no-index -r requirements.txt`, so a pin change without a
   regenerated lock fails the image build. Regenerate with:
-  `uv pip compile requirements.txt -c base-constraints.txt --generate-hashes --python-version 3.11 --python-platform x86_64-manylinux_2_28 --no-annotate -o requirements.lock`,
+  `uv pip compile requirements.txt -c base-constraints.txt --generate-hashes --python-version 3.12 --python-platform x86_64-manylinux_2_28 --no-annotate -o requirements.lock`,
   where `base-constraints.txt` pins the torch/CUDA/sympy/networkx/jinja2/filelock versions of the base image.
 - `fetch_models.py` downloads the pinned TripoSR model, DINO config and u2net with SHA-256
   checks and converts `model.ckpt` to safetensors; `torch.load` and Hub downloads are

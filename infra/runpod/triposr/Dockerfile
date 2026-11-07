@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime@sha256:7b324d212a4450795b49edba9949b7cdc72429148a64e974334bfe5774d51385
+FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:b85566342b86d13a67712e9315d40cdc2dad7f8d86df1aff3831f80835edbcca
 # FR-16D hardening applied to the TripoSR fallback: hash-locked dependencies,
 # checksum-verified model assets converted to safetensors (no pickle at
 # runtime), offline runtime, non-root user, bounded request validation.
@@ -30,11 +30,12 @@ COPY vendor/tsr /opt/triposr/tsr
 COPY vendor/LICENSE /opt/triposr/LICENSE
 COPY vendor/UPSTREAM_COMMIT /opt/triposr/UPSTREAM_COMMIT
 COPY handler.py input_guard.py /opt/triposr/
-RUN rm -rf /opt/conda/lib/python3.11/site-packages/pip* \
-           /opt/conda/lib/python3.11/site-packages/setuptools* \
-           /opt/conda/lib/python3.11/site-packages/wheel* \
+RUN python -m pip uninstall -y uv \
+ && rm -rf /opt/conda/lib/python3.*/site-packages/pip* \
+           /opt/conda/lib/python3.*/site-packages/setuptools* \
+           /opt/conda/lib/python3.*/site-packages/wheel* \
            /opt/conda/pkgs /root/.cache /tmp/requirements.txt /tmp/requirements.lock \
- && rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.11 \
+ && rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.* \
  && groupadd --gid 10001 aionex \
  && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex \
  && chown -R root:root /opt/triposr /models && chmod -R go-w /opt/triposr /models

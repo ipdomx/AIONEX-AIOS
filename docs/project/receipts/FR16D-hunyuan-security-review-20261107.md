@@ -54,9 +54,9 @@ shape and paint weights were baked into the opaque base and cannot be verified.
 
 | Finding | Mitigation |
 |---|---|
-| F1 | The new `infra/runpod/hunyuan3d/Dockerfile` builds from public `pytorch/pytorch:2.9.1-cuda12.8-cudnn9-{devel,runtime}` by immutable digest. Hunyuan source is fetched by commit and checked with `git rev-parse HEAD`. Nothing comes from the old base. |
+| F1 | The new `infra/runpod/hunyuan3d/Dockerfile` builds from public `pytorch/pytorch:2.10.0-cuda12.8-cudnn9-{devel,runtime}` (Ubuntu 24.04, Python 3.12) by immutable digest. torch 2.10.0 fixes CVE-2026-24747, which the first CI scan of a 2.9.1 base flagged. The base image's `uv` 0.9.9 (GHSA-hq85-5cpj-mr62, CRITICAL) is uninstalled. Hunyuan source is fetched by commit and checked with `git rev-parse HEAD`. Nothing comes from the old base. |
 | F2 | Blender 5.2.3 and Node v24.22.2 come from official tarballs checked against their published SHA-256. `gltf-transform` and `sharp` are installed with `npm ci --ignore-scripts` from a committed `package-lock.json` (sha512 integrity). npm and corepack are removed afterwards. |
-| F3 | Curated runtime set in `requirements.in`, compiled to `requirements.lock` (3,579 hashes). The lock is installed with `--require-hashes --no-deps --no-build-isolation`, followed by `pip check`. There are no extra indexes. Removed from the image: gradio, fastapi demo, deepspeed, open3d, cupy, bpy (pip), pytorch-lightning, basicsr, realesrgan, tb-nightly, rembg and onnxruntime. The pybind11 build dependency is hash-locked separately. |
+| F3 | Curated runtime set in `requirements.in`, compiled to `requirements.lock` (3,590 hashes). It uses Transformers 5.22.2 and Diffusers 0.42.1, because Transformers 4.x carries CVE-2026-4372, CVE-2026-5241, CVE-2026-9856 and CVE-2026-80047. It also pins Pillow 13.0.0, msgpack 1.2.4 and soupsieve 4.0.1 over the base image's vulnerable copies. The lock is installed with `--require-hashes --no-deps --no-build-isolation`, followed by `pip check`. There are no extra indexes. Removed from the image: gradio, fastapi demo, deepspeed, open3d, cupy, bpy (pip), pytorch-lightning, basicsr, realesrgan, tb-nightly, rembg and onnxruntime. The pybind11 build dependency is hash-locked separately. |
 | F4 | `fetch_weights.py` runs in a throwaway build stage. It downloads each file from an immutable revision URL and checks size and SHA-256 against `weights.lock.json` (Hunyuan `0b94677654c57bb9a6b6845cd7b704ccf551d327`, DINOv2 `611a9d42…`, Real-ESRGAN v0.1.0). Each pickle is loaded once with `torch.load(weights_only=True)` (restricted unpickler), saved as safetensors and deleted. The final tree is scanned for pickle streams, torch-zip checkpoints and `.py` files. Code is patched to load safetensors only: `use_safetensors=True` for shape, a safetensors UNet loader, and Diffusers/Transformers `use_safetensors`. A reviewed `overrides/image_super_utils.py` (RRDBNet, Apache-2.0 attribution) replaces basicsr/realesrgan. At runtime `torch.load`, `torch.hub` and the Hub download helpers raise immediately. |
 | F5 | `patch_hunyuan_runtime.py` (every patch must match exactly or the build fails) makes three changes. The paint path must be a baked local directory. The vendored `HunyuanPaintPipeline` and `UNet2p5DConditionModel` classes are constructed explicitly with `local_files_only=True`, so Diffusers never imports code from the model directory. Model ids default to `/models/...`. `weights.lock.json` never fetches `.py` files. The model-repo copies of `unet/modules.py` and `attn_processor.py` were confirmed byte-identical to the reviewed GitHub files (`664983…`, `a41bf0…`). The post-condition rejects any `trust_remote_code=True`. Offline env vars (`HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`, `DIFFUSERS_OFFLINE`) are set in both the image and the handler. |
 | F6 | The patch deletes demo, server and training files, the visualizers and the simplifier binary. `MeshSimplifier`'s shell call is replaced with a hard error. The post-condition rejects any remaining `os.system`, `subprocess`, `pickle.load(s)` or `snapshot_download` (except the offline-guarded `smart_load_model`). |
@@ -139,11 +139,14 @@ does not use it.
 
 ## 5. TripoSR (same hardening where it applies)
 
-- Folds in the Dependabot bumps rembg 2.0.78→2.0.82 (#1006), msgpack
-  1.2.1→1.2.3 (#1005) and Brotli 1.2.0→1.2.1 (#971). These are patch releases
-  with no API change used by the handler. Pillow 13 (#952) is left for a
-  separate PR.
-- Adds a hash-locked `requirements.lock` (3,711 hashes). It is installed with
+- Folds in the Dependabot bumps msgpack 1.2.1→1.2.3 (#1005), Brotli
+  1.2.0→1.2.1 (#971) and Pillow 12.3.0→13.0.0 (#952).
+- Supersedes rembg 2.0.82 (#1006) with rembg 2.0.87. The CI gate found
+  CRITICAL Pillow 12.x CVEs (for example CVE-2026-112393), and rembg 2.0.82
+  caps Pillow below 13.
+- Moves the base to torch 2.10.0 (CVE-2026-24747) and removes the base
+  image's `uv`.
+- Adds a hash-locked `requirements.lock` (3,707 hashes). It is installed with
   `--require-hashes`, then an offline `--no-index` install proves that
   `requirements.txt` matches the lock.
 - `fetch_models.py` fetches the TripoSR model, DINO config and u2net with

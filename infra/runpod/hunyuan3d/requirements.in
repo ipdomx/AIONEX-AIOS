@@ -2,7 +2,7 @@
 # and the CUDA wheels come from the digest-pinned pytorch/pytorch base image.
 # Compile to requirements.lock with:
 #   uv pip compile requirements.in -c base-constraints.txt --generate-hashes \
-#     --python-version 3.11 --python-platform x86_64-manylinux_2_35 \
+#     --python-version 3.12 --python-platform x86_64-manylinux_2_35 \
 #     --no-emit-package torch --no-emit-package torchvision --no-emit-package triton \
 #     --no-emit-package setuptools
 accelerate

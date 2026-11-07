@@ -3,7 +3,7 @@
 # Replaces the quarantined image that was layered on an opaque, unreviewed base
 # (ipdomx/aionex-hunyuan3d@sha256:e4220d58...). Everything here is rebuilt from
 # pinned public inputs:
-#   * base images by immutable digest (pytorch 2.9.1 / CUDA 12.8 / cuDNN 9)
+#   * base images by immutable digest (pytorch 2.10.0 / CUDA 12.8 / cuDNN 9)
 #   * Hunyuan3D-2.1 source at the reviewed commit, patched by
 #     patch_hunyuan_runtime.py (no Hub/code downloads, no pickle, no shells)
 #   * Python packages from requirements.lock with --require-hashes --no-deps
@@ -16,8 +16,8 @@
 #   runtime  code + dependencies, no weights. Built and scanned in CI.
 #   release  runtime + verified safetensors weights. Built for RunPod in the
 #            pre-launch window (FR16D receipt, T-11). Same package inventory.
-ARG CUDA_DEVEL=pytorch/pytorch:2.9.1-cuda12.8-cudnn9-devel@sha256:39236c0ad9c66baecf01bb2e4f5562543c5b336c0c785887798775d6d6fdbf9a
-ARG CUDA_RUNTIME=pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime@sha256:7b324d212a4450795b49edba9949b7cdc72429148a64e974334bfe5774d51385
+ARG CUDA_DEVEL=pytorch/pytorch:2.10.0-cuda12.8-cudnn9-devel@sha256:b574d4ccf6d8856a5d87dcadc667aa4f95dc18d337ef3a28d02b7b01897d7081
+ARG CUDA_RUNTIME=pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime@sha256:b85566342b86d13a67712e9315d40cdc2dad7f8d86df1aff3831f80835edbcca
 
 # ---------------------------------------------------------------- source/build
 FROM ${CUDA_DEVEL} AS source
@@ -120,11 +120,12 @@ COPY --from=tools /opt/gltf-tools /opt/gltf-tools
 COPY handler.py input_guard.py phase34c_blender.py /opt/
 RUN set -eux; \
     test -e /opt/gltf-tools/node_modules/.bin/gltf-transform; \
-    rm -rf /opt/conda/lib/python3.11/site-packages/pip* \
-           /opt/conda/lib/python3.11/site-packages/setuptools* \
-           /opt/conda/lib/python3.11/site-packages/wheel* \
+    python -m pip uninstall -y uv; \
+    rm -rf /opt/conda/lib/python3.*/site-packages/pip* \
+           /opt/conda/lib/python3.*/site-packages/setuptools* \
+           /opt/conda/lib/python3.*/site-packages/wheel* \
            /opt/conda/pkgs /root/.cache; \
-    rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.11; \
+    rm -f /opt/conda/bin/pip /opt/conda/bin/pip3 /opt/conda/bin/pip3.*; \
     groupadd --gid 10001 aionex; \
     useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex; \
     chown -R root:root /opt/Hunyuan3D-2.1 /opt/blender /opt/node /opt/gltf-tools /opt/handler.py /opt/input_guard.py /opt/phase34c_blender.py; \
