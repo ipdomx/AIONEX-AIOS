@@ -30,18 +30,18 @@
 ## المراحل (بالترتيب)
 
 ### المرحلة 0: إصلاحات عاجلة
-- [ ] 0.1 إيقاف حلقة `/auth/refresh` في الواجهتين: backoff وحد للمحاولات، وتسجيل خروج نظيف عند 401. يشمل ذلك أخطاء Safari "access control checks".
-- [ ] 0.2 تهدئة أخطاء polling في `telegram-worker`: timeout وbackoff مناسبان، وبلا تسجيل مزعج.
+- [x] 0.1 إيقاف حلقة `/auth/refresh` في الواجهتين: backoff وحد للمحاولات، وتسجيل خروج نظيف عند 401. يشمل ذلك أخطاء Safari "access control checks". (PR #1024، منشور 2026-11-06)
+- [x] 0.2 تهدئة أخطاء polling في `telegram-worker`: timeout وbackoff مناسبان، وبلا تسجيل مزعج. (PR #1024 مدموج؛ نشر worker تيليجرام مع إصدار الصور القادم)
 - [x] 0.3 تشخيص فشل Identity media (13 من 17) وإصلاحه، أو إخفاء العمليات غير المقبولة (voice_transform وface_swap) عن المستخدم. العمليتان صارتا مقفولتين على المستخدم العادي (`IDENTITY_MEDIA_OPERATION_NOT_ACCEPTED`) إلا بعلم المالك `IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC`، والبوابة تعرض ملاحظة صريحة إنها لسه في اختبار القبول. أكواد الفشل بقت واضحة (سبب HTTP من Replicate، ومقتطف خطأ المزود منقّى)، وخطأ الـ polling المؤقت ما بقاش يُفشل التنفيذ. تأكيد السبب الجذري على السيرفر بأوامر قراءة فقط مذكورة في الـ PR. (code merged; live verification deferred to pre-launch)
 - [ ] 0.4 تنظيف السيرفر: worktrees قديمة وحاويات `aionex-pr872*` متوقفة. يتم بعد نسخة احتياطية.
-- [ ] 0.5 تأكيد سكربت نشر الموقع الثابت على cPanel: صلاحيات 644/755 وقواعد RSC لـ vip-e.net. تم في 2026-11-04 ويحتاج توثيقًا في الريبو.
+- [x] 0.5 تأكيد سكربت نشر الموقع الثابت على cPanel: صلاحيات 644/755 وقواعد RSC لـ vip-e.net. تم في 2026-11-04 ويحتاج توثيقًا في الريبو. (سكربت `deploy_cpanel.sh`: صلاحيات 644/755، واستثناء `.htaccess` و`_mpa.html` وملف التحقق الأمني و`acme-challenge`)
 
 ### المرحلة 1: فحص الثغرات لأعلى باقة
 - [x] 1.1 ربط الصلاحية بالباقة: `security_fabric.access_level` يمنح الوصول تلقائيًا لمشترك أعلى باقة نشطة، بدل `SecurityAccessGrant` اليدوي. المالك يبقى owner. (code merged; live verification pending)
 - [x] 1.2 إثبات ملكية الموقع بطريقة إضافية هي **DNS TXT**، بجانب ملف `.well-known`. (code merged; live verification pending)
 - [x] 1.3 حدود استخدام لكل مشترك: عدد الفحوصات والمواقع شهريًا، مع حد للتزامن. (code merged; live verification pending)
 - [x] 1.4 واجهة المستخدم في `vip-frontend`: إضافة موقع، وتحقق، وتشغيل فحص، وتقرير مرتب حسب الخطورة، وخطوات الإصلاح، وتصدير PDF. (code merged; live verification pending)
-- [ ] 1.5 أول فحص حقيقي على دومين يملكه المالك (vip-e.net)، وإيصال حي.
+- [x] 1.5 أول فحص حقيقي على دومين يملكه المالك (vip-e.net)، وإيصال حي. (تم 2026-11-06: الفحص `94feb36d`، 0 حرجة، 1 عالية HSTS اتصلحت. testssl وnuclei وصلوا لحد 180 ثانية ← بند قبل الإطلاق T-04)
 - [x] 1.6 إغلاق FR-23، أي الفحص الأمني الشامل للمشروع نفسه. (code review merged; live re-scan in pre-launch window) — PR #1038، الإيصال `docs/project/receipts/FR23-final-security-review-20261107.md`: بوابات Semgrep وGitleaks وTrivy وpip/npm audit، وإصلاحات باختبارات رجوع (منها Next.js RCE في `vip-frontend`). Pillow في TripoSR خطر متبقي لحد إعادة البناء.
 
 ### المرحلة 2: الـ 3D
@@ -58,7 +58,7 @@
 - [x] 3.4 Worker للنشر والجدولة، مع إعادة المحاولة وسجل نتائج. (code merged; live verification pending)
 - [x] 3.5 تقويم المحتوى ومحرر المنشورات، بمساعدة AIONEX AI في الكتابة والهاشتاجات. (code merged; live verification pending)
 - [x] 3.6 صندوق وارد موحد: تعليقات ورسائل Messenger وInstagram DM. (code merged; live verification deferred to pre-launch)
-- [ ] 3.7 واجهة المستخدم في `vip-frontend`: حساباتي، والنشر، والتقويم، والصندوق، والإحصاءات الأساسية.
+- [x] 3.7 واجهة المستخدم في `vip-frontend`: حساباتي، والنشر، والتقويم، والصندوق، والإحصاءات الأساسية. (PRs #1029 و#1031 و#1034: حساباتي، وإنشاء منشور، والتقويم، والصندوق)
 - [x] 3.8 تجهيز مراجعة تطبيق Meta (App Review): الصلاحيات المطلوبة، وفيديو الشرح، وسياسة الخصوصية، وحذف البيانات. راجع `docs/project/META-APP-REVIEW-PACK.md`. (code merged; live verification deferred to pre-launch)
 
 ### المرحلة 4: إدارة إعلانات Meta وتحليل البيانات
@@ -88,6 +88,43 @@
 - [ ] 7.2 الإعلانات: Google Ads وTikTok Ads على إطار المرحلة 4.
 - [ ] 7.3 تطبيقات الموبايل ونشرها على App Store وGoogle Play (FR-18 وG25).
 - [ ] 7.4 المؤجلات الرسمية: XR/AR/VR، وFR-06 cold-host، وPayPal وبوابات الدفع الأخرى حسب قرار المالك.
+
+## سجل ما قبل الإطلاق (يُحدَّث دائمًا)
+**قاعدة ثابتة (قرار المالك 2026-11-07):** أي بند يتأجل لما قبل الإطلاق، أو أي حاجة لازم المالك يعملها، تُسجَّل هنا فورًا. البند يتشال من هنا بعد التحقق الحي بس. التفاصيل التنفيذية في `PRE-LAUNCH-RUNBOOK.md`.
+
+### مطلوب من المالك
+- [ ] O-01 موافقة على تفعيل real-IP لحدود الطلبات في nginx (overlay FR09). المشكلة: كل الزوار بيتحسبوا IP واحد (cloudflared)، فالحدود 5 دخول/دقيقة و20 طلب/ثانية على الموقع كله. **عائق إطلاق.**
+- [ ] O-02 Stripe: تسجيل webhook `https://api.vip-e.net/api/v1/billing/webhooks/stripe` بالأحداث المذكورة في `STRIPE-GO-LIVE-RUNBOOK.md`، وإعداد Customer Portal، وربط المنتجات والأسعار، ثم بروفة بكروت الاختبار.
+- [ ] O-03 Meta (تطبيق `1056852290270430`):
+  - Valid OAuth Redirect URI: `https://api.vip-e.net/api/v1/social/oauth/meta/callback`
+  - Webhooks: `https://api.vip-e.net/api/v1/social/meta/webhooks`، بالحقول page: feed, messages وinstagram: comments, messages
+  - Deauthorize: `/api/v1/social/meta/deauthorize`
+  - Data deletion: `/api/v1/social/meta/data-deletion`
+- [ ] O-04 Meta: وضع رمز التحقق للـ webhooks على السيرفر (`META_WEBHOOK_VERIFY_TOKEN_FILE`)، بأمر يتسلّم للمالك وقت التنفيذ.
+- [ ] O-05 Meta: إعادة ربط الحساب للحصول على صلاحيات الصندوق والإعلانات، ثم تقديم App Review حسب `META-APP-REVIEW-PACK.md`، مع Business Verification.
+- [ ] O-06 Meta Ads: توكن إعلانات جديد طويل الأجل، لأن القديم `marketing-api-token` انتهى 2026-10-13.
+- [ ] O-07 RunPod: فحص endpoint `aionex-triposr-phase34g-production` (`rrcr2ftk4sqq1j`) من اللوحة، لأن الـ scaler ما شغّلش worker حتى مع workersMax=1 يوم 2026-11-06. الـ endpointين حاليًا workersMax=0. البديل إعادة بناء الـ endpoint.
+- [ ] O-08 الموافقة على تكلفة التجارب الحية: 3D، وإعلانات بإنفاق محدود، وStripe live، وAI خارجي إن لزم.
+- [ ] O-09 إعدادات GitHub: إضافة فحوصات `FR-23 Security Gates` (Semgrep وGitleaks وTrivy وDependency audit) لقائمة الفحوصات المطلوبة في branch protection على `main` (FR-23).
+
+### تقني (يتنفذ في نافذة ما قبل الإطلاق)
+- [ ] T-01 نشر `src/aios/gpu_worker/runpod.py` (PR #1032): العمال بيقروا `/opt/AIOS/src` من checkout قديم (`f2527cf3`)، فلازم overlay أو تحديث آمن.
+- [ ] T-02 تفعيل أولوية AIONEX AI: سر مشترك `AIONEX_AI_PLAN_SECRET_FILE` على AIOS، و`aios_plan_secret_file` على الـ gateway.
+- [ ] T-03 تحديث صور العمال القديمة (`release-4c6ae500` و`release-960dab80`)، ومنها `security-scan-worker` و`telegram-worker` و`three-d-worker`، لتطابق main: إصلاحات تيليجرام #1024، وملخص الفحص #1027، وثغرات musl/zlib #1035.
+- [ ] T-04 مهلات أدوات الفحص: testssl وnuclei بيوصلوا لحد 180 ثانية. التعديل اتوقف بقرار نظام الأمان، ومحتاج مراجعة يدوية بإشراف.
+- [ ] T-05 تشخيص Identity media على السيرفر بأوامر القراءة في وصف PR #1032 (Replicate token/رصيد، ورابط provider-input خلف Cloudflare).
+- [ ] T-06 تفعيل overlay السعة `docker-compose.p6-capacity-tuning.yml` (8 workers، وDB pool، وRedis) قبل اختبار 5000.
+- [ ] T-07 تنفيذ بوابات المرحلة 6 بالترتيب في `PRE-LAUNCH-RUNBOOK.md`: 6.4 ثم 6.1 ثم 6.3، وبعدها التجارب الحية، ثم 6.2 (72 ساعة)، ثم 6.5.
+- [ ] T-08 تجارب حية: نشر Meta، والصندوق، والإعلانات، وStripe، و3D، والصور والفيديو والصوت والأكاديمية (البند 5.1).
+- [ ] T-09 تنظيف السيرفر (0.4): worktrees قديمة، وحاويات `aionex-pr872*`، ونسخ النشر القديمة في `/var/lib/aionex-migration/*/static`.
+- [ ] T-10 nginx الإنتاج: التعديلات بتتطبق على `/tmp/aionex-nginx-fr09-realip.conf` (live) وعلى ملف المصدر على السيرفر. لازم ريستارت مُتحكَّم فيه للحاوية يتأكد إنها بتبني نفس الإعداد.
+- [ ] T-11 إعادة بناء أدوات الفحص المبنية محليًا (`security-build/{gitleaks,httpx,grype,syft,trivy}`) على klauspost/compress 1.18.7 وgo-jose 4.1.6 وx/net 0.62.0، وتحديث `expected_binary_sha256` في كل lock. استثناءات Trivy بتنتهي 2026-12-31 (FR23-10).
+- [ ] T-12 **عاجل:** نشر `vip-frontend` بـ Next.js 15.5.29 (البوابة على السيرفر والنسخة الثابتة على cPanel). 15.5.27 فيها ثغرة تنفيذ كود عن بعد من غير تسجيل دخول (GHSA-2464-fhr4-w9xw، FR23-01).
+- [ ] T-13 TripoSR: Pillow 12.3.0 فيها ثغرات حرجة، والإصلاح Pillow 13 بيتعارض مع rembg (`pillow<13`). لازم إصدار rembg يقبل Pillow 13 أو حل موثق، ثم إعادة بناء الصورة وتشغيلها كمستخدم غير root. **ممنوع رفع workersMax قبلها.** الاستثناء بينتهي 2026-12-15 (FR23-02 وFR23-12).
+- [ ] T-14 FR-23E: إعادة تشغيل بوابات FR-23 على commit الإصدار، وفحص Security Lab حي لـ api.vip-e.net وai.vip-e.net، واختبارات DAST معزولة (FR-23C) بعد النشر.
+- [ ] T-15 نشر إصلاحات FR-23 في الباك إند (تثبيت عنوان التحقق، وصلاحية signed_request لمدة 24 ساعة، ومقارنة توقيعات الدفع، وdefusedxml) وحارس حروف التحكم في nginx (مع T-10).
+- [ ] T-16 بعد بوابة 6.1: تنظيف حسابات اختبار الحمل `synthetic_load_accounts cleanup --execute` وحذف ملف كلمة السر المشترك وملف التصدير.
+- [ ] T-17 جدار egress لـ `security-scan-worker`: منع العناوين الخاصة وloopback وlink-local والـ metadata، أو شبكة منفصلة عن Postgres وRedis والباك إند، لأن أدوات الفحص النشط بتعمل DNS بنفسها (FR23-11).
 
 ## طريقة التحديث
 - كل بند يُعلَّم `[x]` في نفس الـ PR الذي يغلقه، مع رابط PR والإيصال الحي.
