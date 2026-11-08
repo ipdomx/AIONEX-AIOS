@@ -54,3 +54,20 @@ FR-09 FULL_MIXED acceptance additionally needs the HMAC-signed server presence s
 
 ## Policy note
 FR-09F (2026-10-10) required the 5000-user test to run in an isolated lab. The 2026-11-06 owner decision moves all live verification into the pre-launch window against the real API. The harness supports both: `--allow-lab-target` covers the FR-09 LUKS lab. Running against `api.vip-e.net` is an explicit owner choice, recorded in the runbook. Its safeguards are synthetic `.invalid` accounts only, no owner notifications, a capped AI rate, hard stops, and a pre-launch window with no customers.
+
+## 6.1 runs on production (2026-11-07/08)
+Each run was a mixed authenticated load against `api.vip-e.net`, with synthetic accounts, from this host. Each run surfaced the next real limit, and every fix below is live and in `docker-compose.p6-capacity-tuning.yml`.
+
+| Run | Peak users | Result | Limit found → fix |
+|---|---|---|---|
+| 1 | ~100 | 30 s responses | `sync_catalog` locked every plan row and walked every tenant on each billing read (#1042) |
+| 2 | ~1900 | P95 2 s | backend 8-core quota; 403 on plan-gated ads counted as errors (#1044) |
+| 3 | ~1700 | 5xx | nginx `EMFILE`: soft limit 1024 per worker, 64 workers from `auto` → 4 workers, `worker_rlimit_nofile 65536` |
+| 4 | ~1500 | P95 < 320 ms, 51 x 502 | nginx → backend ephemeral ports (`EADDRNOTAVAIL`) → port range + `tcp_tw_reuse` |
+| 5 | ~3600 | 217k requests, 0 errors, P95 1.6 s in ramp | Argon2 login burst + CPU |
+| 1000-user steady | 1000 | **PASS**: P95 118 ms, 0 errors | none |
+| 7 | ~3600 | 296k requests, 0 errors, no CPU throttling | per-process event loop (16 workers) |
+| 8 | ~3000 | P50 100 ms, P95 2 s | DB pool 1+1 per process with 32 workers |
+| 9 | ~2450 | 196k requests, 0.03% errors, P95 0.4–0.9 s | QueuePool exhaustion (5+2 per process) after Postgres raised to 300 connections / 2 GiB |
+
+**Open (next run):** find which request path holds DB sessions long enough to exhaust a 7-connection pool at ~100 sockets per process, and fix that before raising pools further. PgBouncer in transaction mode is the fallback if the hold is inherent.

@@ -85,12 +85,16 @@ def test_entrypoint_fails_closed(tmp_path, case):
 
 def test_capacity_tuning_keeps_postgres_budget_and_redis_headroom():
     text = TUNING.read_text()
-    assert 'WORKERS: "8"' in text and 'DATABASE_POOL_SIZE: "6"' in text and 'DATABASE_MAX_OVERFLOW: "1"' in text
-    assert 8 * (6 + 1) <= 60 and 'DATABASE_POOL_CONNECTION_BUDGET: "60"' in text
+    assert 'WORKERS: "24"' in text and 'DATABASE_POOL_SIZE: "5"' in text and 'DATABASE_MAX_OVERFLOW: "2"' in text
+    assert 24 * (5 + 2) <= 180 and 'DATABASE_POOL_CONNECTION_BUDGET: "180"' in text
+    assert "max_connections=300" in text and 180 + 60 <= 300
+    # 6.1 run 2026-11-07: per-process file limit and ephemeral-port headroom.
+    assert "nofile: {soft: 65536, hard: 65536}" in text
+    assert 'net.ipv4.tcp_tw_reuse: "1"' in text
     # PROJECT_EXECUTION_ADMISSION_CONCURRENCY 14 must leave room for auth/realtime.
     assert 'REDIS_POOL_SIZE: "48"' in text and 48 - 14 >= 30
-    assert 'PASSWORD_HASH_THREADS: "1"' in text
-    for absent in ("postgres:", "cloudflared:", "ports:"):
+    assert 'PASSWORD_HASH_THREADS: "2"' in text
+    for absent in ("cloudflared:", "ports:"):
         assert absent not in text
 
 
