@@ -2,24 +2,25 @@
 # Measured on the 5000-user runs of 2026-11-07/08. Every limit below was found by a
 # run: nginx file descriptors, nginx ephemeral ports, backend CPU quota, per-process
 # event-loop saturation and the Postgres connection ceiling.
-# API pool ceiling: 24 x (5 + 2) = 168 <= DATABASE_POOL_CONNECTION_BUDGET 180, with
+# Final values: the 6.1 PASS run (run 18, 2026-11-08) used exactly these.
+# API pool ceiling: 32 x (5 + 2) = 224 <= DATABASE_POOL_CONNECTION_BUDGET 230, with
 # Postgres max_connections=300 leaving headroom for the workers (~1 each).
 services:
   backend:
     cpus: "32.0"
-    # 24 uvicorn processes (~0.3-0.4 GiB each) + 24 x 2 Argon2 threads x 64 MiB.
-    mem_limit: 16g
-    # One process holds ~5000/24 WebSockets plus DB/Redis sockets; 1024 files is too low.
+    # 32 uvicorn processes (~0.3-0.4 GiB each) + 32 x 2 Argon2 threads x 64 MiB.
+    mem_limit: 20g
+    # One process holds ~5000/32 WebSockets plus DB/Redis sockets; 1024 files is too low.
     ulimits:
       nofile: {soft: 65536, hard: 65536}
     environment:
-      WORKERS: "24"
+      WORKERS: "32"
       DATABASE_POOL_SIZE: "5"
       DATABASE_MAX_OVERFLOW: "2"
       DATABASE_POOL_TIMEOUT_SECONDS: "5"
-      DATABASE_POOL_CONNECTION_BUDGET: "180"
+      DATABASE_POOL_CONNECTION_BUDGET: "230"
       # 14 admission slots + >= 34 for auth revocation checks, realtime and presence.
-      REDIS_POOL_SIZE: "48"
+      REDIS_POOL_SIZE: "64"
       PASSWORD_HASH_THREADS: "2"
   nginx:
     cpus: "2.0"
@@ -33,3 +34,10 @@ services:
     command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=2GB",
               "-c", "effective_cache_size=6GB", "-c", "work_mem=8MB"]
     shm_size: "1g"
+    # At 4 CPUs Postgres was throttled for ~16k s during the run; the last bottleneck.
+    cpus: "16.0"
+  cloudflared:
+    # The tunnel carries every public request; 1 CPU saturated near 4000 users.
+    # Resources only: no command, environment or ports change here.
+    cpus: "4.0"
+    mem_limit: 2g

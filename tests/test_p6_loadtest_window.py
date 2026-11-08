@@ -85,17 +85,22 @@ def test_entrypoint_fails_closed(tmp_path, case):
 
 def test_capacity_tuning_keeps_postgres_budget_and_redis_headroom():
     text = TUNING.read_text()
-    assert 'WORKERS: "24"' in text and 'DATABASE_POOL_SIZE: "5"' in text and 'DATABASE_MAX_OVERFLOW: "2"' in text
-    assert 24 * (5 + 2) <= 180 and 'DATABASE_POOL_CONNECTION_BUDGET: "180"' in text
-    assert "max_connections=300" in text and 180 + 60 <= 300
+    assert 'WORKERS: "32"' in text and 'DATABASE_POOL_SIZE: "5"' in text and 'DATABASE_MAX_OVERFLOW: "2"' in text
+    assert 32 * (5 + 2) <= 230 and 'DATABASE_POOL_CONNECTION_BUDGET: "230"' in text
+    assert "max_connections=300" in text and 230 + 60 <= 300
     # 6.1 run 2026-11-07: per-process file limit and ephemeral-port headroom.
     assert "nofile: {soft: 65536, hard: 65536}" in text
     assert 'net.ipv4.tcp_tw_reuse: "1"' in text
     # PROJECT_EXECUTION_ADMISSION_CONCURRENCY 14 must leave room for auth/realtime.
-    assert 'REDIS_POOL_SIZE: "48"' in text and 48 - 14 >= 30
+    assert 'REDIS_POOL_SIZE: "64"' in text and 64 - 14 >= 30
     assert 'PASSWORD_HASH_THREADS: "2"' in text
-    for absent in ("cloudflared:", "ports:"):
-        assert absent not in text
+    assert "ports:" not in text
+    # The tunnel only gets CPU/memory; its command, token and environment stay untouched.
+    tunnel = text.split("\n  cloudflared:\n", 1)[1]
+    keys = [line.split(":", 1)[0].strip() for line in tunnel.splitlines()
+            if line.startswith("    ") and not line.strip().startswith("#")]
+    assert keys == ["cpus", "mem_limit"]
+    assert 'cpus: "4.0"' in tunnel and "mem_limit: 2g" in tunnel
 
 
 def test_loadtest_window_overlay_requires_realip_and_exemption():
