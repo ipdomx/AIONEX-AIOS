@@ -29,7 +29,7 @@ Read-only traffic is fast. Latency collapses when logins, writes and many concur
 
 ### F3. Too few API processes for the CPU they are allowed
 Production runs `WORKERS` = 4 (config default) on `cpus: 4.0`, with a DB pool of 4 x (12 + 2) = 56 out of a budget of 60. Python request handling is CPU bound per process. The existing FR-09 overlays (`workers8-pool56`, `backend-cpu`) were never combined with a measured run.
-- **Tuning (opt-in, `docker-compose.p6-capacity-tuning.yml`):** `WORKERS=8` on `cpus: 8.0` and `mem_limit: 6g`. DB pool 8 x (6 + 1) = 56 <= budget 60, so Postgres `max_connections=100` keeps headroom for the workers. `PASSWORD_HASH_THREADS=1` per process gives 8 parallel hashes. The 6.1 run must measure this exact file, and if it passes, this is the file that ships.
+- **Tuning (`docker-compose.p6-capacity-tuning.yml`):** first proposal was `WORKERS=8` on 8 CPU with pool 6+1 (budget 60). The runs below replaced it; the file now holds the run-18 PASS values (see *Final configuration*).
 
 ### F4. Redis pool too small for 5000 sockets
 The backend uses `BlockingConnectionPool(max_connections=REDIS_POOL_SIZE=18, timeout=5 s)`. `PROJECT_EXECUTION_ADMISSION_CONCURRENCY=14` can hold 14 of those 18 connections. That leaves 4 per process for access-token revocation checks on every authenticated request, the realtime hub, and FR-09 presence heartbeats. Under load the remaining requests wait up to 5 s, which lands directly in P95.
@@ -70,4 +70,7 @@ Each run was a mixed authenticated load against `api.vip-e.net`, with synthetic 
 | 8 | ~3000 | P50 100 ms, P95 2 s | DB pool 1+1 per process with 32 workers |
 | 9 | ~2450 | 196k requests, 0.03% errors, P95 0.4–0.9 s | QueuePool exhaustion (5+2 per process) after Postgres raised to 300 connections / 2 GiB |
 
-**Open (next run):** find which request path holds DB sessions long enough to exhaust a 7-connection pool at ~100 sockets per process, and fix that before raising pools further. PgBouncer in transaction mode is the fallback if the hold is inherent.
+| 10–17 | ~2500–4500 | pool waits, then CPU throttling | idle WebSocket revalidation hit the DB every tick (#1048); portal read did upserts (#1047); billing reads walked every tenant (#1049, #1050); Postgres on 4 CPUs throttled ~16k s; cloudflared 1 CPU saturated |
+| **18** | **5000** | **PASS** | 4 shards x 1250, 13-stage ramp, 900 s steady at 5000 (presence confirmed): ~2.45M requests, 0 errors, steady non-AI P95 ~175 ms |
+
+**Final configuration (run 18, now in `docker-compose.p6-capacity-tuning.yml`):** backend 32 CPU / 20 GiB, `WORKERS=32`, pool 5+2 per process within budget 230, Redis pool 64, Argon2 2 threads; Postgres 300 connections, 2 GiB shared buffers, 16 CPU; nginx 4 workers with 65536 files and the port-range sysctls; cloudflared 4 CPU / 2 GiB. Receipts: `/var/lib/aionex-migration/p6-prelaunch/20261107/LOAD-RECEIPT-18-{0..3}.json` and `presence18.jsonl`.

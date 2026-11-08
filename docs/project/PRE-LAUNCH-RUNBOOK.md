@@ -52,7 +52,7 @@
 - [ ] **C1. تفعيل real-IP بشكل دائم (شرط للإطلاق):** `python3 scripts/security/fr09_cloudflared_realip_admission.py --apply`، وبعدها نشر nginx مع `docker-compose.fr09-trusted-realip.yml`.
   - معيار النجاح: سجل nginx يظهر فيه IP الزائر الحقيقي بدل IP حاوية cloudflared.
   - إجراء المالك: موافقة على نافذة التغيير.
-- [ ] **C2. ضبط السعة:** نشر الـ backend مع `docker-compose.p6-capacity-tuning.yml` (8 workers، وPostgres pool 56 من 60، وRedis 48، وArgon2 على threads).
+- [x] **C2. ضبط السعة:** نشر الـ backend مع `docker-compose.p6-capacity-tuning.yml`. القيم النهائية من التشغيل 18 الناجح: 32 worker، وpool 5+2 لكل عملية بميزانية 230، وRedis 64، وArgon2 بـ 2 threads، وPostgres بـ 300 اتصال و16 CPU، وcloudflared بـ 4 CPU.
   - معيار النجاح: `/ready` = 200، ومفيش خطأ في التحقق من الإعدادات.
 - [ ] **C3. الحسابات الاصطناعية:** `python -m app.services.synthetic_load_accounts seed --run-id p6-<UTC> --count 5000 --projects-per-user 3 --password-file ... --export ... --execute`
   الإيميلات بتنتهي بـ `@synthetic.loadtest.invalid`، وكل حساب عليه علامة `synthetic_load_account`، ومفيش أي إشعار بيروح للمالك.
