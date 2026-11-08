@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -11,6 +12,7 @@ from app.db.base import SessionLocal
 from app.realtime.fr09_authenticated_presence import ServerPresenceRecorder
 from app.realtime.authorized_socket import (
     AuthorizedRealtimeSocket,
+    FULL_REVALIDATION_EVERY_IDLE_TICKS,
     IDLE_REVALIDATION_SECONDS,
     MAX_CONTROL_MESSAGE_CHARACTERS,
     StreamAuthorizationLost,
@@ -64,12 +66,19 @@ async def websocket_connect(
             await realtime_event_runtime.replay(
                 organization_id, guarded, after_event_id=resume_cursor
             )
+        # Random phase so sockets that connected together do not revalidate together.
+        idle_ticks = secrets.randbelow(FULL_REVALIDATION_EVERY_IDLE_TICKS)
         while not guarded.closed:
             try:
                 message = await asyncio.wait_for(websocket.receive_text(),
                                                  timeout=IDLE_REVALIDATION_SECONDS)
             except TimeoutError:
-                principal = await guarded.ensure_authorized()
+                idle_ticks += 1
+                if idle_ticks >= FULL_REVALIDATION_EVERY_IDLE_TICKS:
+                    idle_ticks = 0
+                    principal = await guarded.ensure_authorized()
+                else:
+                    principal = await guarded.ensure_token_current()
                 if presence is not None and presence_socket_id is not None:
                     await presence.revalidate(
                         presence_socket_id, presence_user_digest or "", principal
