@@ -1448,14 +1448,28 @@ async def get_portal_snapshot(session: AsyncSession) -> dict[str, Any]:
     }
 
 
+# Validated published payload, keyed by the record identity and version. The public
+# portal endpoint and every billing read call this; re-validating the whole CMS model
+# and running two upserts per request made it a top CPU and DB-session cost under the
+# 6.1 load (T-20). Publishing bumps the record version, which invalidates the entry.
+_PUBLISHED_CACHE: tuple[tuple[Any, ...], dict[str, Any]] | None = None
+
+
 async def get_published_portal(session: AsyncSession) -> dict[str, Any]:
-    _, published = await ensure_portal_records(session)
+    global _PUBLISHED_CACHE
+    published = await _get_record(session, PUBLISHED_RESOURCE)
+    if published is None:
+        _, published = await ensure_portal_records(session)
+    key = (published.id, published.version, published.updated_at)
+    cached = _PUBLISHED_CACHE
+    if cached is not None and cached[0] == key:
+        return deepcopy(cached[1])
     payload = dict(published.payload or {})
     configuration = validate_portal_configuration(
         dict(payload.get("configuration") or {})
     )
     publication = dict(payload.get("publication") or {})
-    return {
+    result = {
         "configuration": configuration,
         "publication": publication,
         "etag": hashlib.sha256(
@@ -1467,6 +1481,8 @@ async def get_published_portal(session: AsyncSession) -> dict[str, Any]:
             ).encode("utf-8")
         ).hexdigest(),
     }
+    _PUBLISHED_CACHE = (key, deepcopy(result))
+    return result
 
 
 async def replace_portal_draft(
