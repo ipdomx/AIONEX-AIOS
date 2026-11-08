@@ -23,6 +23,10 @@ SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 AUTHORIZATION_TIMEOUT_SECONDS = 3.0
 SEND_TIMEOUT_SECONDS = 3.0
 IDLE_REVALIDATION_SECONDS = 5.0
+# Full (database) idle revalidation every N idle ticks; the ticks in between only
+# re-check the credential (signature, expiry, Redis revocation). With 5 s ticks a
+# 3000-socket load was 600 DB authorizations/s and exhausted the API pools (T-20).
+FULL_REVALIDATION_EVERY_IDLE_TICKS = 6
 MAX_CONTROL_MESSAGE_CHARACTERS = 1024
 
 
@@ -118,6 +122,32 @@ class AuthorizedRealtimeSocket:
     async def ensure_authorized(self) -> StreamPrincipal:
         async with self._lock:
             return await self._validate_locked()
+
+    async def ensure_token_current(self) -> StreamPrincipal:
+        """Cheap idle check: signature, expiry and Redis revocation of the credential.
+
+        It needs no database session. Account, organization, role and permission
+        changes are still enforced by the full check before every delivered event
+        and by the periodic full idle revalidation in the websocket route.
+        """
+        async with self._lock:
+            if self._closed or self._principal is None:
+                raise StreamAuthorizationLost("Stream authorization ended")
+            try:
+                async with asyncio.timeout(AUTHORIZATION_TIMEOUT_SECONDS):
+                    claims = await self._authentication.decode_access_token(self._credential)
+                if claims.get("sub") != self._principal.user_id or (
+                    int(claims.get("auth_version", 0)) != self._principal.auth_version
+                ):
+                    raise PermissionError("Stream credential changed")
+                return self._principal
+            except (HTTPException, PermissionError, ValueError, TypeError) as exc:
+                code = 1013 if isinstance(exc, HTTPException) and exc.status_code >= 500 else 4403
+                await self._close_locked(code)
+                raise StreamAuthorizationLost("Stream authorization ended") from None
+            except Exception:
+                await self._close_locked(1013)
+                raise StreamAuthorizationLost("Stream authorization is unavailable") from None
 
     async def accept(self) -> None:
         async with self._lock:
