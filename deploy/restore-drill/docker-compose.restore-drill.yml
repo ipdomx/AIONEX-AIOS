@@ -113,19 +113,76 @@ services:
       REALTIME_MEDIA_LIVE_ENABLED: "false"
       MEDIA_STORAGE_TYPE: local
       THREE_D_STORAGE_TYPE: local
-      THREE_D_STORAGE_ROOT: /restore/three_d_asset_data
-      PROJECT_EXECUTION_OUTPUT_ROOT: /restore/project_execution_data
-      ACADEMY_COURSE_PACKAGE_ROOT: /restore/course_package_data
-      MEDIA_STORAGE_ROOT: /restore/media_asset_data
-      STUDIO_ASSET_ROOT: /restore/studio_asset_data
-      PORTAL_ASSET_ROOT: /restore/portal_asset_data
-      MOBILE_RELEASE_ROOT: /restore/mobile_release_data
-      REALTIME_RECORDING_ROOT: /restore/realtime_recording_data
-      AUDIO_SONG_ARTIFACT_BRIDGE_ROOT: /restore/audio_song_ingress_data
+      THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
+      PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
+      ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
+      MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
+      STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets
+      PORTAL_ASSET_ROOT: /var/lib/aionex/portal-assets
+      MOBILE_RELEASE_ROOT: /var/lib/aionex/mobile-releases
+      REALTIME_RECORDING_ROOT: /var/lib/aionex/realtime-recordings
+      AUDIO_SONG_ARTIFACT_BRIDGE_ROOT: /var/lib/aionex/audio-song-provider-ingress
       SECURITY_SOURCE_ROOT: /restore/security_source_data
       SECURITY_REMEDIATION_ROOT: /restore/security_remediation_data
+    # Restored files sit at the same paths as in production: the database stores
+    # absolute storage paths (e.g. /var/lib/aionex/studio-assets/...), so any other
+    # layout makes every restored asset unreadable.
     volumes:
       - drill_assets:/restore:ro
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/three-d-assets
+        read_only: true
+        volume:
+          subpath: three_d_asset_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/project-executions
+        read_only: true
+        volume:
+          subpath: project_execution_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/course-packages
+        read_only: true
+        volume:
+          subpath: course_package_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/media-assets
+        read_only: true
+        volume:
+          subpath: media_asset_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/studio-assets
+        read_only: true
+        volume:
+          subpath: studio_asset_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/portal-assets
+        read_only: true
+        volume:
+          subpath: portal_asset_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/mobile-releases
+        read_only: true
+        volume:
+          subpath: mobile_release_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/realtime-recordings
+        read_only: true
+        volume:
+          subpath: realtime_recording_data
+      - type: volume
+        source: drill_assets
+        target: /var/lib/aionex/audio-song-provider-ingress
+        read_only: true
+        volume:
+          subpath: audio_song_ingress_data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)"]
       interval: 10s

@@ -219,3 +219,12 @@ def test_failed_step_keeps_its_json_verdict(monkeypatch):
         a, 1, stdout=json.dumps(verdict) + "\n", stderr=""))
     with pytest.raises(drill.DrillRefused, match="project_read"):
         instance.step("smoke", "run", "--rm", "smoke")
+
+
+def test_restored_assets_sit_at_production_paths():
+    backend = rendered()["services"]["backend"]
+    assert backend["environment"]["STUDIO_ASSET_ROOT"] == "/var/lib/aionex/studio-assets"
+    mounts = {m["target"]: m for m in backend["volumes"]}
+    studio = mounts["/var/lib/aionex/studio-assets"]
+    assert studio["source"] == "drill_assets" and studio["read_only"] is True
+    assert studio["volume"]["subpath"] == "studio_asset_data"
