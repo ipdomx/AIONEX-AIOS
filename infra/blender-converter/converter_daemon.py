@@ -234,8 +234,15 @@ def _discard(entry: Path) -> None:
         entry.unlink(missing_ok=True)
 
 
+def _mtime(entry: Path) -> float:
+    try:
+        return entry.lstat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def run_once(runner: Runner = run_sandboxed) -> bool:
-    pending = sorted((SPOOL / "requests").iterdir(), key=lambda item: item.stat().st_mtime)
+    pending = sorted((SPOOL / "requests").iterdir(), key=_mtime)
     for entry in pending:
         if not _ID.fullmatch(entry.name) or entry.is_symlink() or not entry.is_dir():
             _discard(entry)
@@ -244,6 +251,13 @@ def run_once(runner: Runner = run_sandboxed) -> bool:
         try:
             os.replace(entry, claimed)
         except FileNotFoundError:
+            continue
+        except OSError as exc:
+            # A request this daemon cannot claim (e.g. written by another user) must
+            # never take the converter down: drop it if possible, skip it otherwise.
+            print(json.dumps({"event": "request_unclaimable", "id": entry.name,
+                              "error": type(exc).__name__}), file=sys.stderr, flush=True)
+            _discard(entry)
             continue
         _finish(claimed, process_request(claimed, runner))
         return True
