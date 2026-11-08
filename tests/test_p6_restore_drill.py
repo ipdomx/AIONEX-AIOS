@@ -111,6 +111,11 @@ def test_real_drill_compose_passes_every_guard():
     assert drill.validate_compose_config(rendered(), PROJECT, ALLOWED) == []
 
 
+def test_restored_backend_can_import_the_shared_aios_package():
+    environment = rendered()["services"]["backend"]["environment"]
+    assert environment["PYTHONPATH"].split(":")[0] == "/app/aios-src"
+
+
 def test_restored_app_has_no_egress_and_only_fetch_reaches_r2():
     config = rendered()
     assert config["networks"]["drill_isolated"]["internal"] is True

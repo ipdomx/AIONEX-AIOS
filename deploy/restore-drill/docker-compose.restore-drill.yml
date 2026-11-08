@@ -100,6 +100,9 @@ services:
     environment:
       AIOS_RESTORE_DRILL: "1"
       ENVIRONMENT: restore-drill
+      # Production images carry the shared `aios` package at /app/aios-src (production
+      # compose sets the same path); without it the restored backend cannot import.
+      PYTHONPATH: /app/aios-src:/app
       DEBUG: "false"
       WORKERS: "2"
       POSTGRES_HOST: postgres
