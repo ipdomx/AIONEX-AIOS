@@ -13,6 +13,7 @@ import hmac
 import json
 import math
 import secrets
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Mapping, overload
@@ -461,7 +462,15 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
             changed = True
             plan.status = "inactive"
 
-    await _ensure_accounts_for_organizations(session, all_organizations=changed)
+    global _MISSING_ACCOUNTS_CHECKED_AT
+    now_monotonic = time.monotonic()
+    if changed or now_monotonic - _MISSING_ACCOUNTS_CHECKED_AT >= _MISSING_ACCOUNTS_INTERVAL_SECONDS:
+        # The organization-wide missing-account scan is an anti-join over every
+        # tenant; read paths run it at most once a minute per process. The
+        # requesting organization is still initialized at once by
+        # ensure_billing_account (T-20).
+        await _ensure_accounts_for_organizations(session, all_organizations=changed)
+        _MISSING_ACCOUNTS_CHECKED_AT = now_monotonic
     await session.flush()
     return {
         "enabled": bool(pricing.get("enabled", True)),
@@ -505,8 +514,15 @@ async def _internal_plan(session: AsyncSession, organization_plan: str) -> Billi
     return plan
 
 
+_MISSING_ACCOUNTS_INTERVAL_SECONDS = 60.0
+_MISSING_ACCOUNTS_CHECKED_AT = float("-inf")
+
+
 async def _ensure_accounts_for_organizations(
-    session: AsyncSession, *, all_organizations: bool = True
+    session: AsyncSession,
+    *,
+    all_organizations: bool = True,
+    organization_ids: list[str] | None = None,
 ) -> None:
     """Create missing billing accounts; resync every account only after a catalogue change.
 
@@ -514,6 +530,8 @@ async def _ensure_accounts_for_organizations(
     the per-request read path (it made /ads/access take 30s+ with 5000 tenants).
     """
     statement = select(Organization)
+    if organization_ids is not None:
+        statement = statement.where(Organization.id.in_(organization_ids))
     if not all_organizations:
         statement = statement.outerjoin(
             BillingAccount, BillingAccount.organization_id == Organization.id
@@ -580,6 +598,11 @@ async def ensure_billing_account(
     if lock:
         statement = statement.with_for_update()
     account = await session.scalar(statement)
+    if account is None:
+        await _ensure_accounts_for_organizations(
+            session, all_organizations=False, organization_ids=[organization_id]
+        )
+        account = await session.scalar(statement)
     if account is None:
         raise HTTPException(
             status_code=503, detail="Billing account could not be initialized"
