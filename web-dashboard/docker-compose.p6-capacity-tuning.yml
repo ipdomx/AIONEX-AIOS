@@ -1,21 +1,35 @@
 # P6 gate 6.1 capacity tuning (see docs/project/P6-CAPACITY-ANALYSIS.md).
-# This is the configuration the 5000-user run must measure; if the run
-# passes, it is the configuration that ships. It keeps the API Postgres pool
-# ceiling at 8 x (6 + 1) = 56 <= DATABASE_POOL_CONNECTION_BUDGET 60, so
-# Postgres max_connections=100 keeps headroom for the workers.
+# Measured on the 5000-user runs of 2026-11-07/08. Every limit below was found by a
+# run: nginx file descriptors, nginx ephemeral ports, backend CPU quota, per-process
+# event-loop saturation and the Postgres connection ceiling.
+# API pool ceiling: 24 x (5 + 2) = 168 <= DATABASE_POOL_CONNECTION_BUDGET 180, with
+# Postgres max_connections=300 leaving headroom for the workers (~1 each).
 services:
   backend:
-    cpus: "8.0"
-    # 8 uvicorn processes (~0.3-0.4 GiB each) + 8 x 1 Argon2 thread x 64 MiB.
-    mem_limit: 6g
+    cpus: "32.0"
+    # 24 uvicorn processes (~0.3-0.4 GiB each) + 24 x 2 Argon2 threads x 64 MiB.
+    mem_limit: 16g
+    # One process holds ~5000/24 WebSockets plus DB/Redis sockets; 1024 files is too low.
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
     environment:
-      WORKERS: "8"
-      DATABASE_POOL_SIZE: "6"
-      DATABASE_MAX_OVERFLOW: "1"
+      WORKERS: "24"
+      DATABASE_POOL_SIZE: "5"
+      DATABASE_MAX_OVERFLOW: "2"
       DATABASE_POOL_TIMEOUT_SECONDS: "5"
-      DATABASE_POOL_CONNECTION_BUDGET: "60"
+      DATABASE_POOL_CONNECTION_BUDGET: "180"
       # 14 admission slots + >= 34 for auth revocation checks, realtime and presence.
       REDIS_POOL_SIZE: "48"
-      PASSWORD_HASH_THREADS: "1"
+      PASSWORD_HASH_THREADS: "2"
   nginx:
     cpus: "2.0"
+    # nginx opens one upstream connection per request (no keepalive pool), so at
+    # ~3000 req/s the default 28k ephemeral ports in TIME_WAIT run out (EADDRNOTAVAIL).
+    sysctls:
+      net.ipv4.ip_local_port_range: "10240 65535"
+      net.ipv4.tcp_tw_reuse: "1"
+  postgres:
+    # The default 100 connections and 128 MiB shared buffers capped the run.
+    command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=2GB",
+              "-c", "effective_cache_size=6GB", "-c", "work_mem=8MB"]
+    shm_size: "1g"
