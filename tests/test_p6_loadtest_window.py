@@ -96,10 +96,11 @@ def test_capacity_tuning_keeps_postgres_budget_and_redis_headroom():
     assert 'PASSWORD_HASH_THREADS: "2"' in text
     assert "ports:" not in text
     # The tunnel only gets CPU/memory; its command, token and environment stay untouched.
-    import yaml
-
-    tunnel = yaml.safe_load(text)["services"]["cloudflared"]
-    assert tunnel == {"cpus": "4.0", "mem_limit": "2g"}
+    tunnel = text.split("\n  cloudflared:\n", 1)[1]
+    keys = [line.split(":", 1)[0].strip() for line in tunnel.splitlines()
+            if line.startswith("    ") and not line.strip().startswith("#")]
+    assert keys == ["cpus", "mem_limit"]
+    assert 'cpus: "4.0"' in tunnel and "mem_limit: 2g" in tunnel
 
 
 def test_loadtest_window_overlay_requires_realip_and_exemption():
