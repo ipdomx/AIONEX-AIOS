@@ -177,6 +177,11 @@ def test_asset_extraction_restores_per_root_layout(tmp_path):
     assert result["files"] == 2
     assert (dest / "media_asset_data/org/a.png").read_bytes() == b"png"
     assert result["roots"]["portal_asset_data"] == {"files": 1, "bytes": 5}
+    # Every storage root is private (the backend entrypoint refuses anything but 700)
+    # and exists even when the backup carried no files for it.
+    for root in fetch.ASSET_ROOTS:
+        assert (dest / root).is_dir()
+        assert (dest / root).stat().st_mode & 0o777 == 0o700
 
 
 @pytest.mark.parametrize("members, link", [
