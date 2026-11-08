@@ -207,3 +207,15 @@ def test_asset_extraction_refuses_unsafe_members(tmp_path, members, link):
 def test_fetch_module_refuses_outside_the_drill(monkeypatch, capsys):
     monkeypatch.delenv("AIOS_RESTORE_DRILL", raising=False)
     assert fetch.main(["extract", "--archive", "/nonexistent", "--destination", "/tmp/x"]) == 2
+
+
+def test_failed_step_keeps_its_json_verdict(monkeypatch):
+    import subprocess
+
+    instance = drill.Drill(PROJECT, r2_secret="/r2", keyring="/k", canary_email="c@synthetic.loadtest.invalid",
+                           canary_password_file="/pw", studio_asset_id="", backend_image="b", postgres_image="p")
+    verdict = {"status": "FAIL", "required": {"project_read": False}}
+    monkeypatch.setattr(instance, "compose", lambda *a, **k: subprocess.CompletedProcess(
+        a, 1, stdout=json.dumps(verdict) + "\n", stderr=""))
+    with pytest.raises(drill.DrillRefused, match="project_read"):
+        instance.step("smoke", "run", "--rm", "smoke")

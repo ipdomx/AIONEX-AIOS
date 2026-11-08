@@ -49,3 +49,31 @@ def test_summary_states():
     assert matrix.summarize([{"status": "PASS"}, {"status": "SHARED"}])["status"] == "PASS"
     assert matrix.summarize([{"status": "PASS"}, {"status": "MANUAL"}])["status"] == "PARTIAL_PASS_MANUAL_PENDING"
     assert matrix.summarize([{"status": "FAIL"}, {"status": "MANUAL"}])["status"] == "FAIL"
+
+
+def test_turn_rows_count_as_one_reply_for_the_request():
+    import asyncio
+    import uuid
+
+    conversation = str(uuid.uuid4())
+    request_id = "p6-faults-x-term-1"
+    turn = str(uuid.uuid5(uuid.UUID(conversation), "user-turn:" + request_id))
+    rows = [
+        {"id": turn, "user_message": "hi", "assistant_message": "One sentence.", "status": "completed"},
+        {"id": str(uuid.uuid4()), "user_message": "other", "assistant_message": "x", "status": "completed"},
+    ]
+
+    class Response:
+        status = 200
+
+        def json(self):
+            return {"messages": rows}
+
+    class Client:
+        async def get(self, path):
+            return Response()
+
+    replies, terminal = asyncio.run(matrix._replies_for(Client(), conversation, request_id))
+    assert (replies, terminal) == (1, True)
+    rows[0].update(assistant_message=None, status="running")
+    assert asyncio.run(matrix._replies_for(Client(), conversation, request_id)) == (0, False)
