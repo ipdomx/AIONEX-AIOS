@@ -13,7 +13,6 @@ import hmac
 import json
 import math
 import secrets
-import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Mapping, overload
@@ -462,15 +461,12 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
             changed = True
             plan.status = "inactive"
 
-    global _MISSING_ACCOUNTS_CHECKED_AT
-    now_monotonic = time.monotonic()
-    if changed or now_monotonic - _MISSING_ACCOUNTS_CHECKED_AT >= _MISSING_ACCOUNTS_INTERVAL_SECONDS:
-        # The organization-wide missing-account scan is an anti-join over every
-        # tenant; read paths run it at most once a minute per process. The
-        # requesting organization is still initialized at once by
-        # ensure_billing_account (T-20).
-        await _ensure_accounts_for_organizations(session, all_organizations=changed)
-        _MISSING_ACCOUNTS_CHECKED_AT = now_monotonic
+    if changed:
+        # A catalogue change resynchronizes every account. Read paths never run the
+        # tenant-wide scan: ensure_billing_account initializes the requesting
+        # organization, and owner_overview initializes any others (T-20). A
+        # periodic scan ran in all API processes at once and caused 6.1 bursts.
+        await _ensure_accounts_for_organizations(session, all_organizations=True)
     await session.flush()
     return {
         "enabled": bool(pricing.get("enabled", True)),
@@ -512,10 +508,6 @@ async def _internal_plan(session: AsyncSession, organization_plan: str) -> Billi
     session.add(plan)
     await session.flush()
     return plan
-
-
-_MISSING_ACCOUNTS_INTERVAL_SECONDS = 60.0
-_MISSING_ACCOUNTS_CHECKED_AT = float("-inf")
 
 
 async def _ensure_accounts_for_organizations(
@@ -2512,6 +2504,7 @@ async def remove_payment_method(
 
 async def owner_overview(session: AsyncSession) -> dict[str, Any]:
     catalog = await sync_catalog(session)
+    await _ensure_accounts_for_organizations(session, all_organizations=False)
     accounts = (
         await session.execute(
             select(BillingAccount, Organization, BillingPlan)

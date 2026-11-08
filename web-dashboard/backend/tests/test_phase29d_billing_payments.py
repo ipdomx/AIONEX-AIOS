@@ -232,7 +232,6 @@ async def test_unchanged_catalog_sync_skips_full_account_walk(
     monkeypatch.setattr(billing, "get_published_portal", portal)
     monkeypatch.setattr(billing, "get_free_tier_policy", free_policy)
     monkeypatch.setattr(billing, "_ensure_accounts_for_organizations", spy)
-    monkeypatch.setattr(billing, "_MISSING_ACCOUNTS_CHECKED_AT", float("-inf"))
     try:
         async with SessionLocal() as session:
             await billing.sync_catalog(session)
@@ -241,8 +240,8 @@ async def test_unchanged_catalog_sync_skips_full_account_walk(
             await billing.sync_catalog(session)
             account = await billing.ensure_billing_account(session, organization.id)
             await session.commit()
-        # Only the first sync may walk every tenant; unchanged syncs never do, and
-        # the missing-account scan is throttled per process.
+        # Only the first sync may walk every tenant; unchanged syncs never scan, and
+        # ensure_billing_account only touches the requesting organization.
         assert True not in walks[1:]
         assert account.organization_id == organization.id
     finally:
