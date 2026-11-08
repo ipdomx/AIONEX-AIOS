@@ -163,6 +163,15 @@ def extract(archive: Path, destination: Path) -> dict[str, Any]:
             entry = counts.setdefault(root, {"files": 0, "bytes": 0})
             entry["files"] += 1
             entry["bytes"] += member.size
+    # The backend entrypoint requires every storage root to be 700 and owned by the
+    # service user, and the drill mounts /restore read-only, so it cannot fix them
+    # itself. Create each root (even ones the backup had no files for) as private.
+    for root in ASSET_ROOTS:
+        path = destination / root
+        path.mkdir(exist_ok=True, mode=0o700)
+        if path.is_symlink() or not path.is_dir():
+            raise DrillFetchError(f"restored root is not a directory: {root!r}")
+        os.chmod(path, 0o700)
     return {"roots": counts, "files": sum(v["files"] for v in counts.values())}
 
 

@@ -111,6 +111,11 @@ def test_real_drill_compose_passes_every_guard():
     assert drill.validate_compose_config(rendered(), PROJECT, ALLOWED) == []
 
 
+def test_restored_backend_can_import_the_shared_aios_package():
+    environment = rendered()["services"]["backend"]["environment"]
+    assert environment["PYTHONPATH"].split(":")[0] == "/app/aios-src"
+
+
 def test_restored_app_has_no_egress_and_only_fetch_reaches_r2():
     config = rendered()
     assert config["networks"]["drill_isolated"]["internal"] is True
@@ -177,6 +182,11 @@ def test_asset_extraction_restores_per_root_layout(tmp_path):
     assert result["files"] == 2
     assert (dest / "media_asset_data/org/a.png").read_bytes() == b"png"
     assert result["roots"]["portal_asset_data"] == {"files": 1, "bytes": 5}
+    # Every storage root is private (the backend entrypoint refuses anything but 700)
+    # and exists even when the backup carried no files for it.
+    for root in fetch.ASSET_ROOTS:
+        assert (dest / root).is_dir()
+        assert (dest / root).stat().st_mode & 0o777 == 0o700
 
 
 @pytest.mark.parametrize("members, link", [
@@ -197,3 +207,24 @@ def test_asset_extraction_refuses_unsafe_members(tmp_path, members, link):
 def test_fetch_module_refuses_outside_the_drill(monkeypatch, capsys):
     monkeypatch.delenv("AIOS_RESTORE_DRILL", raising=False)
     assert fetch.main(["extract", "--archive", "/nonexistent", "--destination", "/tmp/x"]) == 2
+
+
+def test_failed_step_keeps_its_json_verdict(monkeypatch):
+    import subprocess
+
+    instance = drill.Drill(PROJECT, r2_secret="/r2", keyring="/k", canary_email="c@synthetic.loadtest.invalid",
+                           canary_password_file="/pw", studio_asset_id="", backend_image="b", postgres_image="p")
+    verdict = {"status": "FAIL", "required": {"project_read": False}}
+    monkeypatch.setattr(instance, "compose", lambda *a, **k: subprocess.CompletedProcess(
+        a, 1, stdout=json.dumps(verdict) + "\n", stderr=""))
+    with pytest.raises(drill.DrillRefused, match="project_read"):
+        instance.step("smoke", "run", "--rm", "smoke")
+
+
+def test_restored_assets_sit_at_production_paths():
+    backend = rendered()["services"]["backend"]
+    assert backend["environment"]["STUDIO_ASSET_ROOT"] == "/var/lib/aionex/studio-assets"
+    mounts = {m["target"]: m for m in backend["volumes"]}
+    studio = mounts["/var/lib/aionex/studio-assets"]
+    assert studio["source"] == "drill_assets" and studio["read_only"] is True
+    assert studio["volume"]["subpath"] == "studio_asset_data"

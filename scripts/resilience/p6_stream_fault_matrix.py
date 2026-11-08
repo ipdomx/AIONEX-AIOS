@@ -32,6 +32,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -283,10 +284,22 @@ async def _replies_for(client: StreamClient, conversation: str, request_id: str)
     rows = response.json() if response.status == 200 else []
     rows = rows.get("messages", rows.get("items", [])) if isinstance(rows, dict) else rows
     text = json.dumps(rows)
-    related = [r for r in rows if isinstance(r, dict) and request_id in json.dumps(r)]
-    assistant = [r for r in related if r.get("role") in ("assistant", "agent")]
+    # The API returns one row per turn (user_message + assistant_message) whose id is
+    # uuid5(conversation_id, "user-turn:" + request_id); it does not echo request_id.
+    turn_id = turn_id_for(conversation, request_id)
+    related = [r for r in rows if isinstance(r, dict)
+               and (str(r.get("id", "")) == turn_id or request_id in json.dumps(r))]
+    assistant = [r for r in related
+                 if r.get("role") in ("assistant", "agent") or str(r.get("assistant_message") or "").strip()]
     terminal = any(str(r.get("status", "")).lower() in {"completed", "failed", "cancelled", "denied"} for r in related)
-    return len(assistant), terminal or (request_id in text and bool(assistant))
+    return len(assistant), terminal or (bool(related) and bool(assistant)) or (request_id in text and bool(assistant))
+
+
+def turn_id_for(conversation: str, request_id: str) -> str:
+    try:
+        return str(uuid.uuid5(uuid.UUID(conversation), "user-turn:" + request_id))
+    except ValueError:
+        return ""
 
 
 async def ws_resume_no_duplicates(client: StreamClient, ctx: dict[str, Any]) -> dict[str, Any]:
@@ -303,7 +316,7 @@ async def ws_resume_no_duplicates(client: StreamClient, ctx: dict[str, Any]) -> 
     await socket.close()
     replies, _terminal = await _replies_for(client, conversation, request_id)
     return {"send_status": status, "duplicates": client.duplicates(), "assistant_replies": replies,
-            "passed": status in (200, 202) and not client.duplicates() and replies <= 1}
+            "passed": status in (200, 202) and not client.duplicates() and replies == 1}
 
 
 async def ws_invalid_token(client: StreamClient, ctx: dict[str, Any]) -> dict[str, Any]:

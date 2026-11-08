@@ -230,7 +230,9 @@ class Drill:
             except ValueError:
                 parsed = None
         if result.returncode != 0:
-            raise DrillRefused(f"step {name} failed (exit {result.returncode}): {result.stderr.strip()[-300:]}")
+            # Keep the step's own JSON verdict (e.g. which smoke check failed) in the error.
+            detail = json.dumps(parsed, sort_keys=True)[:600] if parsed is not None else result.stderr.strip()[-300:]
+            raise DrillRefused(f"step {name} failed (exit {result.returncode}): {detail}")
         return {"exit_code": result.returncode, "result": parsed}
 
     def wait_healthy(self, service: str, timeout: int) -> None:

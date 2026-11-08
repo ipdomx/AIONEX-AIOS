@@ -125,6 +125,26 @@ def test_run_once_claims_atomically_and_publishes_to_done(daemon) -> None:
     assert not (daemon.SPOOL / "requests" / "not-a-valid-id").exists()
 
 
+def test_unclaimable_request_is_skipped_without_crashing(daemon, monkeypatch: pytest.MonkeyPatch) -> None:
+    # 2026-11-08: a request the daemon could not move (owned by another user) raised
+    # PermissionError out of run_once and crash-looped the converter.
+    import os
+
+    os.utime(_request(daemon, "e" * 32), (1, 1))  # oldest, so it is tried first
+    _request(daemon, "f" * 32)
+    real_replace = daemon.os.replace
+
+    def replace(src, dst):
+        if Path(src).name == "e" * 32:
+            raise PermissionError(13, "Permission denied")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(daemon.os, "replace", replace)
+    assert daemon.run_once(FakeBlender()) is True
+    assert json.loads((daemon.SPOOL / "done" / ("f" * 32) / "result.json").read_text())["ok"] is True
+    assert not (daemon.SPOOL / "requests" / ("e" * 32)).exists()
+
+
 def test_restart_fails_orphaned_work_and_gc_removes_stale_entries(daemon) -> None:
     orphan = daemon.SPOOL / "work" / ("e" * 32)
     orphan.mkdir()
