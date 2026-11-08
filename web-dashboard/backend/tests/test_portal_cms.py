@@ -285,3 +285,52 @@ async def test_public_etag_and_owner_api_boundary() -> None:
     finally:
         app.dependency_overrides.clear()
         await _cleanup()
+
+
+@pytest.mark.asyncio
+async def test_published_portal_is_cached_until_the_next_publication(monkeypatch) -> None:
+    # T-20: the public portal read and billing must not re-validate the whole CMS
+    # model (and upsert the records) on every request; a publication invalidates it.
+    from app.services import portal_cms
+
+    await _cleanup()
+    await _ensure_owner_identity()
+    actor = _owner()
+    try:
+        async with SessionLocal() as session:
+            await ensure_portal_records(session)
+            await session.commit()
+        async with SessionLocal() as session:
+            first = await portal_cms.get_published_portal(session)
+        calls = {"n": 0}
+        real = portal_cms.validate_portal_configuration
+
+        def counting(payload):
+            calls["n"] += 1
+            return real(payload)
+
+        monkeypatch.setattr(portal_cms, "validate_portal_configuration", counting)
+        async with SessionLocal() as session:
+            again = await portal_cms.get_published_portal(session)
+            again.pop("etag")
+        assert calls["n"] == 0 and "etag" in first
+        async with SessionLocal() as session:
+            assert "etag" in await portal_cms.get_published_portal(session)
+            configuration = default_portal_configuration()
+            configuration["branding"]["site_name"] = "AIONEX Cache Check"
+            await replace_portal_draft(
+                session, configuration, actor_id=actor.id,
+                organization_id=actor.organization_id,
+            )
+            await publish_portal_draft(
+                session, actor_id=actor.id, organization_id=actor.organization_id
+            )
+            await session.commit()
+        calls["n"] = 0
+        async with SessionLocal() as session:
+            fresh = await portal_cms.get_published_portal(session)
+        assert calls["n"] == 1
+        assert fresh["configuration"]["branding"]["site_name"] == "AIONEX Cache Check"
+        assert fresh["etag"] != first["etag"]
+    finally:
+        await _cleanup()
