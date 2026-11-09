@@ -144,12 +144,16 @@ async def catalogue(session: AsyncSession, store: StoreName) -> list[dict[str, A
     return result
 
 
+class StoreVerificationUnavailable(RuntimeError):
+    """Store verification is not configured on this deployment (an operator setting, not a client error)."""
+
+
 def _apple_verifier():
     try:
         from appstoreserverlibrary.models.Environment import Environment
         from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier
     except ImportError as exc:
-        raise RuntimeError("App Store Server Library is not installed") from exc
+        raise StoreVerificationUnavailable("App Store Server Library is not installed") from exc
     env = (
         Environment.PRODUCTION
         if settings.APP_STORE_ENVIRONMENT.lower() == "production"
@@ -160,7 +164,7 @@ def _apple_verifier():
         p.read_bytes() for p in sorted(roots_dir.glob("*.der"))
     ]
     if not roots:
-        raise RuntimeError("Apple root certificates are not configured")
+        raise StoreVerificationUnavailable("Apple root certificates are not configured")
     return SignedDataVerifier(
         roots, True, env, settings.APP_STORE_BUNDLE_ID, settings.APP_STORE_APPLE_ID
     )
@@ -170,7 +174,7 @@ async def _google_access_token() -> str:
     try:
         creds = json.loads(settings.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or "")
     except json.JSONDecodeError as exc:
-        raise RuntimeError("Invalid Google Play service account JSON") from exc
+        raise StoreVerificationUnavailable("Google Play service account is not configured") from exc
     now = int(_now().timestamp())
     assertion = jwt.encode(
         {
