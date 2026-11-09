@@ -191,8 +191,13 @@ class Dast:
         for site in report.get("site", []):
             for alert in site.get("alerts", []):
                 key = alert.get("name", "?")
-                entry = alerts.setdefault(key, {"risk": alert.get("riskdesc", "").split(" ")[0], "instances": 0})
+                entry = alerts.setdefault(key, {"risk": alert.get("riskdesc", "").split(" ")[0], "instances": 0, "uris": []})
                 entry["instances"] += int(alert.get("count", len(alert.get("instances", []))) or 0)
+                if entry["risk"] != "Informational":
+                    for instance in alert.get("instances", []):
+                        uri = f"{instance.get('method', '')} {instance.get('uri', '')}".strip()
+                        if uri and uri not in entry["uris"] and len(entry["uris"]) < 10:
+                            entry["uris"].append(uri)
         by_risk: dict[str, int] = {}
         for entry in alerts.values():
             by_risk[entry["risk"]] = by_risk.get(entry["risk"], 0) + 1
