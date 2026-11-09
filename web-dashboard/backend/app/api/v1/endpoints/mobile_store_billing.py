@@ -1,7 +1,7 @@
 """Native mobile subscription API and authenticated store-server callbacks."""
 from __future__ import annotations
 from typing import Any, Literal
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, require_permissions, require_super_owner
@@ -38,13 +38,20 @@ class OwnerStoreMappingStatusRequest(BaseModel):
     active: bool
 
 
+# FR-23C (2026-11-09): an unconfigured store answered 500 with the raw error text.
+STORE_UNAVAILABLE = "Store verification is not available"
+
+
 @router.post("/notifications/app-store", include_in_schema=False)
 async def app_store_notification(
     data: AppStoreNotificationRequest, session: AsyncSession = Depends(get_db)
 ):
-    return await mobile_store_billing.process_app_store_notification(
-        session, data.signedPayload
-    )
+    try:
+        return await mobile_store_billing.process_app_store_notification(
+            session, data.signedPayload
+        )
+    except mobile_store_billing.StoreVerificationUnavailable as exc:
+        raise HTTPException(status_code=503, detail=STORE_UNAVAILABLE) from exc
 
 
 @router.post("/notifications/google-play", include_in_schema=False)
@@ -78,14 +85,17 @@ async def verify_purchase(
     actor: UserRecord = Depends(require_permissions("billing:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    return await mobile_store_billing.submit_purchase_for_verification(
-        session,
-        actor=actor,
-        store=data.store,
-        product_record_id=data.product_record_id,
-        signed_transaction=data.signed_transaction,
-        purchase_token=data.purchase_token,
-    )
+    try:
+        return await mobile_store_billing.submit_purchase_for_verification(
+            session,
+            actor=actor,
+            store=data.store,
+            product_record_id=data.product_record_id,
+            signed_transaction=data.signed_transaction,
+            purchase_token=data.purchase_token,
+        )
+    except mobile_store_billing.StoreVerificationUnavailable as exc:
+        raise HTTPException(status_code=503, detail=STORE_UNAVAILABLE) from exc
 
 
 @router.post("/restore/{store}")
@@ -105,9 +115,12 @@ async def reconcile(
     actor: UserRecord = Depends(require_permissions("billing:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    return await mobile_store_billing.reconcile_user_store(
-        session, actor=actor, store=store
-    )
+    try:
+        return await mobile_store_billing.reconcile_user_store(
+            session, actor=actor, store=store
+        )
+    except mobile_store_billing.StoreVerificationUnavailable as exc:
+        raise HTTPException(status_code=503, detail=STORE_UNAVAILABLE) from exc
 
 
 @router.get("/subscription")
