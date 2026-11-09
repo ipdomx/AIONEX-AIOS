@@ -235,7 +235,7 @@ class Dast:
             self.wait_healthy("postgres", 300)
             self.step("backend", "up", "-d", "backend", timeout=900)
             self.wait_healthy("backend", 900)
-            run_id = "fr23c-" + datetime.now(UTC).strftime("%Y%m%dt%H%M%Sz")
+            run_id = "p6-" + datetime.now(UTC).strftime("%Y%m%dt%H%Mz") + "-fr23c"
             receipt["steps"]["seed"] = self.step(
                 "seed", "run", "--rm", "seed", "seed", "--run-id", run_id, "--count", "2", "--projects-per-user", "1",
                 "--password-file", "/dast-secrets/password", "--export", "/scratch/accounts.jsonl", "--execute")
