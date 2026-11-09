@@ -120,8 +120,10 @@ def plan_steps() -> list[dict[str, str]]:
 
 
 class Dast:
-    def __init__(self, project: str, *, backend_image: str, postgres_image: str, zap_image: str) -> None:
+    def __init__(self, project: str, *, backend_image: str, postgres_image: str, zap_image: str,
+                 skip_zap: bool = False) -> None:
         self.project = project
+        self.skip_zap = skip_zap
         self.directory = WORK_ROOT / project
         self.env_file = self.directory / "dast.env"
         self.password_file = self.directory / "synthetic-password"
@@ -203,6 +205,17 @@ class Dast:
             by_risk[entry["risk"]] = by_risk.get(entry["risk"], 0) + 1
         return {"alerts_by_risk": by_risk, "alerts": dict(sorted(alerts.items()))}
 
+    def backend_errors(self) -> list[str]:
+        """Exception lines and app frames from the backend log (no request bodies or headers)."""
+        result = self.compose("logs", "--no-color", "--no-log-prefix", "backend", timeout=120)
+        keep = []
+        for line in result.stdout.splitlines():
+            text = line.strip()
+            if re.match(r"^[A-Za-z_.]+(Error|Exception|Exit)\b", text) or text.startswith('File "/app/app/'):
+                if text not in keep:
+                    keep.append(text[:300])
+        return keep[:80]
+
     def teardown(self) -> dict[str, Any]:
         result = self.compose("down", "-v", "--remove-orphans", "--timeout", "20", timeout=600)
         label = f"label=com.docker.compose.project={self.project}"
@@ -246,15 +259,23 @@ class Dast:
                 "--password-file", "/dast-secrets/password", "--export", "/scratch/accounts.jsonl", "--execute")
             receipt["steps"]["openapi"] = self.step("openapi", "run", "--rm", "openapi", timeout=300)
             receipt["steps"]["probe"] = self.step("probe", "run", "--rm", "probe", timeout=2400, allow_fail=True)
-            receipt["steps"]["zap"] = self.step("zap", "run", "--rm", "zap", timeout=2400, allow_fail=True)
-            receipt["zap"] = self.zap_summary()
+            if self.skip_zap:
+                receipt["zap"] = {"skipped": True}
+            else:
+                receipt["steps"]["zap"] = self.step("zap", "run", "--rm", "zap", timeout=2400, allow_fail=True)
+                receipt["zap"] = self.zap_summary()
             probe = (receipt["steps"]["probe"].get("result") or {})
             high = int((receipt["zap"].get("alerts_by_risk") or {}).get("High", 0))
-            receipt["status"] = "PASS" if probe.get("status") == "PASS" and high == 0 else "FAIL"
+            passed = probe.get("status") == "PASS" and high == 0
+            receipt["status"] = ("PASS_PROBE_ONLY" if self.skip_zap else "PASS") if passed else "FAIL"
         except (DastRefused, subprocess.TimeoutExpired, ValueError) as exc:
             receipt["status"] = "FAIL"
             receipt["error"] = str(exc)[:600]
         finally:
+            try:
+                receipt["backend_errors"] = self.backend_errors()
+            except (subprocess.TimeoutExpired, OSError):
+                receipt["backend_errors"] = ["unavailable"]
             receipt["teardown"] = self.teardown()
             if not receipt["teardown"]["clean"]:
                 receipt["status"] = "FAIL_TEARDOWN_INCOMPLETE"
@@ -270,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--backend-image", default="aionex-aios-backend:local")
     parser.add_argument("--postgres-image", default="aionex-aios-postgres:16-hardened")
     parser.add_argument("--zap-image", default="zaproxy/zap-stable:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef")
+    parser.add_argument("--skip-zap", action="store_true", help="probe only (iteration); the gate needs the ZAP scan")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-project", default="")
     parser.add_argument("--output", type=Path)
@@ -283,7 +305,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"schema": SCHEMA + ".plan", "status": "DRY_RUN", "project": args.project,
                           "steps": plan_steps(), "docker_commands_run": 0}, indent=2))
         return 0
-    dast = Dast(args.project, backend_image=args.backend_image, postgres_image=args.postgres_image, zap_image=args.zap_image)
+    dast = Dast(args.project, backend_image=args.backend_image, postgres_image=args.postgres_image, zap_image=args.zap_image,
+                skip_zap=args.skip_zap)
     if args.command == "guard-check":
         dast.write_secrets()
         try:

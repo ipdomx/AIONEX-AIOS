@@ -76,29 +76,36 @@ PNG_1PX = bytes.fromhex(
 
 
 SETUP: dict[str, int] = {}
+SETUP_DETAIL: dict[str, str] = {}
+
+
+def note(step: str, status: int, body: bytes) -> None:
+    SETUP[step] = status
+    if not 200 <= status < 300:
+        SETUP_DETAIL[step] = body[:200].decode("utf-8", "replace")
 
 
 def seed_tenant_a(token: str) -> dict[str, str]:
     ids: dict[str, str] = {}
     status, body = call("GET", "/api/v1/auth/me", token=token)
     me = as_json(body) or {}
-    SETUP["me"] = status
+    note("me", status, body)
     ids["user"] = str(me.get("id", ""))
     ids["organization"] = str((me.get("organization") or {}).get("id", "") or me.get("organization_id", ""))
     status, body = call("GET", "/api/v1/projects", token=token)
-    SETUP["projects_list"] = status
+    note("projects_list", status, body)
     rows = as_json(body) or []
     rows = rows.get("items", rows.get("projects", [])) if isinstance(rows, dict) else rows
     if not rows:
         status, body = call("GET", "/api/v1/workspaces", token=token)
-        SETUP["workspaces_list"] = status
+        note("workspaces_list", status, body)
         spaces = as_json(body) or []
         spaces = spaces.get("items", spaces.get("workspaces", [])) if isinstance(spaces, dict) else spaces
         payload = {"name": "FR-23C tenant A"}
         if spaces:
             payload["workspace_id"] = spaces[0]["id"]
         status, body = call("POST", "/api/v1/projects", token=token, data=json.dumps(payload).encode())
-        SETUP["project_create"] = status
+        note("project_create", status, body)
         if status in (200, 201):
             rows = [as_json(body)]
     if rows:
@@ -107,22 +114,22 @@ def seed_tenant_a(token: str) -> dict[str, str]:
             ids["workspace"] = rows[0]["workspace_id"]
         status, body = call("POST", "/api/v1/project-conversations", token=token, data=json.dumps(
             {"project_id": ids["project"], "title": "FR-23C tenant A", "request_id": "fr23c-a-conv"}).encode())
-        SETUP["conversation_create"] = status
+        note("conversation_create", status, body)
         if status in (200, 201):
             ids["conversation"] = as_json(body)["id"]
     status, body = call("POST", "/api/v1/support/requests", token=token, data=json.dumps(
         {"subject": "FR-23C tenant A", "message": "Isolated DAST tenant A support request."}).encode())
-    SETUP["support_create"] = status
+    note("support_create", status, body)
     if status in (200, 201):
         ids["support_request"] = str((as_json(body) or {}).get("id", ""))
     payload, ctype = multipart("file", "a.png", "image/png", PNG_1PX)
     status, body = call("POST", "/api/v1/social/media", token=token, data=payload, content_type=ctype)
-    SETUP["media_upload"] = status
+    note("media_upload", status, body)
     if status in (200, 201):
         ids["media"] = str((as_json(body) or {}).get("id", ""))
     status, body = call("POST", "/api/v1/studio/jobs", token=token, data=json.dumps(
         {"department": "text", "title": "FR-23C tenant A", "brief": "Isolated DAST tenant A studio job."}).encode())
-    SETUP["studio_job_create"] = status
+    note("studio_job_create", status, body)
     if status in (200, 201, 202):
         ids["studio_job"] = str((as_json(body) or {}).get("id", ""))
     return {k: v for k, v in ids.items() if v}
@@ -230,7 +237,7 @@ def main() -> int:
     for required in ("organization", "project", "conversation"):
         if required not in ids:
             findings.append({"check": "coverage", "missing_resource": required})
-    result = {"status": "PASS" if not findings else "FAIL", "tenant_a_resources": sorted(ids), "setup": SETUP,
+    result = {"status": "PASS" if not findings else "FAIL", "tenant_a_resources": sorted(ids), "setup": SETUP, "setup_detail": SETUP_DETAIL,
               "counts": counts, "uploads": upload_results, **channel, "findings": findings[:200]}
     print(json.dumps(result, sort_keys=True))
     return 0 if not findings else 1
