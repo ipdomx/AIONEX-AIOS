@@ -143,7 +143,9 @@ class Dast:
         self.directory.mkdir(parents=True, exist_ok=False, mode=0o700)
         for path, text in ((self.env_file, "".join(f"{k}={v}\n" for k, v in {
                 "SECRET_KEY": secrets.token_urlsafe(48), "POSTGRES_USER": "aionex_dast",
-                "POSTGRES_PASSWORD": secrets.token_urlsafe(32), "POSTGRES_DB": "aionex_fr23c_dast"}.items())),
+                "POSTGRES_PASSWORD": secrets.token_urlsafe(32), "POSTGRES_DB": "aionex_fr23c_dast",
+                "AIOS_BOOTSTRAP_OWNER_EMAIL": "owner@fr23c-dast.invalid",
+                "AIOS_BOOTSTRAP_OWNER_PASSWORD": secrets.token_urlsafe(32)}.items())),
                 (self.password_file, secrets.token_urlsafe(24) + "\n")):
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as stream:

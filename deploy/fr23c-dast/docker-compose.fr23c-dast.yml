@@ -46,7 +46,9 @@ services:
   backend:
     image: ${DAST_BACKEND_IMAGE:?DAST_BACKEND_IMAGE is required}
     profiles: ["app"]
-    command: ["sh", "-c", "alembic upgrade head && exec python main.py"]
+    # The app's own bootstrap seeds the permission catalogue and built-in roles (the
+    # owner password is a throwaway from the env file); without it every tenant gets 403.
+    command: ["sh", "-c", "alembic upgrade head && python -m app.db.seed && exec python main.py"]
     env_file: ["${DAST_ENV_FILE:?DAST_ENV_FILE is required}"]
     environment: &backend_env
       ENVIRONMENT: fr23c-dast
