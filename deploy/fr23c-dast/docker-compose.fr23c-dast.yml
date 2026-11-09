@@ -1,0 +1,139 @@
+# FR-23C: isolated DAST stack (authorization/IDOR, auth channel, upload probes and an
+# OWASP ZAP API scan) against a FRESH, empty database.
+#
+# ALWAYS driven by scripts/security/fr23c_isolated_dast.py, which passes
+# -p aionex-fr23c-dast-<utc> and reuses the restore-drill production guards before
+# anything starts. Nothing here references a production container, volume or network:
+#   * dast_isolated is internal (no egress, no host ports);
+#   * the database starts empty (alembic upgrade head) and holds two synthetic tenants;
+#   * every volume is project-scoped and removed with `down -v`.
+services:
+  scratch-init:
+    image: ${DAST_BACKEND_IMAGE:?DAST_BACKEND_IMAGE is required}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ceu"]
+    command: ["install -d -m 0777 /scratch /zap-wrk"]
+    volumes:
+      - dast_scratch:/scratch
+      - dast_zap:/zap-wrk
+    network_mode: none
+
+  postgres:
+    image: ${DAST_POSTGRES_IMAGE:-aionex-aios-postgres:16-hardened}
+    user: "70:70"
+    env_file: ["${DAST_ENV_FILE:?DAST_ENV_FILE is required}"]
+    volumes:
+      - dast_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready --host 127.0.0.1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" --quiet']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 2g
+    cpus: "2.0"
+    networks: [dast_isolated]
+
+  redis:
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--protected-mode", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [dast_isolated]
+
+  backend:
+    image: ${DAST_BACKEND_IMAGE:?DAST_BACKEND_IMAGE is required}
+    profiles: ["app"]
+    command: ["sh", "-c", "alembic upgrade head && exec python main.py"]
+    env_file: ["${DAST_ENV_FILE:?DAST_ENV_FILE is required}"]
+    environment: &backend_env
+      ENVIRONMENT: fr23c-dast
+      PYTHONPATH: /app/aios-src:/app
+      DEBUG: "false"
+      WORKERS: "2"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      BACKUP_OFFSITE_ENABLED: "false"
+      IDENTITY_MEDIA_LIVE_ENABLED: "false"
+      REALTIME_MEDIA_LIVE_ENABLED: "false"
+      MEDIA_STORAGE_TYPE: local
+      THREE_D_STORAGE_TYPE: local
+    volumes:
+      - dast_data:/var/lib/aionex
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    mem_limit: 3g
+    cpus: "2.0"
+    networks: [dast_isolated]
+
+  seed:
+    image: ${DAST_BACKEND_IMAGE:?DAST_BACKEND_IMAGE is required}
+    profiles: ["tools"]
+    user: "0:0"
+    working_dir: /app
+    entrypoint: ["python", "-m", "app.services.synthetic_load_accounts"]
+    env_file: ["${DAST_ENV_FILE:?DAST_ENV_FILE is required}"]
+    environment: *backend_env
+    volumes:
+      - dast_scratch:/scratch
+      - ${DAST_PASSWORD_FILE:?DAST_PASSWORD_FILE is required}:/dast-secrets/password:ro
+    networks: [dast_isolated]
+
+  openapi:
+    image: ${DAST_BACKEND_IMAGE:?DAST_BACKEND_IMAGE is required}
+    profiles: ["tools"]
+    user: "0:0"
+    working_dir: /app
+    entrypoint: ["python", "-c", "import json, main; json.dump(main.app.openapi(), open('/scratch/openapi.json', 'w'))"]
+    env_file: ["${DAST_ENV_FILE:?DAST_ENV_FILE is required}"]
+    environment: *backend_env
+    volumes:
+      - dast_scratch:/scratch
+    network_mode: none
+
+  probe:
+    image: ${DAST_BACKEND_IMAGE:?DAST_BACKEND_IMAGE is required}
+    profiles: ["tools"]
+    user: "0:0"
+    entrypoint: ["python", "/dast/probe.py"]
+    environment:
+      DAST_BASE_URL: http://backend:8000
+      DAST_PASSWORD_FILE: /dast-secrets/password
+    volumes:
+      - ./probe.py:/dast/probe.py:ro
+      - dast_scratch:/scratch
+      - ${DAST_PASSWORD_FILE:?DAST_PASSWORD_FILE is required}:/dast-secrets/password:ro
+    networks: [dast_isolated]
+
+  zap:
+    image: ${DAST_ZAP_IMAGE:?DAST_ZAP_IMAGE is required}
+    profiles: ["tools"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        cp /scratch/openapi.json /zap/wrk/openapi.json &&
+        zap-api-scan.py -t /zap/wrk/openapi.json -f openapi -O http://backend:8000 -T 25 -I
+        -J zap-report.json -z "$$(cat /scratch/zap-auth.conf)"
+    volumes:
+      - dast_scratch:/scratch:ro
+      - dast_zap:/zap/wrk
+    mem_limit: 4g
+    cpus: "2.0"
+    networks: [dast_isolated]
+
+networks:
+  dast_isolated:
+    internal: true
+
+volumes:
+  dast_scratch: {}
+  dast_zap: {}
+  dast_data: {}
+  dast_pgdata: {}
