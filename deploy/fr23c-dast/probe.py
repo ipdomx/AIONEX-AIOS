@@ -216,6 +216,14 @@ def main() -> int:
         if stored and name == "path_traversal_name" and b".." in body:
             findings.append({"check": "upload_name_not_sanitized", "status": status})
 
+    # Routes ZAP saw answer 5xx (2026-11-09): replay with an empty body so the receipt's
+    # backend_errors shows why. A 5xx here is reported, not a failed check.
+    server_errors = {}
+    for route in ("/api/v1/auth/firebase/social/registration/prepare", "/api/v1/auth/firebase/social/session",
+                  "/api/v1/studio/live-media/speech", "/api/v1/studio/live-media/video"):
+        status, _ = call("POST", route, token=token_b, data=b"{}")
+        server_errors[route] = status
+
     # Token for the ZAP API scan (tenant B; only inside the isolated stack).
     with open("/scratch/zap-auth.conf", "w", encoding="utf-8") as stream:
         stream.write(" ".join([
@@ -237,7 +245,7 @@ def main() -> int:
     for required in ("organization", "project", "conversation"):
         if required not in ids:
             findings.append({"check": "coverage", "missing_resource": required})
-    result = {"status": "PASS" if not findings else "FAIL", "tenant_a_resources": sorted(ids), "setup": SETUP, "setup_detail": SETUP_DETAIL,
+    result = {"status": "PASS" if not findings else "FAIL", "tenant_a_resources": sorted(ids), "setup": SETUP, "setup_detail": SETUP_DETAIL, "server_error_replay": server_errors,
               "counts": counts, "uploads": upload_results, **channel, "findings": findings[:200]}
     print(json.dumps(result, sort_keys=True))
     return 0 if not findings else 1
