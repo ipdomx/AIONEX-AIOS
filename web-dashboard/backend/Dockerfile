@@ -27,6 +27,7 @@ WORKDIR /app
 # Security floors (CVE-2026-107891 musl, CVE-2026-85091 zlib). Alpine retires
 # superseded revisions, so require a minimum, keep signed APK verification, and
 # fail the build if the resolved version is older than the fixed revision.
+# krb5-libs arrives with libpq: CVE-2026-107364, -40356, -71199, -71200 fixed in 1.22.3-r0.
 RUN set -eux; \
     apk upgrade --no-cache sqlite-libs libcrypto3 libssl3 libuuid; \
     apk add --no-cache --upgrade 'musl>=1.2.5-r24' 'musl-utils>=1.2.5-r24' 'zlib>=1.3.2-r1'; \
@@ -37,6 +38,9 @@ RUN set -eux; \
       case "$comparison" in '='|'>') ;; *) echo "$installed is below $minimum" >&2; exit 1 ;; esac; \
     done; \
     apk add --no-cache ca-certificates curl bash su-exec postgresql16-client libpq libgcc libstdc++; \
+    apk add --no-cache --upgrade 'krb5-libs>=1.22.3-r0'; \
+    installed="$(apk list --installed krb5-libs | awk '$1 ~ /^krb5-libs-[0-9]/ {print $1; exit}')"; \
+    case "$(apk version -t "${installed#krb5-libs-}" 1.22.3-r0)" in '='|'>') ;; *) echo "$installed is below 1.22.3-r0" >&2; exit 1 ;; esac; \
     rm -rf /usr/local/lib/python3.11/ensurepip \
            /usr/local/lib/python3.11/site-packages/pip* \
            /usr/local/lib/python3.11/site-packages/setuptools* \
