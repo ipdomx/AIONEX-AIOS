@@ -85,6 +85,8 @@ def test_weights_are_revision_pinned_checksummed_and_converted_to_safetensors() 
     fetch = (HUNYUAN / "fetch_weights.py").read_text()
     assert "weights_only=True" in fetch and "assert_no_pickle(root)" in fetch
     assert "COPY --from=weights --chown=root:root /models /models" in DOCKERFILE
+    # Weights must be world-readable but not writable: the runtime runs as a non-root user.
+    assert "chmod -R a+rX,go-w /models" in DOCKERFILE
     assert "sha256sum --check --strict --quiet MANIFEST.sha256" in DOCKERFILE
 
 
