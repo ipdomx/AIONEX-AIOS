@@ -113,7 +113,10 @@ RUN set -eux; \
 # --------------------------------------------------------------------- weights
 FROM deps AS weights
 COPY weights.lock.json fetch_weights.py /opt/weights/
-RUN python /opt/weights/fetch_weights.py /opt/weights/weights.lock.json /models
+# The converted safetensors are written 0600; the non-root runtime user must read them
+# (T-18 build 2026-11-09 failed the release manifest check with "Permission denied").
+RUN python /opt/weights/fetch_weights.py /opt/weights/weights.lock.json /models \
+ && chmod -R a+rX,go-w /models
 
 # --------------------------------------------------------------------- runtime
 FROM deps AS runtime
