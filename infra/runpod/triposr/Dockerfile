@@ -38,10 +38,13 @@ RUN python -m pip uninstall -y uv wheel setuptools \
  && for tool in pip pip3 uv uvx; do rm -f "/usr/local/bin/$tool" "/usr/bin/$tool"; done \
  && groupadd --gid 10001 aionex \
  && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex \
- && chown -R root:root /opt/triposr /models && chmod -R go-w /opt/triposr /models
+ && chown -R root:root /opt/triposr /models && chmod -R a+rX,go-w /opt/triposr /models
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 \
     HF_HOME=/tmp/aionex-hf HOME=/tmp PYTHONDONTWRITEBYTECODE=1 AIONEX_TRIPOSR_WORKDIR=/tmp/aionex-triposr
 USER aionex
 WORKDIR /opt/triposr
 RUN python -I -c "import sys; sys.path.insert(0, '/opt/triposr'); import handler; handler.install_runtime_guards(); assert handler.handler({'input': {}}) == {'error': 'input.image required'}; assert 'error' in handler.handler({'input': {'image': 'eA==', 'model': 'x'}}); print('TripoSR hardened runtime contract: PASS')"
+# Strict CPU load of the pinned checkpoint: fails the build on any parameter-name
+# drift between the checkpoint and the installed transformers (FR-16D T-13).
+RUN python -I -c "import sys; sys.path.insert(0, '/opt/triposr'); import handler; handler.install_runtime_guards(); handler.build_model(); print('TripoSR checkpoint strict load: PASS')"
 ENTRYPOINT ["python","-u","/opt/triposr/handler.py"]

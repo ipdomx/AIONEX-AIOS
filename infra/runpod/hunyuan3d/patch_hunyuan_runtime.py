@@ -52,6 +52,40 @@ def sub(path: str, pattern: str, replacement: str, *, count: int = 1) -> None:
     target.write_text(updated, encoding="utf-8")
 
 
+def patch_dinov2_v5_names() -> None:
+    """transformers 5 renamed the Dinov2 attention projections; the pinned DiT
+    checkpoint still carries the 4.x names for its image conditioner. Remap them
+    (only when the installed module uses the new names) so the conditioner keeps
+    loading strictly. Found by the T-18 CPU load check on 2026-11-13."""
+    sub(
+        "hy3dshape/hy3dshape/pipelines.py",
+        r"^(\s*)conditioner\.load_state_dict\(ckpt\['conditioner'\]\)\n",
+        "\\1conditioner.load_state_dict(_aionex_remap_dinov2(ckpt['conditioner'], conditioner.state_dict().keys()))\n",
+    )
+    sub(
+        "hy3dshape/hy3dshape/pipelines.py",
+        r"^(def retrieve_timesteps\()",
+        "_AIONEX_DINOV2_V5 = (\n"
+        "    ('.attention.attention.query.', '.attention.q_proj.'),\n"
+        "    ('.attention.attention.key.', '.attention.k_proj.'),\n"
+        "    ('.attention.attention.value.', '.attention.v_proj.'),\n"
+        "    ('.attention.output.dense.', '.attention.o_proj.'),\n"
+        ")\n\n\n"
+        "def _aionex_remap_dinov2(state, expected_keys):\n"
+        "    if any('.attention.attention.' in key for key in expected_keys):\n"
+        "        return state\n"
+        "    remapped = {}\n"
+        "    for key, value in state.items():\n"
+        "        for old, new in _AIONEX_DINOV2_V5:\n"
+        "            if old in key:\n"
+        "                key = key.replace(old, new, 1)\n"
+        "                break\n"
+        "        remapped[key] = value\n"
+        "    return remapped\n\n\n"
+        "\\1",
+    )
+
+
 def main() -> None:
     # 1. Paint model: local, pinned snapshot only; explicit vendored classes, so
     #    Diffusers never imports code from the model directory or the Hub, and
@@ -112,6 +146,8 @@ def main() -> None:
         r"os\.system\(f'\{self\.executable\} \{temp_input\.name\} \{temp_output\.name\}'\)",
         "raise RuntimeError('external mesh simplifier is disabled in the AIONEX runtime')",
     )
+    # 5b. transformers 5 Dinov2 parameter names (see patch_dinov2_v5_names).
+    patch_dinov2_v5_names()
     # 6. Super-resolution: reviewed safetensors-only implementation replaces the
     #    basicsr/realesrgan stack (pickle torch.load, tb-nightly, URL downloads).
     shutil.copyfile(OVERRIDES / "image_super_utils.py", ROOT / "hy3dpaint/utils/image_super_utils.py")

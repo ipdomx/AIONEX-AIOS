@@ -183,3 +183,20 @@ ENTRYPOINT ["python", "-u", "/opt/handler.py"]
 FROM runtime AS release
 COPY --from=weights --chown=root:root /models /models
 RUN cd /models && sha256sum --check --strict --quiet MANIFEST.sha256 && echo "model manifest verified"
+# Strict CPU load of the baked shape checkpoint and the Dinov2 encoder as the
+# runtime user: any parameter-name drift against the installed transformers or an
+# unreadable weight file fails the build instead of a paid live job (T-18).
+RUN cd /opt && python -I - <<'PY'
+import sys
+sys.path.insert(0, "/opt")
+import handler
+handler.install_runtime_guards()
+handler._prepare_import_path()
+from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline
+Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
+    str(handler.MODEL_ROOT), subfolder="hunyuan3d-dit-v2-1", use_safetensors=True, device="cpu"
+)
+from transformers import AutoModel
+AutoModel.from_pretrained(str(handler.DINO_ROOT))
+print("Hunyuan checkpoint strict load: PASS")
+PY
