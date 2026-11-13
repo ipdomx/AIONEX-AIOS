@@ -38,7 +38,7 @@ RUN python -m pip uninstall -y uv wheel setuptools \
  && for tool in pip pip3 uv uvx; do rm -f "/usr/local/bin/$tool" "/usr/bin/$tool"; done \
  && groupadd --gid 10001 aionex \
  && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin aionex \
- && chown -R root:root /opt/triposr /models && chmod -R go-w /opt/triposr /models
+ && chown -R root:root /opt/triposr /models && chmod -R a+rX,go-w /opt/triposr /models
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 \
     HF_HOME=/tmp/aionex-hf HOME=/tmp PYTHONDONTWRITEBYTECODE=1 AIONEX_TRIPOSR_WORKDIR=/tmp/aionex-triposr
 USER aionex
