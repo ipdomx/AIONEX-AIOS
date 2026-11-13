@@ -169,6 +169,21 @@ def test_hunyuan_patch_is_wired_and_release_build_strictly_loads_weights() -> No
     release = HY_DOCKERFILE[HY_DOCKERFILE.index("FROM runtime AS release"):]
     assert "Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(" in release
     assert 'device="cpu"' in release
-    assert "Hunyuan checkpoint strict load: PASS" in release
+    assert "Hunyuan checkpoint strict load (shape + paint): PASS" in release
+    assert "multiviewDiffusionNet(SimpleNamespace(" in release
     # The runtime stage switched to the non-root user; release must not switch back.
     assert "USER root" not in release
+
+
+def test_hunyuan_paint_pipeline_is_built_from_local_components() -> None:
+    # model_index.json: "unet": ["modules", "UNet2p5DConditionModel"]. diffusers 0.42
+    # from_pretrained rejected the passed plain-torch unet (live job 2026-11-13), so the
+    # pipeline is constructed from its components, each from its own baked folder.
+    patch = (HUNYUAN / "patch_hunyuan_runtime.py").read_text()
+    block = patch[patch.index("pipeline = HunyuanPaintPipeline(\\n"):patch.index("# 2. UNet weights")]
+    for component in ("vae", "text_encoder", "tokenizer", "scheduler", "feature_extractor"):
+        assert f'os.path.join(model_path, \\"{component}\\")' in block, component
+    assert "unet=unet" in block
+    assert "HunyuanPaintPipeline.from_pretrained(" not in patch
+    assert 'sys.modules.setdefault(\\"modules\\"' not in patch
+    assert "trust_remote_code" not in patch.split("# 7. Post-conditions")[0]

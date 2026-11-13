@@ -198,5 +198,18 @@ Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
 )
 from transformers import AutoModel
 AutoModel.from_pretrained(str(handler.DINO_ROOT))
-print("Hunyuan checkpoint strict load: PASS")
+# Paint path: the real multiview loader (UNet, HunyuanPaintPipeline via diffusers,
+# Dino_v2) on CPU. The 2026-11-13 live job failed here only at runtime.
+import types
+from types import SimpleNamespace
+sys.modules.setdefault("bpy", types.ModuleType("bpy"))
+from utils.multiview_utils import multiviewDiffusionNet
+net = multiviewDiffusionNet(SimpleNamespace(
+    device="cpu",
+    multiview_cfg_path="hy3dpaint/cfgs/hunyuan-paint-pbr.yaml",
+    multiview_pretrained_path=str(handler.MODEL_ROOT),
+    dino_ckpt_path=str(handler.DINO_ROOT),
+))
+assert type(net.pipeline.unet).__name__ == "UNet2p5DConditionModel"
+print("Hunyuan checkpoint strict load (shape + paint): PASS")
 PY

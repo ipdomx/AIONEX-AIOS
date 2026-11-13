@@ -102,9 +102,26 @@ def main() -> None:
         r"^(\s*)pipeline = DiffusionPipeline\.from_pretrained\(\s*model_path,\s*custom_pipeline=custom_pipeline,\s*torch_dtype=torch\.float16\s*\)\n",
         "\\1from hunyuanpaintpbr.pipeline import HunyuanPaintPipeline\n"
         "\\1from hunyuanpaintpbr.unet.modules import UNet2p5DConditionModel\n"
+        "\\1from diffusers import AutoencoderKL\n"
+        "\\1from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer\n"
         "\\1unet = UNet2p5DConditionModel.from_pretrained(os.path.join(model_path, \"unet\"), torch_dtype=torch.float16)\n"
-        "\\1pipeline = HunyuanPaintPipeline.from_pretrained(\n"
-        "\\1    model_path, unet=unet, torch_dtype=torch.float16, use_safetensors=True, local_files_only=True\n"
+        # Built from its components, each from its own local folder: model_index.json
+        # names the unet library "modules", and diffusers 0.42 from_pretrained refuses a
+        # passed unet that is a plain torch Module from an unimported library (live job
+        # 2026-11-13). No component is resolved by a name the repository supplies.
+        "\\1pipeline = HunyuanPaintPipeline(\n"
+        "\\1    vae=AutoencoderKL.from_pretrained(\n"
+        "\\1        os.path.join(model_path, \"vae\"), torch_dtype=torch.float16, use_safetensors=True, local_files_only=True\n"
+        "\\1    ),\n"
+        "\\1    text_encoder=CLIPTextModel.from_pretrained(\n"
+        "\\1        os.path.join(model_path, \"text_encoder\"), dtype=torch.float16, use_safetensors=True, local_files_only=True\n"
+        "\\1    ),\n"
+        "\\1    tokenizer=CLIPTokenizer.from_pretrained(os.path.join(model_path, \"tokenizer\"), local_files_only=True),\n"
+        "\\1    unet=unet,\n"
+        "\\1    scheduler=DDIMScheduler.from_pretrained(os.path.join(model_path, \"scheduler\"), local_files_only=True),\n"
+        "\\1    feature_extractor=CLIPImageProcessor.from_pretrained(\n"
+        "\\1        os.path.join(model_path, \"feature_extractor\"), local_files_only=True\n"
+        "\\1    ),\n"
         "\\1)\n",
     )
     sub("hy3dpaint/utils/multiview_utils.py", r"^import huggingface_hub\n", "")
