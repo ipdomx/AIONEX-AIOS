@@ -87,10 +87,18 @@ def test_remap_is_a_no_op_when_installed_transformers_still_uses_v4_names() -> N
 def test_worker_loads_strictly_and_build_proves_it() -> None:
     assert "strict=True" in HANDLER
     assert "_MODEL = build_model()" in HANDLER
-    strict_step = re.search(r"^RUN .*handler\.build_model\(\).*strict load: PASS", DOCKERFILE, re.M)
+    strict_step = re.search(r"^RUN .*handler\.build_model\(\).*strict load.*: PASS", DOCKERFILE, re.M)
     assert strict_step, "the image build must strictly load the pinned checkpoint"
     # It runs after USER aionex, i.e. with the same identity as the RunPod worker.
     assert DOCKERFILE.index("USER aionex") < strict_step.start()
+
+
+def test_background_removal_uses_only_the_baked_u2net_model() -> None:
+    # rembg 2.0.87 defaults to "bria-rmbg", which is not baked; the second live job
+    # (2026-11-13) failed trying to download it into the read-only /models.
+    assert 'rembg.new_session("u2net")' in HANDLER
+    assert "rembg.new_session()" not in HANDLER
+    assert "type(handler.get_rembg()).__name__ == 'U2netSession'" in DOCKERFILE
 
 
 def test_model_assets_are_world_readable_but_not_writable() -> None:
