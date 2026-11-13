@@ -105,7 +105,9 @@ def get_model() -> TSR:
 def get_rembg():
     global _REMBG
     if _REMBG is None:
-        _REMBG = rembg.new_session()
+        # rembg 2.0.87 changed the default to "bria-rmbg", which is not baked and
+        # would be downloaded at runtime. Only the build-time u2net.onnx is allowed.
+        _REMBG = rembg.new_session("u2net")
     return _REMBG
 
 
