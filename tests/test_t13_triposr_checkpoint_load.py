@@ -95,3 +95,72 @@ def test_worker_loads_strictly_and_build_proves_it() -> None:
 
 def test_model_assets_are_world_readable_but_not_writable() -> None:
     assert "chmod -R a+rX,go-w /opt/triposr /models" in DOCKERFILE
+
+
+# ----------------------------------------------------------------- Hunyuan3D (T-18)
+HUNYUAN = ROOT / "infra/runpod/hunyuan3d"
+HY_DOCKERFILE = (HUNYUAN / "Dockerfile").read_text()
+
+
+def _apply_hunyuan_dinov2_patch(tmp_path: Path) -> dict:
+    import importlib.util
+    import sys
+
+    pipelines = tmp_path / "hy3dshape/hy3dshape/pipelines.py"
+    pipelines.parent.mkdir(parents=True)
+    pipelines.write_text(
+        "import os\n\n\ndef retrieve_timesteps(x):\n    return x\n\n\n"
+        "class Pipe:\n    def load(self, conditioner, ckpt):\n"
+        "        conditioner.load_state_dict(ckpt['conditioner'])\n"
+    )
+    spec = importlib.util.spec_from_file_location("hy_patch_under_test", HUNYUAN / "patch_hunyuan_runtime.py")
+    module = importlib.util.module_from_spec(spec)
+    argv = sys.argv
+    sys.argv = ["patch_hunyuan_runtime.py", str(tmp_path)]
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.argv = argv
+    module.patch_dinov2_v5_names()
+    namespace: dict = {}
+    exec(compile(pipelines.read_text(), str(pipelines), "exec"), namespace)
+    return namespace
+
+
+def test_hunyuan_conditioner_keys_follow_transformers_v5_dinov2_names(tmp_path: Path) -> None:
+    ns = _apply_hunyuan_dinov2_patch(tmp_path)
+    remap = ns["_aionex_remap_dinov2"]
+    base = "main_image_encoder.model.encoder.layer.21.attention."
+    state = {
+        base + "attention.query.weight": 1,
+        base + "attention.key.bias": 2,
+        base + "attention.value.weight": 3,
+        base + "output.dense.bias": 4,
+        "main_image_encoder.model.encoder.layer.21.mlp.fc1.weight": 5,
+        "main_image_encoder.model.embeddings.cls_token": 6,
+    }
+    expected = [
+        base + "q_proj.weight",
+        base + "k_proj.bias",
+        base + "v_proj.weight",
+        base + "o_proj.bias",
+        "main_image_encoder.model.encoder.layer.21.mlp.fc1.weight",
+        "main_image_encoder.model.embeddings.cls_token",
+    ]
+    out = remap(state, expected)
+    assert set(out) == set(expected)
+    assert out[base + "o_proj.bias"] == 4
+    # No-op while the installed transformers still uses the 4.x names.
+    assert remap(state, list(state)) is state
+
+
+def test_hunyuan_patch_is_wired_and_release_build_strictly_loads_weights() -> None:
+    patch = (HUNYUAN / "patch_hunyuan_runtime.py").read_text()
+    main_body = patch[patch.index("def main() -> None:"):]
+    assert "patch_dinov2_v5_names()" in main_body
+    release = HY_DOCKERFILE[HY_DOCKERFILE.index("FROM runtime AS release"):]
+    assert "Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(" in release
+    assert 'device="cpu"' in release
+    assert "Hunyuan checkpoint strict load: PASS" in release
+    # The runtime stage switched to the non-root user; release must not switch back.
+    assert "USER root" not in release
