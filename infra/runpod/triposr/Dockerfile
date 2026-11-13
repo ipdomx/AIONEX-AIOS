@@ -44,4 +44,7 @@ ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 HF_HUB_DISABLE
 USER aionex
 WORKDIR /opt/triposr
 RUN python -I -c "import sys; sys.path.insert(0, '/opt/triposr'); import handler; handler.install_runtime_guards(); assert handler.handler({'input': {}}) == {'error': 'input.image required'}; assert 'error' in handler.handler({'input': {'image': 'eA==', 'model': 'x'}}); print('TripoSR hardened runtime contract: PASS')"
+# Strict CPU load of the pinned checkpoint: fails the build on any parameter-name
+# drift between the checkpoint and the installed transformers (FR-16D T-13).
+RUN python -I -c "import sys; sys.path.insert(0, '/opt/triposr'); import handler; handler.install_runtime_guards(); handler.build_model(); print('TripoSR checkpoint strict load: PASS')"
 ENTRYPOINT ["python","-u","/opt/triposr/handler.py"]

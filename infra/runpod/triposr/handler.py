@@ -46,20 +46,56 @@ _MODEL = None
 _REMBG = None
 
 
+# The TripoSR checkpoint was saved with transformers 4.x ViT parameter names;
+# transformers 5 renamed the ViT encoder blocks. Map the old names onto the new
+# ones so the pinned checkpoint loads strictly (no missing/unexpected keys).
+_VIT_PREFIX = "image_tokenizer.model."
+_VIT_V5_RENAMES = (
+    (".attention.attention.query.", ".attention.q_proj."),
+    (".attention.attention.key.", ".attention.k_proj."),
+    (".attention.attention.value.", ".attention.v_proj."),
+    (".attention.output.dense.", ".attention.o_proj."),
+    (".intermediate.dense.", ".mlp.fc1."),
+    (".output.dense.", ".mlp.fc2."),
+)
+
+
+def remap_checkpoint_keys(state: dict, expected_keys) -> dict:
+    expected = set(expected_keys)
+    old_block = _VIT_PREFIX + "encoder.layer."
+    if not any(key.startswith(old_block) for key in state) or any(key.startswith(old_block) for key in expected):
+        return state
+    remapped = {}
+    for key, value in state.items():
+        if key.startswith(old_block):
+            new_key = _VIT_PREFIX + "layers." + key[len(old_block):]
+            for old, new in _VIT_V5_RENAMES:
+                if old in new_key:
+                    new_key = new_key.replace(old, new, 1)
+                    break
+            key = new_key
+        remapped[key] = value
+    return remapped
+
+
+def build_model() -> TSR:
+    # Equivalent to TSR.from_pretrained, but loads the build-time
+    # safetensors conversion instead of the pickled model.ckpt.
+    cfg = OmegaConf.load(os.path.join(MODEL_ROOT, "config.yaml"))
+    OmegaConf.resolve(cfg)
+    model = TSR(cfg)
+    state = safetensors.torch.load_file(os.path.join(MODEL_ROOT, "model.safetensors"), device="cpu")
+    model.load_state_dict(remap_checkpoint_keys(state, model.state_dict().keys()), strict=True)
+    return model
+
+
 def get_model() -> TSR:
     global _MODEL
     if _MODEL is None:
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA GPU is required")
         log.info("loading TripoSR fallback model")
-        # Equivalent to TSR.from_pretrained, but loads the build-time
-        # safetensors conversion instead of the pickled model.ckpt.
-        cfg = OmegaConf.load(os.path.join(MODEL_ROOT, "config.yaml"))
-        OmegaConf.resolve(cfg)
-        _MODEL = TSR(cfg)
-        _MODEL.load_state_dict(
-            safetensors.torch.load_file(os.path.join(MODEL_ROOT, "model.safetensors"), device="cpu")
-        )
+        _MODEL = build_model()
         _MODEL.renderer.set_chunk_size(8192)
         _MODEL.to("cuda:0")
         log.info("TripoSR fallback model loaded")
