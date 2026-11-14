@@ -173,6 +173,21 @@ def main() -> None:
         "\\1ms.save_current_mesh(outputpath.replace(\".glb\", \".obj\"), save_textures=False)\n"
         "\\1courent = trimesh.load(outputpath.replace(\".glb\", \".obj\"), force=\"mesh\")\n",
     )
+    # 5d. PBR GLB assembly wrote temp.glb and mr_combined.png into the working
+    #     directory (/opt/Hunyuan3D-2.1, read-only for the runtime user; live job
+    #     2026-11-14: PermissionError). Write them beside the output, inside the
+    #     per-job work directory, which also keeps concurrent jobs apart.
+    sub("hy3dpaint/convert_utils.py", r"^import trimesh\n", "import os\nimport trimesh\n")
+    sub(
+        "hy3dpaint/convert_utils.py",
+        r'^(\s*)temp_glb = "temp\.glb"\n',
+        '\\1temp_glb = os.path.join(os.path.dirname(os.path.abspath(output_path)), "temp.glb")\n',
+    )
+    sub(
+        "hy3dpaint/convert_utils.py",
+        r'^(\s*)mr_combined_path = "mr_combined\.png"\n',
+        '\\1mr_combined_path = os.path.join(os.path.dirname(os.path.abspath(output_path)), "mr_combined.png")\n',
+    )
     # 5b. transformers 5 Dinov2 parameter names (see patch_dinov2_v5_names).
     patch_dinov2_v5_names()
     # 6. Super-resolution: reviewed safetensors-only implementation replaces the
