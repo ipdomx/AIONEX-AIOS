@@ -221,6 +221,21 @@ trimesh.creation.icosphere(subdivisions=6).export(os.path.join(work, "white_mesh
 remesh_mesh(os.path.join(work, "white_mesh.glb"), os.path.join(work, "white_mesh_remesh.obj"))
 remeshed = trimesh.load(os.path.join(work, "white_mesh_remesh.obj"))
 assert len(remeshed.faces) <= 40000, len(remeshed.faces)
-assert mesh_uv_wrap(remeshed).visual.uv is not None
-print("Hunyuan checkpoint strict load (shape + paint) and remesh/UV: PASS")
+uv_mesh = mesh_uv_wrap(remeshed)
+assert uv_mesh.visual.uv is not None
+# Everything after the GPU stages, from the read-only working directory: PBR GLB
+# assembly, Blender and glTF-Transform (temp files once went to the cwd).
+import numpy as np
+from pathlib import Path
+from PIL import Image
+assert not os.access(os.getcwd(), os.W_OK), os.getcwd()
+obj = Path(work) / "textured.obj"
+uv_mesh.export(obj)
+rng = np.random.default_rng(0)
+for name in ("textured.jpg", "textured_metallic.jpg", "textured_roughness.jpg"):
+    Image.fromarray(rng.integers(0, 256, (256, 256, 3), dtype=np.uint8)).save(Path(work) / name)
+handler._pbr_glb(obj, Path(work) / "pbr_source.glb")
+inspection, _ = handler._post_process(Path(work) / "pbr_source.glb", Path(work) / "final.glb", "compat", 1024)
+assert inspection["pbr_material_count"] >= 1 and inspection["texture_count"] >= 2, inspection
+print("Hunyuan checkpoint strict load (shape + paint), remesh/UV and PBR post-processing: PASS")
 PY

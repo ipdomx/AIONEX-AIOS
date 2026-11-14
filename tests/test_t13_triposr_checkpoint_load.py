@@ -169,7 +169,8 @@ def test_hunyuan_patch_is_wired_and_release_build_strictly_loads_weights() -> No
     release = HY_DOCKERFILE[HY_DOCKERFILE.index("FROM runtime AS release"):]
     assert "Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(" in release
     assert 'device="cpu"' in release
-    assert "Hunyuan checkpoint strict load (shape + paint) and remesh/UV: PASS" in release
+    assert "Hunyuan checkpoint strict load (shape + paint), remesh/UV and PBR post-processing: PASS" in release
+    assert "handler._pbr_glb(" in release and "handler._post_process(" in release
     assert "remesh_mesh(" in release and "mesh_uv_wrap(" in release
     assert "multiviewDiffusionNet(SimpleNamespace(" in release
     # The runtime stage switched to the non-root user; release must not switch back.
@@ -198,3 +199,13 @@ def test_hunyuan_remesh_does_not_need_open3d() -> None:
     assert "meshing_decimation_quadric_edge_collapse(targetfacenum=int(target_count)" in patch
     main_body = patch[patch.index("def main() -> None:"):]
     assert main_body.index("simplify_mesh_utils.py") < main_body.index("# 7. Post-conditions")
+
+
+def test_hunyuan_pbr_assembly_writes_beside_the_output_not_the_cwd() -> None:
+    # convert_utils wrote temp.glb / mr_combined.png into the read-only cwd; the fourth
+    # live job (2026-11-14) failed with PermissionError on /opt/Hunyuan3D-2.1/temp.glb.
+    patch = (HUNYUAN / "patch_hunyuan_runtime.py").read_text()
+    for name in ("temp.glb", "mr_combined.png"):
+        assert f'os.path.join(os.path.dirname(os.path.abspath(output_path)), "{name}")' in patch, name
+    release = HY_DOCKERFILE[HY_DOCKERFILE.index("FROM runtime AS release"):]
+    assert "assert not os.access(os.getcwd(), os.W_OK)" in release
