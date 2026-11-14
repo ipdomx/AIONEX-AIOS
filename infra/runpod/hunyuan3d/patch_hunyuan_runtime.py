@@ -163,6 +163,16 @@ def main() -> None:
         r"os\.system\(f'\{self\.executable\} \{temp_input\.name\} \{temp_output\.name\}'\)",
         "raise RuntimeError('external mesh simplifier is disabled in the AIONEX runtime')",
     )
+    # 5c. Remesh: trimesh's simplify_quadric_decimation needs open3d, which is not
+    #     installed (live job 2026-11-13: ModuleNotFoundError). Use pymeshlab's
+    #     quadric edge collapse instead; pymeshlab is already loaded by this function.
+    sub(
+        "hy3dpaint/utils/simplify_mesh_utils.py",
+        r"^(\s*)courent = courent\.simplify_quadric_decimation\(target_count\)\n",
+        "\\1ms.meshing_decimation_quadric_edge_collapse(targetfacenum=int(target_count), preservenormal=True)\n"
+        "\\1ms.save_current_mesh(outputpath.replace(\".glb\", \".obj\"), save_textures=False)\n"
+        "\\1courent = trimesh.load(outputpath.replace(\".glb\", \".obj\"), force=\"mesh\")\n",
+    )
     # 5b. transformers 5 Dinov2 parameter names (see patch_dinov2_v5_names).
     patch_dinov2_v5_names()
     # 6. Super-resolution: reviewed safetensors-only implementation replaces the
