@@ -169,7 +169,8 @@ def test_hunyuan_patch_is_wired_and_release_build_strictly_loads_weights() -> No
     release = HY_DOCKERFILE[HY_DOCKERFILE.index("FROM runtime AS release"):]
     assert "Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(" in release
     assert 'device="cpu"' in release
-    assert "Hunyuan checkpoint strict load (shape + paint): PASS" in release
+    assert "Hunyuan checkpoint strict load (shape + paint) and remesh/UV: PASS" in release
+    assert "remesh_mesh(" in release and "mesh_uv_wrap(" in release
     assert "multiviewDiffusionNet(SimpleNamespace(" in release
     # The runtime stage switched to the non-root user; release must not switch back.
     assert "USER root" not in release
@@ -187,3 +188,13 @@ def test_hunyuan_paint_pipeline_is_built_from_local_components() -> None:
     assert "HunyuanPaintPipeline.from_pretrained(" not in patch
     assert 'sys.modules.setdefault(\\"modules\\"' not in patch
     assert "trust_remote_code" not in patch.split("# 7. Post-conditions")[0]
+
+
+def test_hunyuan_remesh_does_not_need_open3d() -> None:
+    # trimesh.simplify_quadric_decimation imports open3d, which is not installed; the
+    # third live job (2026-11-13) failed with ModuleNotFoundError: open3d.
+    patch = (HUNYUAN / "patch_hunyuan_runtime.py").read_text()
+    assert "simplify_quadric_decimation\\(target_count\\)" in patch
+    assert "meshing_decimation_quadric_edge_collapse(targetfacenum=int(target_count)" in patch
+    main_body = patch[patch.index("def main() -> None:"):]
+    assert main_body.index("simplify_mesh_utils.py") < main_body.index("# 7. Post-conditions")

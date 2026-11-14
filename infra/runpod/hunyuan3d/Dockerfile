@@ -211,5 +211,16 @@ net = multiviewDiffusionNet(SimpleNamespace(
     dino_ckpt_path=str(handler.DINO_ROOT),
 ))
 assert type(net.pipeline.unet).__name__ == "UNet2p5DConditionModel"
-print("Hunyuan checkpoint strict load (shape + paint): PASS")
+# Paint pre-processing that runs before the GPU stages: remesh (decimation) and UV
+# unwrap on a mesh above the 40k-face target. open3d was missing at runtime once.
+import os, tempfile, trimesh
+from utils.simplify_mesh_utils import remesh_mesh
+from utils.uvwrap_utils import mesh_uv_wrap
+work = tempfile.mkdtemp()
+trimesh.creation.icosphere(subdivisions=6).export(os.path.join(work, "white_mesh.glb"))
+remesh_mesh(os.path.join(work, "white_mesh.glb"), os.path.join(work, "white_mesh_remesh.obj"))
+remeshed = trimesh.load(os.path.join(work, "white_mesh_remesh.obj"))
+assert len(remeshed.faces) <= 40000, len(remeshed.faces)
+assert mesh_uv_wrap(remeshed).visual.uv is not None
+print("Hunyuan checkpoint strict load (shape + paint) and remesh/UV: PASS")
 PY
