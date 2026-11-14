@@ -46,8 +46,12 @@ def _encode(image, fmt: str = "PNG") -> str:
 def test_quarantine_gate_is_not_lifted_by_this_change() -> None:
     assert "HUNYUAN_RUNTIME_SECURITY_APPROVED = False" in POLICY
     roadmap = (ROOT / "docs/project/COMPLETION-ROADMAP.md").read_text()
-    for item in ("T-18", "T-19", "O-10"):
-        assert f"- [ ] {item} " in roadmap
+    # Lifting the quarantine is the owner's decision (O-10). Completing the live
+    # acceptance it depends on (T-18/T-19, receipt T13-T18-3D-LIVE-20261113) does not
+    # lift it: the policy flag stays False until O-10 is closed in its own protected PR.
+    assert "- [ ] O-10 " in roadmap
+    if "- [x] T-18 " in roadmap:
+        assert (ROOT / "docs/project/receipts/T13-T18-3D-LIVE-20261113.md").is_file()
 
 
 def test_image_is_rebuilt_from_pinned_public_inputs_not_the_opaque_base() -> None:
