@@ -208,6 +208,8 @@ export type BillingOverview = {
   summary: {
     gross_minor: number;
     refunded_minor: number;
+    gross_by_currency?: Record<string, number>;
+    refunded_by_currency?: Record<string, number>;
     successful_transactions: number;
     failed_transactions: number;
     open_invoices: number;

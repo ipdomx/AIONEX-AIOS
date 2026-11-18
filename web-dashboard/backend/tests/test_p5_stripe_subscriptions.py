@@ -1260,3 +1260,64 @@ def test_stripe_billing_modules_have_no_dead_placeholders() -> None:
         tree = ast.parse(source)
         assert not any(isinstance(node, ast.Pass) for node in ast.walk(tree)), relative
         assert "NotImplementedError" not in source, relative
+
+
+# --------------------------------------------------------------- O-02 rehearsal findings
+
+
+@pytest.mark.asyncio
+async def test_first_invoice_failure_during_checkout_does_not_notify_payment_failed(
+    stripe_settings: None,
+) -> None:
+    # Real test-mode rehearsal 2026-11-18: with a 3D Secure card Stripe sends
+    # invoice.payment_failed for the first invoice before the customer finishes the
+    # challenge, then the payment succeeds. Checkout shows failures on screen, so the
+    # first invoice must not produce a "Payment failed" notification; renewals still do.
+    suffix = uuid4().hex[:12]
+    organization, _user = await identity(suffix)
+    catalog = Catalog(suffix)
+    base = int(time.time())
+    try:
+        await catalog.create(organization, customer=f"cus_{suffix}")
+        async with SessionLocal() as session:
+            first = invoice_object(
+                suffix, "1", amount=5000, paid=False, reason="subscription_create",
+                price=catalog.pro_monthly, start=base, end=base + 30 * DAY,
+            )
+            first.pop("subscription")
+            result = await deliver(session, event(f"evt_{suffix}_first_failed", "invoice.payment_failed", first, base))
+            await session.commit()
+            assert result["status"] == "processed"
+            failed_notes = select(func.count()).select_from(Notification).where(
+                Notification.organization_id == organization.id,
+                Notification.type == "billing.payment.failed",
+            )
+            assert await session.scalar(failed_notes) == 0
+            assert await session.scalar(
+                select(BillingInvoice).where(BillingInvoice.external_reference == f"in_{suffix}_1")
+            ) is not None
+
+            renewal = invoice_object(
+                suffix, "2", amount=5000, paid=False, reason="subscription_cycle",
+                price=catalog.pro_monthly, start=base, end=base + 30 * DAY,
+            )
+            renewal.pop("subscription")
+            await deliver(session, event(f"evt_{suffix}_renewal_failed", "invoice.payment_failed", renewal, base + 5))
+            await session.commit()
+            assert await session.scalar(failed_notes) >= 1
+    finally:
+        await catalog.cleanup(organization.id)
+
+
+def test_owner_totals_never_add_different_currencies() -> None:
+    from types import SimpleNamespace
+
+    rows = [
+        SimpleNamespace(currency="egp", amount_minor=500000),
+        SimpleNamespace(currency="USD", amount_minor=18700),
+        SimpleNamespace(currency="EGP", amount_minor=499969),
+    ]
+    assert billing._sum_by_currency(rows) == {"EGP": 999969, "USD": 18700}
+    source = (BACKEND / "app/services/billing.py").read_text()
+    # Refunded payments were still collected, so gross counts them.
+    assert 'item.status in {"succeeded", "partially_refunded", "refunded"}' in source

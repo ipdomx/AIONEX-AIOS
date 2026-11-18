@@ -1157,7 +1157,11 @@ async def handle_invoice(
             dedupe=f"stripe-receipt:{reference}",
             payload=links,
         )
-    elif not paid:
+    elif not paid and str(obj.get("billing_reason") or "") != "subscription_create":
+        # The first invoice is paid inside Checkout, which shows any failure on
+        # screen. During 3D Secure Stripe also sends invoice.payment_failed before
+        # the customer finishes the challenge, so a "Payment failed" message here
+        # would be wrong for a payment that then succeeds (O-02 rehearsal).
         url = links["hosted_invoice_url"]
         await notify_billing_event(
             session,
