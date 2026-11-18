@@ -515,6 +515,8 @@ async def test_completed_transcript_creates_private_package_captions_studio_revi
             )
             assert target is not None and target.status == "completed"
             assert target.media_type == "application/zip"
+            # The dubbing pipeline reads this binding from the node (O-14).
+            assert target.operation_metadata["transcript_checksum"] == row.transcript_checksum
             assert asset is not None and asset.current_revision == 2
             assert revision_count == 2
             public = await audio_transcript_execution_snapshot(
