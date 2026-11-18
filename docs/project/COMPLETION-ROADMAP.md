@@ -94,7 +94,12 @@
 
 ### مطلوب من المالك
 - [x] O-01 موافقة على تفعيل real-IP لحدود الطلبات في nginx (overlay FR09). المشكلة: كل الزوار بيتحسبوا IP واحد (cloudflared)، فالحدود 5 دخول/دقيقة و20 طلب/ثانية على الموقع كله. **عائق إطلاق.** (تم 2026-11-07: الـ real-IP طلع شغال فعلاً، والسجلات بتظهر IP الزائر الحقيقي. اتضافت خدمة `aionex-realip-watch` بتعيد ربط الثقة لوحدها لو حاوية cloudflared اتعاد إنشاؤها)
-- [ ] O-02 Stripe: تسجيل webhook `https://api.vip-e.net/api/v1/billing/webhooks/stripe` بالأحداث المذكورة في `STRIPE-GO-LIVE-RUNBOOK.md`، وإعداد Customer Portal، وربط المنتجات والأسعار، ثم بروفة بكروت الاختبار.
+- [ ] O-02 Stripe: تسجيل webhook `https://api.vip-e.net/api/v1/billing/webhooks/stripe` بالأحداث المذكورة في `STRIPE-GO-LIVE-RUNBOOK.md`، وإعداد Customer Portal، وربط المنتجات والأسعار، ثم بروفة بكروت الاختبار. (2026-11-18: **البروفة خلصت ونجحت** في بيئة معزولة، بمفتاح اختبار وكود الإنتاج و14 سيناريو: الدفع بالجنيه والدولار، و3D Secure، والترقية، والتخفيض، والإلغاء، والاسترداد، وفشل التجديد والتعافي منه، والتكرار، والتوقيع. الإيصال في `docs/project/receipts/O02-STRIPE-TEST-REHEARSAL-20261118.md`. **الحساب الحي:** إماراتي باسم Ipdomx، ومفعّل بالكامل، والـ Customer Portal موجود. **الباقي للإطلاق:**
+  1. إضافة 6 أحداث ناقصة للـ webhook الحي.
+  2. إنشاء الأسعار الحية، وربطها بالبوابة.
+  3. `PAYMENTS_PORTAL_BASE_URL`.
+  4. إصلاح ملاحظتين: إشعار 3DS، وجمع العملات في ملخص المالك.
+  5. فتح الدفع بعد نشر #1083.)
 - [ ] O-03 Meta (تطبيق `1056852290270430`):
   - Valid OAuth Redirect URI: `https://api.vip-e.net/api/v1/social/oauth/meta/callback`
   - Webhooks: `https://api.vip-e.net/api/v1/social/meta/webhooks`، بالحقول page: feed, messages وinstagram: comments, messages
