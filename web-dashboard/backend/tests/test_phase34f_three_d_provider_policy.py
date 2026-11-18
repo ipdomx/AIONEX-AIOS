@@ -279,11 +279,30 @@ async def test_hunyuan_control_plane_error_blocks_primary_but_not_triposr(
 
 
 @pytest.mark.asyncio
-async def test_hunyuan_runtime_is_technically_quarantined_by_default(monkeypatch):
+async def test_hunyuan_runtime_gate_is_open_only_for_the_accepted_image(monkeypatch):
+    # O-10 (owner, 2026-11-18): the quarantine is lifted for the image that passed
+    # Trivy and the live PBR acceptance on 2026-11-14. The old v11 digest stays
+    # recorded as quarantined, and runtime configuration still requires a US-only
+    # endpoint.
     from app.services import three_d_provider_policy as provider_policy
 
-    assert provider_policy.HUNYUAN_RUNTIME_SECURITY_APPROVED is False
-    assert provider_policy.HUNYUAN_QUARANTINED_IMAGE_DIGEST.startswith("sha256:")
+    assert provider_policy.HUNYUAN_RUNTIME_SECURITY_APPROVED is True
+    assert provider_policy.HUNYUAN_APPROVED_IMAGE_DIGEST.startswith("sha256:")
+    assert (
+        provider_policy.HUNYUAN_APPROVED_IMAGE_DIGEST
+        != provider_policy.HUNYUAN_QUARANTINED_IMAGE_DIGEST
+    )
+    monkeypatch.setattr(
+        provider_policy,
+        "_provider_env",
+        lambda: {
+            "RUNPOD_API_KEY": "test-key",
+            "RUNPOD_ENDPOINT_ID": "primary-test-endpoint",
+            "RUNPOD_HUNYUAN_LOCATION": "EU",
+        },
+    )
+    assert not await provider_policy.provider_runtime_configured("hunyuan3d")
+    monkeypatch.setattr(provider_policy, "HUNYUAN_RUNTIME_SECURITY_APPROVED", False)
     monkeypatch.setattr(
         provider_policy,
         "_provider_env",
@@ -293,7 +312,12 @@ async def test_hunyuan_runtime_is_technically_quarantined_by_default(monkeypatch
             "RUNPOD_HUNYUAN_LOCATION": "US",
         },
     )
+    # Rollback is one constant: with it False Hunyuan is never configured.
     assert not await provider_policy.provider_runtime_configured("hunyuan3d")
+    disclosure = provider_policy.provider_disclosure({}, "hunyuan3d")
+    assert disclosure["attribution"] == "Powered by Tencent Hunyuan"
+    assert disclosure["tencent_affiliation"] is False
+
 
 def test_worker_clients_allow_fallback_without_primary_endpoint(monkeypatch):
     from app.services import three_d_worker

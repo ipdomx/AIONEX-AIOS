@@ -837,6 +837,9 @@ export function ThreeDClient() {
                   {access.model_provider === "hunyuan3d" && (
                     <div>{t("create.hunyuanNoAffiliation", { operator: access.model_disclosure.operator })}</div>
                   )}
+                  {access.model_disclosure.attribution && (
+                    <div className="text-white/55">{access.model_disclosure.attribution}</div>
+                  )}
                   <div className="pt-1 text-white/35">{t("create.modelPolicy")}</div>
                 </dl>
 
