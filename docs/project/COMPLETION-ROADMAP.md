@@ -49,7 +49,7 @@
 - [x] 2.2 تجربة حية على TripoSR (RunPod) بتكلفة محدودة بموافقة المالك، وإيصال. ملاحظة 2026-11-06: الـ endpointين على RunPod كانوا متوقفين (`ENDPOINT_PAUSED`، HTTP 409)، فاتضافت معالجة الأخطاء: تسجيل HTTP status وكود المزود، والإيقاف و401/403 أخطاء دائمة بلا إعادة محاولة ولا تحسب على الـ circuit (`THREE_D_PROVIDER_PAUSED` / `THREE_D_PROVIDER_AUTH`)، والتحويل للـ fallback لو واحد بس متوقف، وحالة `provider_state` في رد الـ access. (code merged; live verification deferred to pre-launch) (تم 2026-11-13: تجربة حية على TripoSR نجحت على `t13v7`: GLB حجمه 3.6 MB في 36 ثانية، والتحويل بـ Blender في الإنتاج طلع OBJ وFBX وUSDZ ومعاينة. الإيصال في `docs/project/receipts/T13-T18-3D-LIVE-20261113.md`)
 - [x] 2.3 Hunyuan3D: إعادة بناء الصورة وفحصها أمنيًا (FR-16D)، ثم رفع الحجر. اتعادت كتابة الصورة من صفر: صور pytorch مثبتة بالـ digest بدل الـ base المجهولة، وكود Hunyuan على الـ commit المراجع مع patches بتمنع تنزيل الكود من الـ Hub وأي pickle وأي shell، ومكتبات بـ `--require-hashes`، وأوزان safetensors بس متحققة بـ SHA-256 من revision ثابت، ومستخدم مش root، وحدود على الطلب والمخرج. الأسباب الكاملة للحجر والمعالجة والمخاطر الباقية وخطوات النشر في `docs/project/receipts/FR16D-hunyuan-security-review-20261107.md`. الحجر `HUNYUAN_RUNTIME_SECURITY_APPROVED=False` باقي لحد T-18 وقرار O-10. (code merged; deploy/live verification in pre-launch window)
 - [x] 2.4 Blender على السيرفر (أو صورة worker) لتحويل الصيغ والمعاينات. sidecar اسمه `three-d-converter` فيه Blender 5.2.3 متحقق بالـ checksum، من غير شبكة خالص، وكل تحويل في sandbox (timeout وrlimits ومجلدات مؤقتة وfactory startup ومن غير autoexec). بيطلع OBJ وFBX وUSDZ وصورة معاينة، والواجهة بتعرض بس الصيغ اللي اتعملت فعلًا للموديل ده. (code merged; deploy/live verification in pre-launch window)
-- [ ] 2.5 قبول 2D (FR-16B)، واستعادة أصل 3D غير فارغ (A04).
+- [ ] 2.5 قبول 2D (FR-16B)، واستعادة أصل 3D غير فارغ (A04). (2026-11-18: **قبول الـ 2D خلص (PASS)**. اتبنت الرسوم المتحركة واللعبة بكود الإنتاج، واتشغّلوا في Chromium من غير إنترنت: الإطارات بتتقدم، والأسهم وSpace بيشتغلوا، والحدود مظبوطة، ومفيش ولا خطأ. الإيصال في `docs/project/receipts/FR16B-2D-INTERACTIVE-ACCEPTANCE-20261118.md`. **الباقي A04:** أصول الـ 3D في الإنتاج لسه فاضية، فهتتقبل وقت الإطلاق بعد أول مهمة 3D حقيقية، وبعدها بروفة استعادة)
 
 ### المرحلة 3: إدارة حسابات Facebook وInstagram (Meta)
 - [x] 3.1 إطار موصلات عام: OAuth وتخزين التوكن مشفرًا وتجديده، مصمم لإضافة باقي المنصات لاحقًا. (code merged; live verification pending)
@@ -130,7 +130,13 @@
   - cloudflared بـ 4 CPU و2 GiB مثبّت في `/etc/aionex/cloudflared-capacity.compose.yml` جوه سلسلة الحاوية، وrealip-watch أكد إن الثقة متغيرتش.
   - خدمات `aionex-realip-watch` و`aionex-scan-egress-guard` و`aionex-runtime-watch` وقفت مع restart الـ docker، ورجعت تشتغل.
   - ZAP لقى 5xx على مسارات Firebase social، وطلع 503 مقصود (`SOCIAL_AUTH_UNAVAILABLE`) لما Firebase مش متضبط. ده مش bug.
-- [ ] T-23 مؤقتات AIONEX AI الخلفية (`aionex-ai-cpu-workers` و`enterprise-worker` و`learning-worker`) بتفشل من 2026-11-02 على الأقل، وكلها رافضة بالتصميم: `all_worker_gates_passed=false` و`ENTERPRISE_MODEL_SOURCE_DRIFT` و`LEARNING_QA_NOT_VERIFIED`. مش بتأثر على AIOS (الـ gateway شغال). محتاجة مراجعة في مشروع AIONEX AI.
+- [ ] T-23 مؤقتات AIONEX AI الخلفية (`aionex-ai-cpu-workers` و`enterprise-worker` و`learning-worker`) بتفشل من 2026-11-02 على الأقل، وكلها رافضة بالتصميم: `all_worker_gates_passed=false` و`ENTERPRISE_MODEL_SOURCE_DRIFT` و`LEARNING_QA_NOT_VERIFIED`. مش بتأثر على AIOS (الـ gateway شغال). محتاجة مراجعة في مشروع AIONEX AI. (2026-11-18: **التشخيص.** ده مش بيأثر على الإطلاق، لأن المراقبة 72 ساعة مش بتعد وحدات systemd، والـ gateway شغال.
+  - **(أ) `cpu-workers`:**
+    - 12 اختبار متصفح في `tests` بيفشلوا عشان `node` مش متركّب على السيرفر.
+    - اختبار تحميل في `evals` (`test_gateway_load_test`) بيفشل جوه الـ sandbox بس (`CPUQuota=200%`)، وبينجح براه.
+  - **(ب) `learning-worker`:** متوقف بالتصميم لحد ما (أ) ينجح (`LEARNING_QA_NOT_VERIFIED`).
+  - **(ج) `enterprise-worker`:** `repository.py` في `source-current` اتغير يوم 11-03 بتقوية أمنية (منع تسريب المسارات في الأخطاء)، ونسخة الحزمة في `/usr/local/share/aionex-ai-enterprise-worker-20261027` لسه قديمة، فبيطلع `ENTERPRISE_MODEL_SOURCE_DRIFT`.
+  - **الحل المقترح:** تركيب `nodejs` على السيرفر، وإصلاح اختبار التحميل في مشروع AIONEX AI، ومزامنة الحزمة بعد ما الاختبارات تنجح. السجلات في `/var/lib/aionex-migration/t23-aionex-ai-workers-20261118/`)
 - [x] T-24 ثغرات krb5-libs (CVE-2026-107364 و40356 و71199 و71200) اتصلحت في 2026-11-11:
   - **صورة الباك إند في الريبو:** حد أدنى `krb5-libs>=1.22.3-r0` (#1062).
   - **الإنتاج:** طبقة `apk add --upgrade` على كل الصور الشغالة:
