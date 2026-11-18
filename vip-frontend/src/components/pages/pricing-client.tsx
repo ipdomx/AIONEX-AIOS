@@ -148,7 +148,13 @@ export function PricingClient() {
               {error}
             </p>
           )}
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div
+            className={`grid gap-5 ${
+              plans.length >= 4
+                ? "md:grid-cols-2 xl:grid-cols-4"
+                : "lg:grid-cols-3"
+            }`}
+          >
             {plans.map((plan) => {
               const period =
                 plan.periods.find(
