@@ -191,11 +191,14 @@ export interface FreeRegistrationPayload {
 
 export interface FreeTierStatus {
   plan: string;
+  /** Display name of the plan (paid plans and Free). */
+  plan_name?: string;
   free_tier: boolean;
   enabled?: boolean;
-  limits?: Record<string, number>;
+  /** `null` means the plan leaves this limit open (unlimited). */
+  limits?: Record<string, number | null>;
   usage?: Record<string, number>;
-  remaining?: Record<string, number>;
+  remaining?: Record<string, number | null>;
   period_started_at?: string;
   period_ends_at?: string;
 }

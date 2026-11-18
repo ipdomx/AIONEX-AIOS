@@ -193,7 +193,11 @@
     "organization": "Organization: {name}",
     "manageBilling": "Manage billing",
     "notifications": "Notifications",
-    "securityLab": "Security Lab"
+    "securityLab": "Security Lab",
+    "storageUsed": "Storage",
+    "unlimited": "Unlimited",
+    "planLine": "Your plan: {plan} · Role: {role}",
+    "resetsOn": "Quota renews on {date}"
   },
   "auth": {
     "secureAccess": "Secure user access",

@@ -25,7 +25,7 @@ from app.db.models import (
     Workspace,
     uuid_str,
 )
-from app.services import production_studio, studio_governance
+from app.services import plan_usage, production_studio, studio_governance
 from app.services import media_graph_runtime
 from app.services.media_orchestrator import MediaEdgeSpec, MediaGraphSpec, MediaNodeSpec, output_profile
 from app.services.media_storage import (
@@ -213,6 +213,8 @@ async def _enqueue_job(
         )
     except studio_governance.StudioGovernanceError as exc:
         raise HTTPException(status_code=exc.http_status, detail=str(exc)) from exc
+    # Studio jobs produce files; refuse new ones once the plan's storage is full.
+    await plan_usage.assert_storage_available(session, actor)
     policy = admission["policy"]
     job = StudioJob(
         id=uuid_str(),
