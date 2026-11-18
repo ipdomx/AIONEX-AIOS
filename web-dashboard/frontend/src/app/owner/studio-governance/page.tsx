@@ -16,7 +16,14 @@ import {
   type OwnerStudioPolicy,
 } from "@/lib/owner-studio-governance";
 
-const planCodes = ["free", "starter", "professional", "premium", "business", "enterprise"] as const;
+const planCodes = [
+  "free",
+  "starter",
+  "professional",
+  "premium",
+  "business",
+  "enterprise",
+] as const;
 
 function policyUpdate(policy: OwnerStudioPolicy) {
   return {

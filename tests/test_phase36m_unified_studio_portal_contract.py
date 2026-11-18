@@ -146,7 +146,10 @@ def test_specialized_36m_launch_surfaces_are_truthful_and_fail_closed() -> None:
     assert '"music-song"' in service
     assert 'runtime_launchable=False' in service
     assert 'activation_reason="external_activation_required"' in service
-    assert 'supported_plans=("starter", "professional", "enterprise")' in service
+    # Gated capabilities are paid-only; PAID_PLANS uses billing's plan names
+    # (business, premium) plus the legacy aliases (2026-11-18, O-18).
+    assert 'supported_plans=PAID_PLANS' in service
+    assert 'PAID_PLANS = ("starter", "professional", "premium", "business", "enterprise")' in service
     assert 'required_permissions=("academy:read",)' in service
     assert 'availability_reason = "permission_required"' in service
     assert '@router.get("/sector-packs")' in studio_api
