@@ -801,6 +801,14 @@ class AudioTranscriptExecutionAuthority:
                 target.checksum = package_object.sha256
                 target.size_bytes = package_object.size_bytes
                 target.media_type = "application/zip"
+                # Dubbing binds its source to this checksum through the node
+                # metadata; without it every transcript-to-dubbing run failed
+                # with "source transcript checksum is not bound to its node"
+                # (O-14 live run, 2026-11-19).
+                target.operation_metadata = {
+                    **(target.operation_metadata or {}),
+                    "transcript_checksum": document.checksum,
+                }
                 target.provenance = [
                     *(target.provenance or []),
                     {
