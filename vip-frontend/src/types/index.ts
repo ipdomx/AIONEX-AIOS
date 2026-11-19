@@ -453,6 +453,7 @@ export interface ThreeDAccess {
     model: string;
     operator: string;
     license: string;
+    attribution?: string;
     territory_limited: boolean;
     tencent_affiliation: boolean | null;
     machine_generated: boolean;

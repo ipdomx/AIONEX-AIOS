@@ -21,17 +21,26 @@ HUNYUAN_PROVIDER = "hunyuan3d"
 TRIPOSR_PROVIDER = "triposr"
 THREE_D_TERMS_VERSION = "3d-model-service-2026-08-09"
 
-# Security quarantine for the currently deployed Hunyuan v11 runtime. The exact
-# production digest was re-audited during the 2026-08-30 pre-launch closeout and
-# its installed Python inventory contains unresolved high-impact advisories across
-# the GPU/model stack.  This constant is deliberately source-controlled rather
-# than Owner-configurable: legal/commercial attestations must never be able to
-# bypass a technical security gate.  A later GPU rebuild must earn a fresh
-# security + functional acceptance before this can become True.
-HUNYUAN_RUNTIME_SECURITY_APPROVED = False
+# Security gate for the Hunyuan runtime. It is source-controlled rather than
+# Owner-configurable: legal/commercial attestations must never be able to bypass a
+# technical security gate.
+#
+# 2026-08-30: the v11 runtime (HUNYUAN_QUARANTINED_IMAGE_DIGEST) was quarantined;
+# its GPU/model stack carried unresolved high-impact advisories.
+# 2026-11-14: the rebuilt image (HUNYUAN_APPROVED_IMAGE_DIGEST) earned a fresh
+# security + functional acceptance: Trivy zero HIGH/CRITICAL on the digest and a
+# live paid-GPU PBR run (receipt docs/project/receipts/T13-T18-3D-LIVE-20261113.md).
+# 2026-11-18: the owner lifted the quarantine for the Business plan only (O-10).
+# Plan access stays with the 3D policy (allowed_plan_codes) and the 3d.generation
+# entitlement; the EU/UK/KR territory gate below still routes to TripoSR.
+HUNYUAN_RUNTIME_SECURITY_APPROVED = True
+HUNYUAN_APPROVED_IMAGE_DIGEST = (
+    "sha256:97f04829221e1274aa45152290282264532fb65db0c8e7547bcf68769c5342b0"
+)
 HUNYUAN_QUARANTINED_IMAGE_DIGEST = (
     "sha256:34bd37c577a8c769005a11f94bf4658d0b9f31d52df5c75e2a8f01a5ed8499dc"
 )
+HUNYUAN_ATTRIBUTION = "Powered by Tencent Hunyuan"
 
 _RUNPOD_GRAPHQL_URL = "https://api.runpod.io/graphql"
 _RUNPOD_CONTROL_PLANE_TIMEOUT_SECONDS = 5.0
@@ -310,6 +319,7 @@ def provider_disclosure(policy: dict[str, Any], provider: str) -> dict[str, Any]
             "model": "Tencent Hunyuan 3D 2.1",
             "operator": legal_name,
             "license": "Tencent Hunyuan 3D 2.1 Community License Agreement",
+            "attribution": HUNYUAN_ATTRIBUTION,
             "territory_limited": True,
             "tencent_affiliation": False,
             "machine_generated": True,
