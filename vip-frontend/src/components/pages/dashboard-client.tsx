@@ -6,6 +6,7 @@ import {
   CreditCard,
   FolderKanban,
   Gauge,
+  HardDrive,
   LoaderCircle,
   MessageSquareText,
   RefreshCw,
@@ -39,6 +40,22 @@ function quotaValue(
 ): number | null {
   const value = status?.[group]?.[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+// The API sends `null` for a limit the plan leaves open (unlimited).
+function isUnlimited(status: FreeTierStatus | null, key: string): boolean {
+  return Boolean(status?.limits && key in status.limits && status.limits[key] === null);
+}
+
+function formatBytes(value: number, locale: string): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size.toLocaleString(locale, { maximumFractionDigits: unit < 2 ? 0 : 1 })} ${units[unit]}`;
 }
 
 export function DashboardClient() {
@@ -108,42 +125,54 @@ export function DashboardClient() {
   const usedProjects =
     quotaValue(quota, "usage", "projects") ?? projects.length;
   const projectLimit = quotaValue(quota, "limits", "projects");
-  const remainingMessages = quotaValue(quota, "remaining", "user_messages");
-  const remainingResponses = quotaValue(
-    quota,
-    "remaining",
-    "assistant_responses",
-  );
+  const remainingValue = (key: string): string => {
+    if (isUnlimited(quota, key)) return t("unlimited");
+    const remaining = quotaValue(quota, "remaining", key);
+    const limit = quotaValue(quota, "limits", key);
+    if (remaining === null) return "—";
+    return limit === null
+      ? remaining.toLocaleString(locale)
+      : `${remaining.toLocaleString(locale)} / ${limit.toLocaleString(locale)}`;
+  };
+  const usedStorage = quotaValue(quota, "usage", "storage_bytes");
+  const storageLimit = quotaValue(quota, "limits", "storage_bytes");
+  const storageValue =
+    usedStorage === null
+      ? "—"
+      : isUnlimited(quota, "storage_bytes") || storageLimit === null
+        ? `${formatBytes(usedStorage, locale)} · ${t("unlimited")}`
+        : `${formatBytes(usedStorage, locale)} / ${formatBytes(storageLimit, locale)}`;
+  const periodEnd = quota?.period_ends_at
+    ? new Date(quota.period_ends_at).toLocaleDateString(locale, {
+        day: "numeric",
+        month: "long",
+      })
+    : null;
 
   const metrics = [
     {
       label: t("projectsUsed"),
-      value:
-        projectLimit === null
+      value: isUnlimited(quota, "projects")
+        ? `${usedProjects} · ${t("unlimited")}`
+        : projectLimit === null
           ? String(usedProjects)
           : `${usedProjects} / ${projectLimit}`,
       icon: FolderKanban,
     },
     {
       label: t("messagesRemaining"),
-      value:
-        remainingMessages === null
-          ? "—"
-          : remainingMessages.toLocaleString(locale),
+      value: remainingValue("user_messages"),
       icon: MessageSquareText,
     },
     {
       label: t("responsesRemaining"),
-      value:
-        remainingResponses === null
-          ? "—"
-          : remainingResponses.toLocaleString(locale),
+      value: remainingValue("assistant_responses"),
       icon: Gauge,
     },
     {
-      label: t("accountRole"),
-      value: user?.role || "—",
-      icon: ShieldCheck,
+      label: t("storageUsed"),
+      value: storageValue,
+      icon: HardDrive,
     },
   ];
 
@@ -157,6 +186,15 @@ export function DashboardClient() {
               {t("welcome", { name: user?.name || "" })}
             </h1>
             <p className="section-copy mt-4">{t("description")}</p>
+            {quota && (
+              <p className="mt-3 text-sm text-white/60">
+                {t("planLine", {
+                  plan: quota.plan_name || quota.plan || "—",
+                  role: user?.role || "—",
+                })}
+                {periodEnd ? ` · ${t("resetsOn", { date: periodEnd })}` : ""}
+              </p>
+            )}
           </div>
           <Button
             variant="secondary"

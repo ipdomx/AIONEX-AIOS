@@ -193,7 +193,11 @@
     "organization": "Organisation: {name}",
     "manageBilling": "Abrechnung verwalten",
     "notifications": "Benachrichtigungen",
-    "securityLab": "Security Lab"
+    "securityLab": "Security Lab",
+    "storageUsed": "Speicher",
+    "unlimited": "Unbegrenzt",
+    "planLine": "Ihr Tarif: {plan} · Rolle: {role}",
+    "resetsOn": "Kontingent erneuert sich am {date}"
   },
   "auth": {
     "secureAccess": "Sicherer Nutzerzugang",

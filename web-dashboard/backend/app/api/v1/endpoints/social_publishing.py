@@ -22,6 +22,7 @@ from app.api.v1.endpoints import social as social_api
 from app.core.auth import UserRecord, current_user
 from app.db.base import get_db
 from app.db.models import AuditEvent, SocialMediaUpload, StudioAsset
+from app.services import plan_usage
 from app.services import social_ai_assist as ai_assist
 from app.services import social_media_access as media_access
 from app.services import social_posts as posts
@@ -291,6 +292,7 @@ async def upload_media(
     try:
         if len(body) > media_access.UPLOAD_VIDEO_MAX_BYTES:
             raise SocialConnectorError("media-too-large", status_code=413)
+        await plan_usage.assert_storage_available(session, actor, len(body))
         row = media_access.store_upload(
             organization_id=actor.organization_id,
             user_id=actor.id,

@@ -93,6 +93,10 @@ _TELEMETRY_TEXT_LIMITS = {
 }
 
 
+def is_free_actor(actor: UserRecord) -> bool:
+    return actor.role == FREE_USER_ROLE_NAME or actor.organization_plan == FREE_PLAN_NAME
+
+
 def _now() -> datetime:
     return datetime.now(UTC)
 
@@ -317,8 +321,12 @@ async def get_free_tier_status(
     session: AsyncSession,
     actor: UserRecord,
 ) -> dict[str, Any]:
-    if actor.organization_plan != FREE_PLAN_NAME and actor.role != FREE_USER_ROLE_NAME:
-        return {"plan": actor.organization_plan, "free_tier": False}
+    if not is_free_actor(actor):
+        from app.services.plan_usage import paid_usage_status
+
+        return await paid_usage_status(session, actor)
+    from app.services.lifecycle_alerts import organization_storage_usage_bytes
+
     policy = await get_free_tier_policy(session)
     record = await _ensure_account_record(session, actor.id)
     # A status read must not reset counters or hold a usage write lock.
@@ -344,10 +352,15 @@ async def get_free_tier_status(
         "projects": project_count,
         "user_messages": int(usage.get("user_messages_used", 0)),
         "assistant_responses": int(usage.get("assistant_responses_used", 0)),
-        "storage_bytes": int(usage.get("storage_bytes_used", 0)),
+        # Every file the account keeps (uploads, Studio, 3D, recordings, ...),
+        # not only the profile image tracked by the counter.
+        "storage_bytes": await organization_storage_usage_bytes(
+            session, actor.organization_id
+        ),
     }
     return {
         "plan": FREE_PLAN_NAME,
+        "plan_name": "Free",
         "free_tier": True,
         "enabled": policy["enabled"],
         "limits": limits,
@@ -374,7 +387,12 @@ async def _consume_counter(
     policy_key: str,
     amount: int = 1,
 ) -> None:
-    if actor.role != FREE_USER_ROLE_NAME and actor.organization_plan != FREE_PLAN_NAME:
+    if not is_free_actor(actor):
+        from app.services.plan_usage import consume_paid_counter
+
+        await consume_paid_counter(
+            session, actor, key=counter.removesuffix("_used"), amount=amount
+        )
         return
     if amount < 1:
         raise ValueError("Usage amount must be positive")
@@ -404,6 +422,19 @@ async def consume_user_message(
     *,
     characters: int,
 ) -> None:
+    if not is_free_actor(actor):
+        from app.services.plan_usage import assert_paid_message_length
+
+        if characters < 1:
+            raise HTTPException(status_code=422, detail="Message is empty")
+        await assert_paid_message_length(session, actor, characters=characters)
+        await _consume_counter(
+            session,
+            actor,
+            counter="user_messages_used",
+            policy_key="monthly_user_message_limit",
+        )
+        return
     policy = await get_free_tier_policy(session)
     if characters < 1 or characters > int(policy["max_message_characters"]):
         raise HTTPException(

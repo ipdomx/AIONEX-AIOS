@@ -1,0 +1,24 @@
+# Phase 36 Reporting Receipt — paid-plan budgets and Studio plan names (O-18)
+
+- Receipt ID: PHASE36-PAID-PLAN-BUDGETS-STUDIO-PLANS-2026-11-18
+- Batch: pre-launch billing (register item O-18). No capability maturity change.
+- Date/time UTC: 2026-11-18
+- Objective: the owner published three paid plans (Professional 5,000 EGP, Premium 10,000 EGP, Business 25,000 EGP, with USD equivalents) and asked for a clear per-user budget of projects, messages and storage on every plan, visible on the site and in the apps.
+- Phase 36-owned paths touched:
+  - `web-dashboard/backend/app/services/studio_governance.py`, `web-dashboard/backend/app/api/owner/studio_governance.py` and `web-dashboard/frontend/src/app/owner/studio-governance/page.tsx`: plan names (`premium`, `business`, aliases).
+  - `web-dashboard/backend/app/api/v1/endpoints/studio.py`: storage check on new jobs.
+  - `vip-frontend/src/components/pages/projects-client.tsx`: quota shown for every plan.
+- Evidence:
+  - Studio compared raw organization plan names against `free/starter/professional/enterprise`. A paying organization on billing's `business` plan (aliases: `enterprise`, `team`) therefore received `plan_not_supported` for every capability, and any new plan name would too.
+  - Plans are now aliased like billing. The new `premium` tier inherits `professional` in owner policies saved before it existed, until the owner lists it explicitly.
+- Budgets:
+  - Paid plans get monthly message/response counters (new `plan_usage` service) and a storage limit measured from the files the organization keeps.
+  - Storage is enforced on social uploads, 3D sources, identity-media inputs and new Studio jobs.
+  - The Super Owner is never limited, and a missing limit means unlimited.
+- Tests:
+  - `web-dashboard/backend/tests/test_plan_budgets_studio_plans.py`
+  - `web-dashboard/backend/tests/test_fr07a_quota_consistency.py` (paid budget, limits, storage, unlimited, Super Owner)
+  - `web-dashboard/backend/tests/test_phase36m_studio_governance.py`
+  - `tests/test_phase36m_unified_studio_portal_contract.py`
+- Rollback: revert the PR. No schema change. Usage counters live in `owner_control_records` (domain `plan-usage-account`) and can be deleted safely.
+- External activation gates remaining: Stripe checkout (O-02) before any paid subscription can start.

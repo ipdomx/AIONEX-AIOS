@@ -35,7 +35,11 @@ def _dependency_tables():
         needed.add(table.name)
         for fk in table.foreign_keys:
             visit(fk.column.table)
-    for name in ('owner_control_records', 'projects', 'users'):
+    # The status view measures every stored file (lifecycle_alerts.organization_storage_usage_bytes),
+    # so the tables it reads must exist even when they are empty.
+    for name in ('owner_control_records', 'projects', 'users', 'reports',
+                 'studio_asset_revisions', 'three_d_artifacts', 'social_media_uploads',
+                 'realtime_recordings', 'academy_course_packages'):
         visit(Base.metadata.tables[name])
     return [table for table in Base.metadata.sorted_tables if table.name in needed]
 
@@ -306,12 +310,67 @@ async def test_locked_storage_adjustment_refreshes_preloaded_account(case):
 
 
 @pytest.mark.asyncio
-async def test_non_free_actor_keeps_existing_bypass_semantics(case):
+async def test_paid_actor_is_counted_against_its_plan_not_the_free_record(case, monkeypatch):
+    """Paid plans have their own monthly budget (plan-usage-account), never the free record."""
+    from app.services import plan_usage
+
     actor = UserRecord(**{**vars(case.actor), 'role':'Member', 'organization_plan':'professional'})
+    limits = {'projects': 20, 'user_messages': 2, 'assistant_responses': 2,
+              'storage_bytes': 10, 'max_message_characters': 50}
+
+    async def fake_context(session, who):
+        return {'plan': 'professional', 'plan_name': 'Professional', 'limits': dict(limits)}
+
+    async def fake_storage(session, organization_id):
+        return 4
+
+    monkeypatch.setattr(plan_usage, 'paid_plan_context', fake_context)
+    monkeypatch.setattr('app.services.lifecycle_alerts.organization_storage_usage_bytes', fake_storage)
     before = await _stored(case)
     async with case.sessions() as session, session.begin():
         await quotas.consume_user_message(session, actor, characters=10)
         await quotas.consume_assistant_response(session, actor)
-        assert await quotas.get_free_tier_status(session, actor) == {
-            'plan':'professional', 'free_tier':False}
+        status = await quotas.get_free_tier_status(session, actor)
+    assert status['free_tier'] is False and status['plan'] == 'professional'
+    assert status['usage']['user_messages'] == 1 and status['remaining']['user_messages'] == 1
+    assert status['usage']['storage_bytes'] == 4 and status['remaining']['storage_bytes'] == 6
+    # The free account record is untouched.
     assert await _stored(case) == before
+    async with case.sessions() as session, session.begin():
+        await quotas.consume_user_message(session, actor, characters=10)
+    with pytest.raises(HTTPException) as limit:
+        async with case.sessions() as session, session.begin():
+            await quotas.consume_user_message(session, actor, characters=10)
+    assert limit.value.status_code == 429
+    assert limit.value.detail['code'] == 'PLAN_LIMIT_REACHED'
+    # Plan length limit, not the free 6,000-character policy.
+    with pytest.raises(HTTPException) as too_long:
+        async with case.sessions() as session, session.begin():
+            await quotas.consume_user_message(session, actor, characters=51)
+    assert too_long.value.status_code == 422
+    # Storage: 4 used of 10, a 7-byte upload is refused, a 6-byte one is fine.
+    async with case.sessions() as session, session.begin():
+        await plan_usage.assert_storage_available(session, actor, 6)
+        with pytest.raises(HTTPException) as full:
+            await plan_usage.assert_storage_available(session, actor, 7)
+    assert full.value.status_code == 413 and full.value.detail['code'] == 'STORAGE_LIMIT_REACHED'
+
+
+@pytest.mark.asyncio
+async def test_unlimited_plan_keys_and_super_owner_are_never_blocked(case, monkeypatch):
+    from app.services import plan_usage
+
+    async def no_limits(session, who):
+        return {'plan': 'business', 'plan_name': 'Business',
+                'limits': {key: None for key in plan_usage.LIMIT_KEYS}}
+
+    monkeypatch.setattr(plan_usage, 'paid_plan_context', no_limits)
+    actor = UserRecord(**{**vars(case.actor), 'role':'Member', 'organization_plan':'business'})
+    async with case.sessions() as session, session.begin():
+        for _ in range(5):
+            await quotas.consume_user_message(session, actor, characters=20_000)
+        await plan_usage.assert_storage_available(session, actor, 10**12)
+    owner = UserRecord(**{**vars(case.actor), 'role':'Super Owner',
+                          'organization_plan':'enterprise', 'permissions':['*']})
+    assert plan_usage.is_unlimited_actor(owner)
+    assert await plan_usage.storage_limit_bytes(None, owner) is None

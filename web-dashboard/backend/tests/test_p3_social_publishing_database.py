@@ -125,6 +125,16 @@ async def publishing_case(monkeypatch, tmp_path):
 
     monkeypatch.setattr(social_api, "enforce_rate_limit", no_rate_limit)
 
+    # The plan storage budget has its own database tests (test_fr07a_quota_consistency);
+    # here it records every check so uploads are proven to go through it.
+    storage_checks: list[int] = []
+
+    async def record_storage_check(_session, _actor, incoming_bytes=0):
+        storage_checks.append(int(incoming_bytes))
+
+    monkeypatch.setattr(publishing_api.plan_usage, "assert_storage_available", record_storage_check)
+    case.storage_checks = storage_checks
+
     def worker(**kwargs) -> SocialPublishWorker:
         return SocialPublishWorker(
             session_factory=sessions,
@@ -260,6 +270,8 @@ async def test_targets_are_limited_to_the_callers_own_oauth_accounts(publishing_
     # Media uploaded by Alice cannot be used by Bob.
     case.current = case.alice
     upload = await _upload_jpeg(case)
+    # Every upload is checked against the plan storage budget with its real size.
+    assert case.storage_checks and case.storage_checks[-1] == upload["size_bytes"]
     case.current = case.bob
     response = await case.client.post(
         PREFIX + "/posts/validate", json=_post([case.bob_fb.id], post_type="image", media=[upload["ref"]])

@@ -65,7 +65,8 @@ def test_course_family_requires_read_permission_but_not_write_permission_to_be_d
         if item.capability_id == "courses"
     )
     assert definition.launch_surface == "academy"
-    assert definition.supported_plans == ("starter", "professional", "enterprise")
+    assert definition.supported_plans == studio_governance.PAID_PLANS
+    assert {"premium", "business"} <= set(definition.supported_plans)
     assert definition.required_permissions == ("academy:read",)
 
 

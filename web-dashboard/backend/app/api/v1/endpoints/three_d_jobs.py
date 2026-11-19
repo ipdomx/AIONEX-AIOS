@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.services import plan_usage
 from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
 
 from datetime import timedelta
@@ -256,6 +257,7 @@ async def create_three_d_job(
     body = await image.read(max_bytes + 1)
     content_type = str(image.content_type or "").strip().lower()
     validate_image_payload(content_type, body, max_bytes)
+    await plan_usage.assert_storage_available(session, actor, len(body))
 
     policy = await get_three_d_policy(session)
     selected_texture = min(

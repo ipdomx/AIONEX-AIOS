@@ -26,7 +26,33 @@ from app.db.models import (
 )
 
 POLICY_DOMAIN = "studio-capabilities"
-PLAN_CODES = frozenset({"free", "starter", "professional", "enterprise"})
+PLAN_CODES = frozenset(
+    {"free", "starter", "professional", "premium", "business", "enterprise"}
+)
+# Billing calls the top plan "business" ("enterprise" and "team" are aliases,
+# see billing._normalized_plan_code); Studio must use the same names or a paying
+# organization on "business" is refused every capability.
+PLAN_ALIASES = {"enterprise": "business", "team": "professional"}
+PAID_PLANS = ("starter", "professional", "premium", "business", "enterprise")
+
+
+def canonical_plan(code: str | None) -> str:
+    value = str(code or "").strip().lower()
+    return PLAN_ALIASES.get(value, value)
+
+
+def plan_allowed(plan: str | None, plans: Any) -> bool:
+    """True when ``plan`` is in ``plans`` after aliasing.
+
+    "premium" sits between "professional" and "business". A list saved before
+    "premium" existed (it names neither "premium" nor any other new tier) gives
+    premium the same answer as professional.
+    """
+    listed = {canonical_plan(item) for item in (plans or ())}
+    current = canonical_plan(plan)
+    if current in listed:
+        return True
+    return current == "premium" and "premium" not in listed and "professional" in listed
 PROVIDER_MODES = frozenset({"provider_neutral"})
 MODERATION_MODES = frozenset({"standard", "strict"})
 ACTIVE_JOB_STATUSES = frozenset({"queued", "running"})
@@ -47,7 +73,7 @@ class CapabilityDefinition:
     launch_surface: str
     departments: tuple[str, ...]
     phase36_capability_ids: tuple[str, ...]
-    supported_plans: tuple[str, ...] = ("free", "starter", "professional", "enterprise")
+    supported_plans: tuple[str, ...] = ("free", *PAID_PLANS)
     required_permissions: tuple[str, ...] = ()
     runtime_launchable: bool = True
     activation_reason: str | None = None
@@ -140,7 +166,7 @@ CAPABILITIES: tuple[CapabilityDefinition, ...] = (
             "song-production",
             "podcast-jingle-narration",
         ),
-        supported_plans=("starter", "professional", "enterprise"),
+        supported_plans=PAID_PLANS,
         runtime_launchable=False,
         activation_reason="external_activation_required",
     ),
@@ -151,7 +177,7 @@ CAPABILITIES: tuple[CapabilityDefinition, ...] = (
         "academy",
         (),
         ("course-factory", "learning-assessment-certification"),
-        supported_plans=("starter", "professional", "enterprise"),
+        supported_plans=PAID_PLANS,
         required_permissions=("academy:read",),
     ),
     CapabilityDefinition(
@@ -228,7 +254,9 @@ def normalize_policy(
         raise StudioGovernanceError(
             "invalid_policy", "eligible_plans contains an unknown plan", http_status=422
         )
-    if set(plans) - set(definition.supported_plans):
+    if {canonical_plan(p) for p in plans} - {
+        canonical_plan(p) for p in definition.supported_plans
+    }:
         raise StudioGovernanceError(
             "invalid_policy",
             "eligible_plans contains a plan unsupported by this capability",
@@ -366,15 +394,15 @@ async def owner_catalog(session: AsyncSession) -> list[dict[str, Any]]:
 async def user_catalog(
     session: AsyncSession, actor: UserRecord
 ) -> list[dict[str, Any]]:
-    plan = actor.organization_plan.strip().lower()
+    plan = canonical_plan(actor.organization_plan)
     result = []
     for item in await owner_catalog(session):
         policy = dict(item["policy"])
         if not policy["enabled"]:
             availability_reason = "owner_disabled"
-        elif plan not in set(item["supported_plans"]):
+        elif not plan_allowed(plan, item["supported_plans"]):
             availability_reason = "plan_not_supported"
-        elif plan not in set(policy["eligible_plans"]):
+        elif not plan_allowed(plan, policy["eligible_plans"]):
             availability_reason = "plan_not_eligible"
         elif (
             item["required_permissions"]
@@ -490,12 +518,12 @@ async def admit_studio_job(
         enabled=record.enabled if record is not None else True,
         version=record.version if record is not None else 0,
     )
-    plan = actor.organization_plan.strip().lower()
+    plan = canonical_plan(actor.organization_plan)
     if not policy["enabled"]:
         raise StudioGovernanceError(
             "capability_disabled", "This Studio capability is disabled by the Owner"
         )
-    if plan not in set(policy["eligible_plans"]):
+    if not plan_allowed(plan, policy["eligible_plans"]):
         raise StudioGovernanceError(
             "plan_not_eligible",
             "Your organization plan is not eligible for this Studio capability",

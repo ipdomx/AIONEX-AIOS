@@ -456,24 +456,24 @@ export function ProjectsClient() {
           </div>
         )}
 
-        {quota?.free_tier && quota.limits && quota.usage && quota.remaining && (
+        {quota?.limits && quota.usage && quota.remaining && (
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             <div className="glass-panel rounded-2xl p-5">
               <p className="text-xs text-white/35">{t("quota.projects")}</p>
               <p className="mt-2 text-2xl font-semibold">
-                {quota.usage.projects} / {quota.limits.projects}
+                {quota.usage.projects} / {quota.limits.projects ?? "∞"}
               </p>
             </div>
             <div className="glass-panel rounded-2xl p-5">
               <p className="text-xs text-white/35">{t("quota.messages")}</p>
               <p className="mt-2 text-2xl font-semibold">
-                {quota.remaining.user_messages}
+                {quota.remaining.user_messages ?? "∞"}
               </p>
             </div>
             <div className="glass-panel rounded-2xl p-5">
               <p className="text-xs text-white/35">{t("quota.responses")}</p>
               <p className="mt-2 text-2xl font-semibold">
-                {quota.remaining.assistant_responses}
+                {quota.remaining.assistant_responses ?? "∞"}
               </p>
             </div>
           </div>
