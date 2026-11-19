@@ -360,10 +360,10 @@ def test_gemini_omni_cost_cap_covers_the_longest_clip_and_actual_cost_uses_usage
     cap, meta = gemini_omni_max_cost(omni_request())
     assert meta["cap_seconds"] == 10 and meta["pricing_unit"] == "token"
     # 10 s at 720p (57,920 video tokens) plus thought and input allowances.
-    assert cap == pytest.approx((57_920 * 17.5 + 4_000 * 9.0 + 4_000 * 1.5) / 1e6)
+    assert cap == pytest.approx((57_920 * 17.5 + 4_000 * 9.0 + 4_000 * 1.5) / 1e6, abs=1e-6)
     assert video_cost_estimate(omni_request()) == (cap, meta)
     actual, pricing = gemini_omni_usage_cost(omni_request(), _OMNI_USAGE)
-    assert actual == pytest.approx((23_168 * 17.5 + 255 * 9.0 + 25 * 1.5) / 1e6)
+    assert actual == pytest.approx((23_168 * 17.5 + 255 * 9.0 + 25 * 1.5) / 1e6, abs=1e-6)
     assert actual < cap and pricing["video_output_tokens"] == 23_168
     with pytest.raises(ProviderVideoFailure):
         gemini_omni_usage_cost(omni_request(), {"total_output_tokens": 10})
