@@ -54,7 +54,7 @@ def test_launch_matrix_uses_visible_current_video_models_and_does_not_invent_fir
     models = {(item.provider, item.model) for item in VIDEO_PROVIDER_CAPABILITIES}
     assert ("openai", "sora-2") in models
     assert ("openai", "sora-2-pro") in models
-    assert ("gemini", "gemini-omni-flash-preview") in models
+    assert ("gemini", "gemini-omni-1.1-flash") in models
     assert ("gemini", "veo-3.1-generate-preview") in models
     assert ("gemini", "veo-3.1-fast-generate-preview") in models
     assert ("gemini", "veo-3.1-lite-generate-preview") in models

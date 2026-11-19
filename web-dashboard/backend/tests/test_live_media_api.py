@@ -82,10 +82,11 @@ def _app(actor: UserRecord) -> FastAPI:
 
 
 async def _inventory(_session, _actor, provider_type: str):
+    if provider_type == "gemini":
+        return None, ("gemini-omni-1.1-flash",), "phase36-live-media-test-evidence"
     assert provider_type == "openai"
     return None, (
         "gpt-image-2",
-        "sora-2",
         "gpt-4o-mini-tts-2025-12-15",
         "gpt-4o-mini-transcribe-2025-12-15",
         "gpt-4o-transcribe-diarize",
@@ -156,15 +157,16 @@ async def test_live_video_http_arms_only_with_total_cost_cap(monkeypatch: pytest
                     "resolution": "720p",
                     "language": "en-US",
                     "style": "cinematic",
-                    "approved_max_total_cost_usd": 3.0,
+                    "approved_max_total_cost_usd": 5.0,
                     "idempotency_key": f"live-video-{uuid4().hex}",
                 },
             )
         assert response.status_code == 202, response.text
         body = response.json()
-        assert body["provider"] == "openai"
-        assert body["model"] == "sora-2"
-        assert body["projected_cost_usd"] <= 3.0
+        # Sora 2 was shut down on 2026-09-24; Gemini Omni Flash is the video route.
+        assert body["provider"] == "gemini"
+        assert body["model"] == "gemini-omni-1.1-flash"
+        assert body["projected_cost_usd"] <= 5.0
         assert body["automatic_retry"] is False
         async with SessionLocal() as session:
             rows = list((await session.scalars(select(VideoExecution).where(VideoExecution.graph_id == body["graph_id"]))).all())
