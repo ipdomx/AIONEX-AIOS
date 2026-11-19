@@ -117,6 +117,7 @@ _RECEIPTS = {
     "stable_music": "docs/phase-36/receipts/36G-2026-08-26-funded-music-provider-activation.md",
 }
 _SHA = frozenset("0123456789abcdef")
+_VIDEO_MODEL = "gemini-omni-1.1-flash"
 
 
 def _sha256_file(relative: str) -> str:
@@ -400,7 +401,8 @@ async def live_media_capabilities(
 ) -> dict[str, Any]:
     models: dict[str, bool] = {}
     for provider_type, wanted in (
-        ("openai", ("gpt-image-2", "sora-2", "gpt-4o-mini-tts-2025-12-15", "gpt-4o-mini-transcribe-2025-12-15", "gpt-4o-transcribe-diarize", "gpt-5.6-luna")),
+        ("openai", ("gpt-image-2", "gpt-4o-mini-tts-2025-12-15", "gpt-4o-mini-transcribe-2025-12-15", "gpt-4o-transcribe-diarize", "gpt-5.6-luna")),
+        ("gemini", (_VIDEO_MODEL,)),
     ):
         try:
             _, inventory, _ = await _provider_inventory(session, actor, provider_type)
@@ -410,7 +412,7 @@ async def live_media_capabilities(
     return {
         "schema": "36.live-media-capabilities.v1",
         "image": {"ready": bool(models.get("gpt-image-2")), "worker_live": settings.DESIGN_IMAGE_LIVE_ENABLED},
-        "video": {"ready": bool(models.get("sora-2")), "worker_live": settings.VIDEO_EXECUTION_LIVE_ENABLED},
+        "video": {"ready": bool(models.get(_VIDEO_MODEL)), "worker_live": settings.VIDEO_EXECUTION_LIVE_ENABLED},
         "speech": {"ready": bool(models.get("gpt-4o-mini-tts-2025-12-15")), "worker_live": settings.AUDIO_SPEECH_LIVE_ENABLED},
         "transcript": {"ready": bool(models.get("gpt-4o-mini-transcribe-2025-12-15") and models.get("gpt-4o-transcribe-diarize")), "worker_live": settings.AUDIO_TRANSCRIPT_LIVE_ENABLED},
         "dubbing": {"ready": bool(models.get("gpt-5.6-luna") and models.get("gpt-4o-mini-tts-2025-12-15")), "worker_live": settings.AUDIO_DUBBING_LIVE_ENABLED},
@@ -486,15 +488,16 @@ async def get_live_image(execution_id: str, actor: UserRecord = Depends(require_
 
 @router.post("/video", status_code=202)
 async def create_live_video(data: VideoLiveRequest, actor: UserRecord = Depends(require_non_free_user), session: AsyncSession = Depends(get_db)) -> dict[str, Any]:
-    _, inventory, evidence_ref = await _provider_inventory(session, actor, "openai")
-    if "sora-2" not in inventory:
-        raise HTTPException(status_code=503, detail="Sora 2 is unavailable in the current provider inventory")
+    # OpenAI shut down Sora 2 on 2026-09-24; Gemini Omni Flash is the launch video route.
+    _, inventory, evidence_ref = await _provider_inventory(session, actor, "gemini")
+    if _VIDEO_MODEL not in inventory:
+        raise HTTPException(status_code=503, detail="Gemini Omni Flash is unavailable in the current provider inventory")
     reference_count = 0 if data.operation == "text-to-video" else 1
     if reference_count and not data.reference_node_id:
         raise HTTPException(status_code=422, detail="This video operation requires one governed reference node")
     scope = await _scope(session, actor, project_id=data.project_id, workspace_id=data.workspace_id)
     request = VideoRequest(title=data.title, brief=data.brief, operation=data.operation, use_case=data.use_case, aspect_ratio=data.aspect_ratio, resolution=data.resolution, language=data.language, style=data.style, reference_count=reference_count)
-    runtime = VideoRuntimeEvidence(provider="openai", model="sora-2", state="ready", proven_operations=frozenset({"text-to-video", "image-to-video", "logo-to-video", "reference-to-video", "remix"}), reason=f"current-model-inventory:{_evidence_digest(evidence_ref)[:16]}+phase36f-acceptance:{_sha256_file(_RECEIPTS['video'])[:16]}")
+    runtime = VideoRuntimeEvidence(provider="gemini", model=_VIDEO_MODEL, state="ready", proven_operations=frozenset({"text-to-video", "image-to-video", "logo-to-video"}), reason=f"current-model-inventory:{_evidence_digest(evidence_ref)[:16]}+phase36f-acceptance:{_sha256_file(_RECEIPTS['video'])[:16]}")
     try:
         pipeline = await create_routed_video_pipeline(session, scope=scope, request=request, runtime_evidence=(runtime,), idempotency_key=data.idempotency_key, reference_node_id=data.reference_node_id)
         armed = await arm_video_project(session, organization_id=actor.organization_id, graph_id=pipeline.graph_id, max_total_cost_usd=data.approved_max_total_cost_usd)

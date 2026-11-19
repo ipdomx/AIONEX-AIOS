@@ -94,17 +94,18 @@ VIDEO_PROVIDER_CAPABILITIES: Final[tuple[VideoProviderCapability, ...]] = (
         max_reference_images=1,
         native_audio=True,
     ),
+    # Gemini Omni Flash replaced the discontinued Sora 2 / Veo 3.1 preview APIs
+    # (O-14, 2026-11-19). Duration is a prompt hint; the clip is 3-10 s.
     VideoProviderCapability(
         provider="gemini",
-        model="gemini-omni-flash-preview",
+        model="gemini-omni-1.1-flash",
         operations=frozenset({"text-to-video", "image-to-video", "logo-to-video"}),
         aspect_ratios=frozenset({"16:9", "9:16"}),
         resolutions=frozenset({"720p"}),
-        durations_seconds=(8,),
+        durations_seconds=(4, 8),
         max_reference_images=1,
         native_audio=True,
         supports_stateful_editing=True,
-        preview=True,
     ),
     VideoProviderCapability(
         provider="gemini",
@@ -388,10 +389,13 @@ def compile_scene(request: VideoRequest, scene: VideoScene, capability: VideoPro
             "reference_required": request.reference_count > 0,
             "async_job": True,
         }
-    elif capability.provider == "gemini" and capability.model == "gemini-omni-flash-preview":
+    elif capability.provider == "gemini" and capability.model == "gemini-omni-1.1-flash":
         endpoint_kind = "gemini-interaction-video"
         settings = {
+            "endpoint": "/v1beta/interactions",
             "model": capability.model,
+            "seconds": scene.duration_seconds,
+            "size": _openai_size(request),
             "response_format": "video",
             "aspect_ratio": request.aspect_ratio,
             "resolution": request.resolution,

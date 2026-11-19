@@ -242,3 +242,132 @@ def test_openai_sora_fixed_second_cost_is_explicit_and_fails_closed_outside_tabl
     assert pro_cost == pytest.approx(2.4)
     with pytest.raises(ProviderVideoFailure, match="Video provider request failed"):
         openai_sora_fixed_cost(request(size="1792x1024"))
+
+
+# ------------------------------------------------------------------- Gemini Omni (O-14)
+def omni_request(**overrides) -> ProviderVideoRequest:
+    return request(**{"provider": "gemini", "model": "gemini-omni-1.1-flash", **overrides})
+
+
+_OMNI_USAGE = {
+    "total_input_tokens": 25,
+    "total_output_tokens": 23_168,
+    "total_thought_tokens": 255,
+    "output_tokens_by_modality": [{"modality": "video", "tokens": 23_168}],
+}
+
+
+@pytest.mark.asyncio
+async def test_gemini_omni_submit_is_background_interaction_with_uri_delivery() -> None:
+    import json as _json
+
+    from app.services.video_providers import GeminiOmniVideoAdapter
+
+    seen: dict[str, object] = {}
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        seen["path"] = req.url.path
+        seen["key"] = req.headers.get("x-goog-api-key")
+        seen["authorization"] = req.headers.get("authorization")
+        seen["body"] = _json.loads(req.content)
+        return httpx.Response(200, json={"id": "v1_abc", "status": "in_progress", "object": "interaction"})
+
+    adapter = GeminiOmniVideoAdapter(transport=httpx.MockTransport(handler))
+    job = await adapter.submit(
+        omni_request(size="720x1280"),
+        credential="gemini-test-key",
+        base_url="https://generativelanguage.googleapis.com",
+    )
+    assert job.job_id == "v1_abc" and job.state == "in_progress"
+    assert seen["path"] == "/v1beta/interactions"
+    assert seen["key"] == "gemini-test-key" and seen["authorization"] is None
+    body = seen["body"]
+    assert body["model"] == "gemini-omni-1.1-flash"
+    assert body["background"] is True and body["store"] is True
+    assert body["response_format"] == {
+        "type": "video",
+        "resolution": "720p",
+        "aspect_ratio": "9:16",
+        "delivery": "uri",
+    }
+    assert body["input"].endswith("Duration: about 4 seconds.")
+
+
+@pytest.mark.asyncio
+async def test_gemini_omni_poll_then_download_from_files_uri_only_on_google_host() -> None:
+    from app.services.video_providers import GeminiOmniVideoAdapter
+
+    uri = "https://generativelanguage.googleapis.com/v1beta/files/abc:download?alt=media"
+    finished = {
+        "id": "v1_abc",
+        "status": "completed",
+        "usage": _OMNI_USAGE,
+        "steps": [
+            {"type": "user_input", "content": [{"type": "text", "text": "x"}]},
+            {"type": "model_output", "content": [{"type": "video", "mime_type": "video/mp4", "uri": uri}]},
+        ],
+    }
+
+    async def handler(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/v1beta/interactions/v1_abc":
+            return httpx.Response(200, json=finished)
+        if req.url.path == "/v1beta/files/abc:download":
+            assert req.headers.get("x-goog-api-key") == "gemini-test-key"
+            return httpx.Response(200, content=b"mp4-bytes", headers={"content-type": "video/mp4"})
+        return httpx.Response(404)
+
+    adapter = GeminiOmniVideoAdapter(transport=httpx.MockTransport(handler))
+    base = "https://generativelanguage.googleapis.com"
+    job = await adapter.retrieve("v1_abc", credential="gemini-test-key", base_url=base)
+    assert job.state == "completed" and job.metadata["usage"]["total_output_tokens"] == 23_168
+    content = await adapter.download_content("v1_abc", credential="gemini-test-key", base_url=base)
+    assert content.body == b"mp4-bytes" and content.content_type == "video/mp4"
+
+    finished["steps"][1]["content"][0]["uri"] = "https://evil.example/v.mp4"
+    with pytest.raises(ProviderVideoFailure) as exc:
+        await adapter.download_content("v1_abc", credential="gemini-test-key", base_url=base)
+    assert exc.value.code == "provider_content_missing"
+
+
+@pytest.mark.asyncio
+async def test_gemini_omni_cannot_reconcile_so_an_ambiguous_submit_never_pays_twice() -> None:
+    from app.services.video_providers import GeminiOmniVideoAdapter
+
+    adapter = GeminiOmniVideoAdapter(transport=httpx.MockTransport(lambda _r: httpx.Response(500)))
+    with pytest.raises(ProviderVideoFailure) as exc:
+        await adapter.submit(omni_request(), credential="k", base_url="https://generativelanguage.googleapis.com")
+    assert exc.value.ambiguous_submission is True and exc.value.retryable is False
+    with pytest.raises(ProviderVideoFailure) as exc:
+        await adapter.reconcile(
+            omni_request(),
+            submitted_at=datetime.now(UTC),
+            credential="k",
+            base_url="https://generativelanguage.googleapis.com",
+        )
+    assert exc.value.ambiguous_submission is True
+    with pytest.raises(ProviderVideoFailure):
+        await adapter.submit(omni_request(), credential="k", base_url="https://api.openai.com")
+
+
+def test_gemini_omni_cost_cap_covers_the_longest_clip_and_actual_cost_uses_usage() -> None:
+    from app.services.video_providers import (
+        gemini_omni_max_cost,
+        gemini_omni_usage_cost,
+        video_cost_estimate,
+        video_route_supported,
+    )
+
+    cap, meta = gemini_omni_max_cost(omni_request())
+    assert meta["cap_seconds"] == 10 and meta["pricing_unit"] == "token"
+    # 10 s at 720p (57,920 video tokens) plus thought and input allowances.
+    assert cap == pytest.approx((57_920 * 17.5 + 4_000 * 9.0 + 4_000 * 1.5) / 1e6)
+    assert video_cost_estimate(omni_request()) == (cap, meta)
+    actual, pricing = gemini_omni_usage_cost(omni_request(), _OMNI_USAGE)
+    assert actual == pytest.approx((23_168 * 17.5 + 255 * 9.0 + 25 * 1.5) / 1e6)
+    assert actual < cap and pricing["video_output_tokens"] == 23_168
+    with pytest.raises(ProviderVideoFailure):
+        gemini_omni_usage_cost(omni_request(), {"total_output_tokens": 10})
+    with pytest.raises(ProviderVideoFailure):
+        gemini_omni_max_cost(omni_request(seconds=12))
+    assert video_route_supported("gemini", "gemini-omni-1.1-flash")
+    assert not video_route_supported("gemini", "veo-3.1-generate-preview")
