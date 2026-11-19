@@ -193,7 +193,11 @@
     "organization": "Kuruluş: {name}",
     "manageBilling": "Faturalandırmayı yönet",
     "notifications": "Bildirimler",
-    "securityLab": "Güvenlik Laboratuvarı"
+    "securityLab": "Güvenlik Laboratuvarı",
+    "storageUsed": "Depolama",
+    "unlimited": "Sınırsız",
+    "planLine": "Paketiniz: {plan} · Rol: {role}",
+    "resetsOn": "Kota {date} tarihinde yenilenir"
   },
   "auth": {
     "secureAccess": "Güvenli kullanıcı erişimi",

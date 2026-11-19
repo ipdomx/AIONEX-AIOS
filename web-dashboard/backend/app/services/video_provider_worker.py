@@ -33,12 +33,16 @@ from app.services.ai_runtime_service import (
 from app.services.media_ffmpeg import FFmpegRuntime, MediaFFmpegError
 from app.services.media_storage import MediaObjectStore, media_object_store
 from app.services.video_providers import (
+    GeminiOmniVideoAdapter,
     OpenAIVideoAdapter,
     ProviderVideoFailure,
     ProviderVideoInput,
     ProviderVideoJob,
     ProviderVideoRequest,
+    gemini_omni_usage_cost,
     openai_sora_fixed_cost,
+    video_cost_estimate,
+    video_route_supported,
 )
 from app.services.video_runtime import VideoClaim, VideoExecutionAuthority
 
@@ -104,9 +108,15 @@ def _qa_provider_video(probe: dict[str, Any], request: ProviderVideoRequest) -> 
         duration = _float_value(video.get("duration"))
     if duration is None or duration <= 0:
         raise ProviderVideoFailure("provider_video_duration", retryable=False)
-    tolerance = max(1.0, min(2.0, float(request.seconds) * 0.25))
-    if abs(duration - float(request.seconds)) > tolerance:
-        raise ProviderVideoFailure("provider_video_duration", retryable=False)
+    if request.provider == "gemini":
+        # Omni takes the duration as a prompt hint and returns a 3-10 s clip; it is
+        # billed on the tokens it actually produced, so any length in range is valid.
+        if not 2.5 <= duration <= 10.5:
+            raise ProviderVideoFailure("provider_video_duration", retryable=False)
+    else:
+        tolerance = max(1.0, min(2.0, float(request.seconds) * 0.25))
+        if abs(duration - float(request.seconds)) > tolerance:
+            raise ProviderVideoFailure("provider_video_duration", retryable=False)
     audio_present = any(
         isinstance(row, dict) and row.get("codec_type") == "audio" for row in streams
     )
@@ -127,6 +137,7 @@ class VideoProviderWorker:
         authority: VideoExecutionAuthority | None = None,
         store: MediaObjectStore | None = None,
         adapter: OpenAIVideoAdapter | None = None,
+        gemini_adapter: GeminiOmniVideoAdapter | None = None,
         ffmpeg: FFmpegRuntime | None = None,
         worker_id: str | None = None,
     ) -> None:
@@ -144,6 +155,11 @@ class VideoProviderWorker:
             max_content_bytes=int(settings.VIDEO_EXECUTION_MAX_PROVIDER_BYTES),
             reconcile_window_seconds=int(settings.VIDEO_EXECUTION_RECONCILE_WINDOW_SECONDS),
         )
+        self.gemini_adapter = gemini_adapter or GeminiOmniVideoAdapter(
+            timeout_seconds=float(settings.VIDEO_EXECUTION_PROVIDER_TIMEOUT_SECONDS),
+            download_timeout_seconds=float(settings.VIDEO_EXECUTION_DOWNLOAD_TIMEOUT_SECONDS),
+            max_content_bytes=int(settings.VIDEO_EXECUTION_MAX_PROVIDER_BYTES),
+        )
         self.ffmpeg = ffmpeg or FFmpegRuntime(
             timeout_seconds=int(settings.VIDEO_EXECUTION_FFPROBE_TIMEOUT_SECONDS)
         )
@@ -152,6 +168,11 @@ class VideoProviderWorker:
         self.cycles = 0
         self.errors = 0
         self._ffmpeg_version: str | None = None
+
+    def _adapter(self, request: ProviderVideoRequest) -> OpenAIVideoAdapter | GeminiOmniVideoAdapter:
+        if request.provider == "gemini":
+            return self.gemini_adapter
+        return self.adapter
 
     def write_health(self, status: str) -> None:
         payload = {
@@ -201,7 +222,7 @@ class VideoProviderWorker:
             prompt = str(private.get("compiled_prompt") or "").strip()
             if not prompt:
                 raise ProviderVideoFailure("execution_prompt", retryable=False)
-            if row.provider != "openai" or row.model not in {"sora-2", "sora-2-pro"}:
+            if not video_route_supported(row.provider, row.model):
                 raise ProviderVideoFailure("provider_adapter_unavailable", retryable=False)
             if row.operation not in {"text-to-video", "image-to-video", "logo-to-video", "reference-to-video"}:
                 raise ProviderVideoFailure("provider_operation_unsupported", retryable=False)
@@ -305,7 +326,7 @@ class VideoProviderWorker:
             options=options,
         )
         # Cost table is a launch-boundary check too; fail before provider HTTP if unknown.
-        openai_sora_fixed_cost(request)
+        video_cost_estimate(request)
         return LoadedVideoExecution(
             request=request,
             credential=credential,
@@ -339,7 +360,7 @@ class VideoProviderWorker:
     async def _submit(self, claim: VideoClaim, loaded: LoadedVideoExecution) -> None:
         await self.authority.mark_submission_started(claim)
         try:
-            job = await self.adapter.submit(
+            job = await self._adapter(loaded.request).submit(
                 loaded.request,
                 credential=loaded.credential,
                 base_url=loaded.base_url,
@@ -375,7 +396,7 @@ class VideoProviderWorker:
             )
             return
         try:
-            job = await self.adapter.reconcile(
+            job = await self._adapter(loaded.request).reconcile(
                 loaded.request,
                 submitted_at=loaded.submitted_at,
                 credential=loaded.credential,
@@ -427,7 +448,7 @@ class VideoProviderWorker:
             )
             return
         try:
-            job = await self.adapter.retrieve(
+            job = await self._adapter(loaded.request).retrieve(
                 job_id,
                 credential=loaded.credential,
                 base_url=loaded.base_url,
@@ -468,13 +489,20 @@ class VideoProviderWorker:
             )
             return
         try:
-            content = await self.adapter.download_content(
+            content = await self._adapter(loaded.request).download_content(
                 job.job_id,
                 credential=loaded.credential,
                 base_url=loaded.base_url,
             )
             qa = await self._qa_content(content.body, loaded.request)
-            actual_cost, pricing = openai_sora_fixed_cost(loaded.request)
+            if loaded.request.provider == "gemini":
+                actual_cost, pricing = gemini_omni_usage_cost(
+                    loaded.request, job.metadata.get("usage")
+                )
+                cost_basis = "official_token_usage"
+            else:
+                actual_cost, pricing = openai_sora_fixed_cost(loaded.request)
+                cost_basis = "official_fixed_second"
             await self.authority.complete_bytes(
                 claim,
                 body=content.body,
@@ -486,7 +514,7 @@ class VideoProviderWorker:
                     "pricing_revision": pricing["pricing_revision"],
                 },
                 actual_cost_usd=actual_cost,
-                cost_basis="official_fixed_second",
+                cost_basis=cost_basis,
             )
         except ProviderVideoFailure as exc:
             await self.authority.fail(

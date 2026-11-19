@@ -193,7 +193,11 @@
     "organization": "المؤسسة: {name}",
     "manageBilling": "إدارة الفوترة",
     "notifications": "الإشعارات",
-    "securityLab": "مختبر الأمان"
+    "securityLab": "مختبر الأمان",
+    "storageUsed": "مساحة التخزين",
+    "unlimited": "غير محدود",
+    "planLine": "باقتك: {plan} · الدور: {role}",
+    "resetsOn": "تتجدد الحصة يوم {date}"
   },
   "auth": {
     "secureAccess": "دخول آمن للمستخدم",

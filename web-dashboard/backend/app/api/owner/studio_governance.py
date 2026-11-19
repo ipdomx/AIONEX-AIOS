@@ -17,7 +17,7 @@ router = APIRouter(prefix="/owner/studio-governance", tags=["Owner Studio Govern
 class StudioCapabilityPolicyUpdate(BaseModel):
     enabled: bool = True
     eligible_plans: list[
-        Literal["free", "starter", "professional", "enterprise"]
+        Literal["free", "starter", "professional", "premium", "business", "enterprise"]
     ] = Field(min_length=1, max_length=4)
     daily_job_limit: int = Field(ge=1, le=10_000)
     max_concurrent_jobs: int = Field(ge=1, le=100)

@@ -5,6 +5,7 @@ outside this module. This transport layer never retries a video submission on it
 """
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -437,6 +438,365 @@ class OpenAIVideoAdapter:
                         await response.aread()
                         raise _failure_for_response(response, submission=False)
                     content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                    if content_type != "video/mp4":
+                        raise ProviderVideoFailure("provider_content_type", retryable=False)
+                    async for chunk in response.aiter_bytes():
+                        total += len(chunk)
+                        if total > self.max_content_bytes:
+                            raise ProviderVideoFailure("provider_content_too_large", retryable=False)
+                        chunks.append(chunk)
+        except ProviderVideoFailure:
+            raise
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderVideoFailure("provider_download_transport", retryable=True) from exc
+        body = b"".join(chunks)
+        if not body:
+            raise ProviderVideoFailure("provider_content_empty", retryable=False)
+        return ProviderVideoContent(body=body, content_type="video/mp4")
+
+
+# --------------------------------------------------------------------------- Gemini Omni
+# OpenAI shut down Sora 2 and the Videos API on 2026-09-24; Google discontinued the Veo
+# 3.1 previews in the Gemini API on 2026-10-22 and points to Gemini Omni Flash
+# (Interactions API). Omni is billed by tokens, so the arm-time estimate is a hard cap
+# for the longest clip the model returns (10 s) and the completed cost comes from the
+# provider's own usage record. Prices: Gemini API paid tier, 2026-11-19 (O-14 receipt).
+_GEMINI_OMNI_PRICING: dict[str, dict[str, float]] = {
+    "gemini-omni-1.1-flash": {
+        "input_per_million_usd": 1.50,
+        "text_output_per_million_usd": 9.00,
+        "video_output_per_million_usd": 17.50,
+    },
+}
+_GEMINI_OMNI_VIDEO_TOKENS_PER_SECOND = {"720p": 5792}
+_GEMINI_OMNI_SIZES = {"1280x720": ("720p", "16:9"), "720x1280": ("720p", "9:16")}
+_GEMINI_OMNI_DURATIONS = frozenset({4, 8})
+_GEMINI_OMNI_MAX_SECONDS = 10
+_GEMINI_OMNI_THOUGHT_TOKEN_ALLOWANCE = 4_000
+_GEMINI_OMNI_INPUT_TOKEN_ALLOWANCE = 4_000
+_GEMINI_OMNI_STATES = {
+    "in_progress": "in_progress",
+    "queued": "queued",
+    "completed": "completed",
+    "failed": "failed",
+    "cancelled": "failed",
+    "incomplete": "failed",
+}
+_GEMINI_HOST = "generativelanguage.googleapis.com"
+
+
+def video_route_supported(provider: str, model: str) -> bool:
+    if provider == "openai":
+        return model in _OPENAI_SORA_720_PER_SECOND
+    if provider == "gemini":
+        return model in _GEMINI_OMNI_PRICING
+    return False
+
+
+def gemini_omni_max_cost(request: ProviderVideoRequest) -> tuple[float, dict[str, Any]]:
+    prices = _GEMINI_OMNI_PRICING.get(request.model)
+    shape = _GEMINI_OMNI_SIZES.get(request.size)
+    if prices is None or shape is None or request.seconds not in _GEMINI_OMNI_DURATIONS:
+        raise ProviderVideoFailure("provider_pricing_unknown", retryable=False)
+    video_tokens = _GEMINI_OMNI_VIDEO_TOKENS_PER_SECOND[shape[0]] * _GEMINI_OMNI_MAX_SECONDS
+    cost = (
+        video_tokens * prices["video_output_per_million_usd"]
+        + _GEMINI_OMNI_THOUGHT_TOKEN_ALLOWANCE * prices["text_output_per_million_usd"]
+        + _GEMINI_OMNI_INPUT_TOKEN_ALLOWANCE * prices["input_per_million_usd"]
+    ) / 1_000_000
+    return round(cost, 6), {
+        "pricing_revision": "2026-11-19",
+        "pricing_unit": "token",
+        "model": request.model,
+        "size": request.size,
+        "seconds": request.seconds,
+        "cap_seconds": _GEMINI_OMNI_MAX_SECONDS,
+        **prices,
+    }
+
+
+def gemini_omni_usage_cost(
+    request: ProviderVideoRequest, usage: Any
+) -> tuple[float, dict[str, Any]]:
+    prices = _GEMINI_OMNI_PRICING.get(request.model)
+    if prices is None or not isinstance(usage, dict):
+        raise ProviderVideoFailure("provider_usage_missing", retryable=False)
+    video_tokens = 0
+    for row in usage.get("output_tokens_by_modality") or []:
+        if isinstance(row, dict) and str(row.get("modality") or "").lower() == "video":
+            video_tokens += max(0, _as_int(row.get("tokens")) or 0)
+    total_output = max(0, _as_int(usage.get("total_output_tokens")) or 0)
+    thought = max(0, _as_int(usage.get("total_thought_tokens")) or 0)
+    text_output = max(0, total_output - video_tokens) + thought
+    input_tokens = max(0, _as_int(usage.get("total_input_tokens")) or 0)
+    if video_tokens <= 0:
+        raise ProviderVideoFailure("provider_usage_missing", retryable=False)
+    cost = (
+        video_tokens * prices["video_output_per_million_usd"]
+        + text_output * prices["text_output_per_million_usd"]
+        + input_tokens * prices["input_per_million_usd"]
+    ) / 1_000_000
+    return round(cost, 6), {
+        "pricing_revision": "2026-11-19",
+        "pricing_unit": "token",
+        "model": request.model,
+        "video_output_tokens": video_tokens,
+        "text_output_tokens": text_output,
+        "input_tokens": input_tokens,
+    }
+
+
+def video_cost_estimate(request: ProviderVideoRequest) -> tuple[float, dict[str, Any]]:
+    """Arm-time cost for one provider clip; unknown routes fail before any provider HTTP."""
+    if request.provider == "openai":
+        return openai_sora_fixed_cost(request)
+    if request.provider == "gemini":
+        return gemini_omni_max_cost(request)
+    raise ProviderVideoFailure("provider_pricing_unknown", retryable=False)
+
+
+def _parse_gemini_interaction(payload: Any) -> ProviderVideoJob:
+    if not isinstance(payload, dict):
+        raise ProviderVideoFailure("provider_response", retryable=False)
+    job_id = str(payload.get("id") or "").strip()
+    raw_state = str(payload.get("status") or "").strip().lower()
+    state = _GEMINI_OMNI_STATES.get(raw_state)
+    if not job_id or len(job_id) > 240 or state is None:
+        raise ProviderVideoFailure("provider_response", retryable=False)
+    metadata: dict[str, Any] = {
+        "object": str(payload.get("object") or "")[:40],
+        "status": raw_state,
+        "service_tier": str(payload.get("service_tier") or "")[:40],
+    }
+    usage = payload.get("usage")
+    if isinstance(usage, dict):
+        metadata["usage"] = {
+            key: usage[key]
+            for key in (
+                "total_tokens",
+                "total_input_tokens",
+                "total_output_tokens",
+                "total_thought_tokens",
+                "output_tokens_by_modality",
+            )
+            if key in usage
+        }
+    raw_error = payload.get("error")
+    if isinstance(raw_error, dict):
+        for key in ("code", "status"):
+            value = raw_error.get(key)
+            if isinstance(value, (str, int)):
+                metadata[f"error_{key}"] = str(value)[:160]
+    return ProviderVideoJob(
+        job_id=job_id,
+        state=state,
+        progress=100 if state == "completed" else None,
+        created_at=None,
+        model=str(payload.get("model") or "").strip() or None,
+        seconds=None,
+        size=None,
+        prompt=None,
+        metadata=metadata,
+    )
+
+
+class GeminiOmniVideoAdapter:
+    """Gemini Interactions API in background mode: submit returns at once with an id,
+    retrieve polls it, and the finished clip is downloaded from the Files URI."""
+
+    def __init__(
+        self,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+        timeout_seconds: float = 60.0,
+        download_timeout_seconds: float = 180.0,
+        max_content_bytes: int = 256 * 1024 * 1024,
+    ) -> None:
+        self.transport = transport
+        self.timeout_seconds = timeout_seconds
+        self.download_timeout_seconds = download_timeout_seconds
+        self.max_content_bytes = max_content_bytes
+
+    @staticmethod
+    def _validate_request(request: ProviderVideoRequest) -> tuple[str, str]:
+        if request.provider != "gemini" or request.model not in _GEMINI_OMNI_PRICING:
+            raise ProviderVideoFailure("provider_operation_unsupported", retryable=False)
+        if request.operation not in {"text-to-video", "image-to-video", "logo-to-video"}:
+            raise ProviderVideoFailure("provider_operation_unsupported", retryable=False)
+        if not 1 <= len(request.prompt.strip()) <= 12_000:
+            raise ProviderVideoFailure("provider_input_invalid", retryable=False)
+        shape = _GEMINI_OMNI_SIZES.get(request.size)
+        if shape is None or request.seconds not in _GEMINI_OMNI_DURATIONS:
+            raise ProviderVideoFailure("provider_input_invalid", retryable=False)
+        if request.operation == "text-to-video" and request.reference is not None:
+            raise ProviderVideoFailure("provider_input_invalid", retryable=False)
+        if request.operation != "text-to-video" and request.reference is None:
+            raise ProviderVideoFailure("provider_input_missing", retryable=False)
+        if request.reference is not None and (
+            not request.reference.body
+            or len(request.reference.body) > 20 * 1024 * 1024
+            or not request.reference.content_type.startswith("image/")
+        ):
+            raise ProviderVideoFailure("provider_input_invalid", retryable=False)
+        return shape
+
+    @staticmethod
+    def _headers(credential: str) -> dict[str, str]:
+        token = credential.strip()
+        if not token:
+            raise ProviderVideoFailure("provider_unconfigured", retryable=False)
+        return {"x-goog-api-key": token, "Accept": "application/json"}
+
+    @staticmethod
+    def _root(base_url: str) -> str:
+        root = base_url.rstrip("/")
+        if httpx.URL(root).host != _GEMINI_HOST:
+            raise ProviderVideoFailure("provider_unconfigured", retryable=False)
+        return root
+
+    async def submit(
+        self, request: ProviderVideoRequest, *, credential: str, base_url: str
+    ) -> ProviderVideoJob:
+        resolution, aspect_ratio = self._validate_request(request)
+        prompt = f"{request.prompt.strip()} Duration: about {request.seconds} seconds."
+        content: Any = prompt
+        if request.reference is not None:
+            content = [
+                {
+                    "type": "image",
+                    "data": base64.b64encode(request.reference.body).decode("ascii"),
+                    "mime_type": request.reference.content_type,
+                },
+                {"type": "text", "text": prompt},
+            ]
+        body = {
+            "model": request.model,
+            "input": content,
+            "background": True,
+            "store": True,
+            "response_format": {
+                "type": "video",
+                "resolution": resolution,
+                "aspect_ratio": aspect_ratio,
+                "delivery": "uri",
+            },
+        }
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport, timeout=self.timeout_seconds, follow_redirects=False
+            ) as client:
+                response = await client.post(
+                    f"{self._root(base_url)}/v1beta/interactions",
+                    headers=self._headers(credential),
+                    json=body,
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderVideoFailure(
+                "provider_submission_ambiguous", retryable=False, ambiguous_submission=True
+            ) from exc
+        if response.status_code >= 400:
+            raise _failure_for_response(response, submission=True)
+        try:
+            return _parse_gemini_interaction(response.json())
+        except (ValueError, ProviderVideoFailure) as exc:
+            raise ProviderVideoFailure(
+                "provider_submission_ambiguous", retryable=False, ambiguous_submission=True
+            ) from exc
+
+    async def _get_interaction(self, job_id: str, *, credential: str, base_url: str) -> dict[str, Any]:
+        safe_id = job_id.strip()
+        if not safe_id or len(safe_id) > 240 or "/" in safe_id:
+            raise ProviderVideoFailure("provider_job_invalid", retryable=False)
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport, timeout=self.timeout_seconds, follow_redirects=False
+            ) as client:
+                response = await client.get(
+                    f"{self._root(base_url)}/v1beta/interactions/{safe_id}",
+                    headers=self._headers(credential),
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderVideoFailure("provider_transport", retryable=True) from exc
+        if response.status_code >= 400:
+            raise _failure_for_response(response, submission=False)
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ProviderVideoFailure("provider_response", retryable=False) from exc
+        if not isinstance(payload, dict):
+            raise ProviderVideoFailure("provider_response", retryable=False)
+        return payload
+
+    async def retrieve(self, job_id: str, *, credential: str, base_url: str) -> ProviderVideoJob:
+        job = _parse_gemini_interaction(
+            await self._get_interaction(job_id, credential=credential, base_url=base_url)
+        )
+        if job.job_id != job_id.strip():
+            raise ProviderVideoFailure("provider_job_identity", retryable=False)
+        return job
+
+    async def reconcile(
+        self,
+        request: ProviderVideoRequest,
+        *,
+        submitted_at: datetime,
+        credential: str,
+        base_url: str,
+    ) -> ProviderVideoJob:
+        # The Interactions API has no listing to match an unacknowledged submission
+        # against, so an ambiguous submit ends the clip instead of paying twice.
+        raise ProviderVideoFailure(
+            "provider_submission_reconcile_unavailable",
+            retryable=False,
+            ambiguous_submission=True,
+        )
+
+    async def download_content(
+        self, job_id: str, *, credential: str, base_url: str
+    ) -> ProviderVideoContent:
+        payload = await self._get_interaction(job_id, credential=credential, base_url=base_url)
+        video: dict[str, Any] | None = None
+        for step in payload.get("steps") or []:
+            if not isinstance(step, dict) or step.get("type") != "model_output":
+                continue
+            for item in step.get("content") or []:
+                if isinstance(item, dict) and item.get("type") == "video":
+                    video = item
+        if video is None or str(video.get("mime_type") or "").lower() != "video/mp4":
+            raise ProviderVideoFailure("provider_content_missing", retryable=False)
+        data = video.get("data")
+        if isinstance(data, str) and data:
+            try:
+                body = base64.b64decode(data, validate=True)
+            except ValueError as exc:
+                raise ProviderVideoFailure("provider_content_invalid", retryable=False) from exc
+            if not body:
+                raise ProviderVideoFailure("provider_content_empty", retryable=False)
+            if len(body) > self.max_content_bytes:
+                raise ProviderVideoFailure("provider_content_too_large", retryable=False)
+            return ProviderVideoContent(body=body, content_type="video/mp4")
+        uri = str(video.get("uri") or "")
+        try:
+            parsed = httpx.URL(uri)
+        except Exception as exc:  # noqa: BLE001 - malformed provider URI
+            raise ProviderVideoFailure("provider_content_missing", retryable=False) from exc
+        if parsed.scheme != "https" or parsed.host != _GEMINI_HOST:
+            raise ProviderVideoFailure("provider_content_missing", retryable=False)
+        chunks: list[bytes] = []
+        total = 0
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                timeout=self.download_timeout_seconds,
+                follow_redirects=False,
+            ) as client:
+                async with client.stream("GET", uri, headers=self._headers(credential)) as response:
+                    if response.status_code >= 400:
+                        await response.aread()
+                        raise _failure_for_response(response, submission=False)
+                    content_type = (
+                        response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                    )
                     if content_type != "video/mp4":
                         raise ProviderVideoFailure("provider_content_type", retryable=False)
                     async for chunk in response.aiter_bytes():

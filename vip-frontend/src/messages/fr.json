@@ -193,7 +193,11 @@
     "organization": "Organisation : {name}",
     "manageBilling": "Gérer la facturation",
     "notifications": "Notifications",
-    "securityLab": "Laboratoire de sécurité"
+    "securityLab": "Laboratoire de sécurité",
+    "storageUsed": "Stockage",
+    "unlimited": "Illimité",
+    "planLine": "Votre offre : {plan} · Rôle : {role}",
+    "resetsOn": "Quota renouvelé le {date}"
   },
   "auth": {
     "secureAccess": "Accès utilisateur sécurisé",

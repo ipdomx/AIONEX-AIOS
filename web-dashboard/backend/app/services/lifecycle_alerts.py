@@ -9,9 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.models import (
+    AcademyCoursePackage,
     BillingAccount,
     OwnerControlRecord,
+    RealtimeRecording,
     Report,
+    SocialMediaUpload,
     StudioAssetRevision,
     ThreeDArtifact,
     User,
@@ -19,6 +22,8 @@ from app.db.models import (
 from app.services import communications
 
 FREE_TIER_ACCOUNT_DOMAIN = "free-tier-account"
+# Statuses whose stored file no longer counts against the storage budget.
+STORAGE_RELEASED_STATUSES = frozenset({"deleted", "expired", "revoked", "purged"})
 SUBSCRIPTION_WINDOWS = ((1, "1d"), (7, "7d"))
 STORAGE_THRESHOLDS = ((95, "95"), (80, "80"))
 
@@ -94,6 +99,23 @@ async def organization_storage_usage_bytes(
         )
         or 0
     )
+    # Files the user uploaded or produced outside the Studio pipeline: social
+    # publishing uploads, call recordings and academy course packages.
+    other_bytes = 0
+    for column, model in (
+        (SocialMediaUpload.size_bytes, SocialMediaUpload),
+        (RealtimeRecording.output_size_bytes, RealtimeRecording),
+        (AcademyCoursePackage.archive_bytes, AcademyCoursePackage),
+    ):
+        other_bytes += int(
+            await session.scalar(
+                select(func.coalesce(func.sum(column), 0)).where(
+                    model.organization_id == organization_id,
+                    model.status.notin_(STORAGE_RELEASED_STATUSES),
+                )
+            )
+            or 0
+        )
     user_ids = list(
         (
             await session.scalars(
@@ -120,7 +142,7 @@ async def organization_storage_usage_bytes(
             max(0, int((record.payload or {}).get("storage_bytes_used", 0) or 0))
             for record in records
         )
-    return max(0, report_bytes + studio_bytes + three_d_bytes + free_bytes)
+    return max(0, report_bytes + studio_bytes + three_d_bytes + other_bytes + free_bytes)
 
 
 async def _notify_subscription(

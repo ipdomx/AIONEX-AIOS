@@ -203,3 +203,14 @@ vulnerabilities:
       - "infra/runpod/triposr/requirements.txt"
     statement: "FR23-02 TripoSR Pillow<13 pin via rembg; rebuild before enabling workers"
     expired_at: 2026-12-15
+  # O-19, owner-approved 2026-11-19 (30 days): GitHub withdrew GHSA-fc5q-39xc-vjpf on
+  # 2026-11-18 after the picomatch maintainers disputed it, but NVD still lists the CVE and
+  # no fixed release exists. Here picomatch only runs at build time with our own fixed glob
+  # patterns (next-intl -> @parcel/watcher, glTF-Transform CLI); no user input reaches it.
+  # Remove the entry as soon as NVD rejects the CVE or a fixed release ships.
+  - id: CVE-2026-112366
+    paths:
+      - "vip-frontend/package-lock.json"
+      - "infra/runpod/hunyuan3d/gltf-tools/package-lock.json"
+    statement: "O-19 GHSA withdrawn upstream; build-time only with fixed patterns; owner-approved 2026-11-19"
+    expired_at: 2026-12-19

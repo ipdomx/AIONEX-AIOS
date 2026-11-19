@@ -15,6 +15,7 @@ from app.core.auth import UserRecord, current_user
 from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import AuditEvent, IdentityMediaExecution, Project
+from app.services import plan_usage
 from app.services import identity_media_access
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
@@ -391,6 +392,7 @@ async def create_identity_execution(
     checksums: dict[str, str] = {}
     content_types: dict[str, str] = {}
     filenames: dict[str, str] = {}
+    await plan_usage.assert_storage_available(session, actor)
     try:
         for name, upload, kind in (
             ("image", source_image, "image"),
