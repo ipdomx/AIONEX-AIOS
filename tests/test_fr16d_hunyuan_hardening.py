@@ -43,15 +43,17 @@ def _encode(image, fmt: str = "PNG") -> str:
     return base64.b64encode(buffer.getvalue()).decode()
 
 
-def test_quarantine_gate_is_not_lifted_by_this_change() -> None:
-    assert "HUNYUAN_RUNTIME_SECURITY_APPROVED = False" in POLICY
+def test_quarantine_is_lifted_only_by_o10_for_the_accepted_digest() -> None:
+    # O-10 (owner, 2026-11-18): lift the quarantine for the Business plan only, after
+    # T-18 (Trivy zero HIGH/CRITICAL + live paid-GPU PBR acceptance).
+    assert "HUNYUAN_RUNTIME_SECURITY_APPROVED = True" in POLICY
     roadmap = (ROOT / "docs/project/COMPLETION-ROADMAP.md").read_text()
-    # Lifting the quarantine is the owner's decision (O-10). Completing the live
-    # acceptance it depends on (T-18/T-19, receipt T13-T18-3D-LIVE-20261113) does not
-    # lift it: the policy flag stays False until O-10 is closed in its own protected PR.
-    assert "- [ ] O-10 " in roadmap
-    if "- [x] T-18 " in roadmap:
-        assert (ROOT / "docs/project/receipts/T13-T18-3D-LIVE-20261113.md").is_file()
+    assert "- [x] O-10 " in roadmap and "- [x] T-18 " in roadmap
+    receipt = (ROOT / "docs/project/receipts/T13-T18-3D-LIVE-20261113.md").read_text()
+    approved = re.search(r'HUNYUAN_APPROVED_IMAGE_DIGEST = \(\s*"(sha256:[0-9a-f]{64})"', POLICY)
+    assert approved, "the approved image digest must be pinned in the policy"
+    # The approved digest is exactly the one the live acceptance ran on.
+    assert f"ipdomx/aionex-hunyuan3d@{approved.group(1)}" in receipt
 
 
 def test_image_is_rebuilt_from_pinned_public_inputs_not_the_opaque_base() -> None:

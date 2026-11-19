@@ -19,9 +19,15 @@ and the owner decides O-10.
 The historical Phase 34C image below is **security quarantined**. The
 source-controlled gate
 [`HUNYUAN_RUNTIME_SECURITY_APPROVED`](../../../web-dashboard/backend/app/services/three_d_provider_policy.py)
-is `False`, and the deployed AIOS backend independently reported the same
+was `False` for it, and the deployed AIOS backend independently reported the same
 quarantine during the 2026-10-17 NEW-host review. Do not activate, submit work to,
 or describe this digest as an approved production image.
+
+Since O-10 (owner, 2026-11-18) the gate is `True` only for the rebuilt image
+`HUNYUAN_APPROVED_IMAGE_DIGEST` (`sha256:97f04829…`), which passed Trivy with zero
+HIGH/CRITICAL findings and the live PBR acceptance
+(`docs/project/receipts/T13-T18-3D-LIVE-20261113.md`). Hunyuan is offered to the
+Business plan only.
 
 - Historical tag: `ipdomx/aionex-hunyuan3d:phase34c-pbr-v11`
 - Quarantined immutable digest: `sha256:34bd37c577a8c769005a11f94bf4658d0b9f31d52df5c75e2a8f01a5ed8499dc`
