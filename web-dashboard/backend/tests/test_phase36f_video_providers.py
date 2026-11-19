@@ -371,3 +371,16 @@ def test_gemini_omni_cost_cap_covers_the_longest_clip_and_actual_cost_uses_usage
         gemini_omni_max_cost(omni_request(seconds=12))
     assert video_route_supported("gemini", "gemini-omni-1.1-flash")
     assert not video_route_supported("gemini", "veo-3.1-generate-preview")
+
+
+def test_every_worker_cost_basis_is_accepted_by_the_execution_authority() -> None:
+    # Live run 2026-11-19: the Omni worker reported "official_token_usage", which
+    # VideoExecutionAuthority.complete_bytes rejects, so finished clips could not complete.
+    import re
+    from pathlib import Path
+
+    from app.services import video_runtime
+
+    source = Path(video_runtime.__file__).with_name("video_provider_worker.py").read_text()
+    bases = set(re.findall(r'cost_basis = "([a-z_]+)"', source))
+    assert bases and bases <= video_runtime._ALLOWED_COST_BASES, bases

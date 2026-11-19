@@ -499,7 +499,7 @@ class VideoProviderWorker:
                 actual_cost, pricing = gemini_omni_usage_cost(
                     loaded.request, job.metadata.get("usage")
                 )
-                cost_basis = "official_token_usage"
+                cost_basis = "official_provider_usage"
             else:
                 actual_cost, pricing = openai_sora_fixed_cost(loaded.request)
                 cost_basis = "official_fixed_second"
