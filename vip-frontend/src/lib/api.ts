@@ -223,6 +223,23 @@ async function responsePayload(response: Response): Promise<unknown> {
   }
 }
 
+// FastAPI request-validation errors arrive as a list; name the field instead of
+// showing a bare "Request failed with status 422" (production, 2026-11-19).
+function validationMessage(items: unknown[]): string | null {
+  const parts = items
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const entry = item as { loc?: unknown; msg?: unknown };
+      const loc = Array.isArray(entry.loc)
+        ? entry.loc.filter((part) => part !== "body").join(".")
+        : "";
+      const msg = typeof entry.msg === "string" ? entry.msg : "";
+      return loc && msg ? `${loc}: ${msg}` : msg || null;
+    })
+    .filter((part): part is string => Boolean(part));
+  return parts.length ? parts.slice(0, 3).join(" | ") : null;
+}
+
 function apiError(response: Response, payload: unknown): ApiError {
   const object =
     payload && typeof payload === "object"
@@ -235,6 +252,7 @@ function apiError(response: Response, payload: unknown): ApiError {
       : null;
   const codeValue = detailObject?.code ?? object?.code;
   const messageValue =
+    (Array.isArray(detail) ? validationMessage(detail) : null) ??
     detailObject?.message ??
     (typeof detail === "string" ? detail : null) ??
     object?.message ??
