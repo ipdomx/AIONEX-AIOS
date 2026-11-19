@@ -17,7 +17,7 @@
 - **`video_provider_worker.py`:**
   - بيختار الـ adapter حسب المزوّد.
   - الـ QA بيقبل أي مقطع من 2.5 لـ 10.5 ثانية لـ Omni.
-  - التكلفة `official_token_usage`.
+  - التكلفة `official_provider_usage` (من سجل استهلاك المزوّد).
 - **`video_pipeline.py`:** بيقبل المسار الجديد، وبيقدّر التكلفة بالدالة الموحدة.
 - **`live_media.py`:** الفيديو بقى على مزوّد `gemini`، وجاهزيته في `/capabilities` من inventory بتاع Gemini.
 - **مسار Sora:** فاضل في الكود ومتغطي بالاختبارات، بس مبقاش مستخدم.
@@ -30,3 +30,9 @@
 - `tests/test_phase36f_video_factory.py`
 - `web-dashboard/backend/tests/test_phase36f_video_providers.py`: 4 اختبارات Omni جداد.
 - `web-dashboard/backend/tests/test_live_media_api.py`: الفيديو بيتجهز على Gemini، والتكلفة المتوقعة أقل من أو تساوي السقف.
+
+## إصلاح بعد النشر (2026-11-19)
+- **المشكلة:** أول فيديو حي بعد النشر اتولّد عند Google، لكن الإكمال اترفض بـ `video cost basis is unsupported`.
+- **السبب:** الـ worker كان بيبعت `official_token_usage`، وده مش من القيم اللي `VideoExecutionAuthority` بيقبلها.
+- **الإصلاح:** الـ worker بقى بيبعت `official_provider_usage`، وده من القيم المقبولة أصلًا. واتضاف اختبار بيتأكد إن أي cost basis في الـ worker مقبول عند الـ authority.
+- **التكلفة:** الـ interaction والملف لسه متخزنين عند المزوّد، فالمقاطع بتكمل من غير ما تتولّد تاني.
