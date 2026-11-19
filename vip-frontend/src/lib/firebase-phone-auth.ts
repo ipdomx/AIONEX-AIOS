@@ -20,6 +20,22 @@ export interface FirebasePhoneChallenge {
 
 const APP_NAME = "aionex-vip-phone-auth";
 
+// RecaptchaVerifier.clear() throws when called on an already-destroyed verifier.
+// Completing the code clears it and the register page's effect cleanup disposes the
+// same challenge again, which crashed the page right after a correct code
+// (production, 2026-11-19). Clear each verifier at most once and never throw.
+const clearedVerifiers = new WeakSet<RecaptchaVerifier>();
+
+function clearVerifier(verifier: RecaptchaVerifier): void {
+  if (clearedVerifiers.has(verifier)) return;
+  clearedVerifiers.add(verifier);
+  try {
+    verifier.clear();
+  } catch {
+    // Already destroyed; nothing left to release.
+  }
+}
+
 function firebaseErrorCode(error: unknown): string {
   if (error instanceof FirebaseError) return error.code;
   if (typeof error !== "object" || error === null || !("code" in error))
@@ -152,7 +168,7 @@ export async function startFirebasePhoneVerification(
     );
     return { auth, confirmation, phoneNumber, verifier };
   } catch (error) {
-    verifier.clear();
+    clearVerifier(verifier);
     container.replaceChildren();
     throw new Error(firebaseErrorMessage(error), { cause: error });
   }
@@ -173,7 +189,7 @@ export async function completeFirebasePhoneVerification(
   } catch (error) {
     throw new Error(firebaseErrorMessage(error), { cause: error });
   } finally {
-    challenge.verifier.clear();
+    clearVerifier(challenge.verifier);
     await signOut(challenge.auth).catch(() => undefined);
   }
 }
@@ -182,6 +198,6 @@ export function disposeFirebasePhoneChallenge(
   challenge: FirebasePhoneChallenge | null,
 ): void {
   if (!challenge) return;
-  challenge.verifier.clear();
+  clearVerifier(challenge.verifier);
   void signOut(challenge.auth).catch(() => undefined);
 }
