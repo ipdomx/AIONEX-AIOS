@@ -132,7 +132,7 @@ async def publishing_case(monkeypatch, tmp_path):
     async def record_storage_check(_session, _actor, incoming_bytes=0):
         storage_checks.append(int(incoming_bytes))
 
-    monkeypatch.setattr(social_api.plan_usage, "assert_storage_available", record_storage_check)
+    monkeypatch.setattr(publishing_api.plan_usage, "assert_storage_available", record_storage_check)
     case.storage_checks = storage_checks
 
     def worker(**kwargs) -> SocialPublishWorker:
