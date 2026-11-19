@@ -152,12 +152,16 @@ export async function startFirebasePhoneVerification(
   const container = document.getElementById(containerId);
   if (!container)
     throw new Error("Phone verification security container is missing.");
-  container.replaceChildren();
+  // reCAPTCHA remembers every element it rendered into, so a second "send code"
+  // on the same container failed with "reCAPTCHA has already been rendered in
+  // this element" (production, 2026-11-19). Each attempt gets a fresh host node.
+  const host = document.createElement("div");
+  container.replaceChildren(host);
 
   const auth = getAuth(configuredApp(options));
   auth.useDeviceLanguage();
   await setPersistence(auth, inMemoryPersistence);
-  const verifier = new RecaptchaVerifier(auth, containerId, {
+  const verifier = new RecaptchaVerifier(auth, host, {
     size: "invisible",
   });
   try {
