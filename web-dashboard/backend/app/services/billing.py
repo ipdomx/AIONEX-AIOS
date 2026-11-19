@@ -2502,6 +2502,14 @@ async def remove_payment_method(
     await session.commit()
 
 
+def _sum_by_currency(items: Any) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for item in items:
+        code = str(item.currency or "").upper()[:3] or "USD"
+        totals[code] = totals.get(code, 0) + int(item.amount_minor or 0)
+    return dict(sorted(totals.items()))
+
+
 async def owner_overview(session: AsyncSession) -> dict[str, Any]:
     catalog = await sync_catalog(session)
     await _ensure_accounts_for_organizations(session, all_organizations=False)
@@ -2575,7 +2583,13 @@ async def owner_overview(session: AsyncSession) -> dict[str, Any]:
             .limit(100)
         )
     ).all()
-    successful = [item for item in transactions if item.status == "succeeded"]
+    # A refunded payment was still collected: gross counts it and "refunded"
+    # reports the money returned (O-02 rehearsal found it missing from gross).
+    successful = [
+        item
+        for item in transactions
+        if item.status in {"succeeded", "partially_refunded", "refunded"}
+    ]
     from app.services import stripe_billing
 
     subscription_view = await stripe_billing.owner_subscription_view(session)
@@ -2681,9 +2695,15 @@ async def owner_overview(session: AsyncSession) -> dict[str, Any]:
             for item in reconciliation_runs
         ],
         "summary": {
+            # Kept for older dashboards. It adds amounts in different currencies, so
+            # the owner dashboard shows the per-currency maps below (O-02 rehearsal).
             "gross_minor": sum(item.amount_minor for item in successful),
             "refunded_minor": sum(
                 item.amount_minor for item in refunds if item.status == "succeeded"
+            ),
+            "gross_by_currency": _sum_by_currency(successful),
+            "refunded_by_currency": _sum_by_currency(
+                item for item in refunds if item.status == "succeeded"
             ),
             "successful_transactions": len(successful),
             "failed_transactions": sum(
