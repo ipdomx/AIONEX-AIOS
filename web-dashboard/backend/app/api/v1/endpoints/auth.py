@@ -46,7 +46,7 @@ from app.services.free_tier import (
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ValidationError, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,6 +129,25 @@ class FreeRegisterRequest(BaseModel):
     telemetry: FreeRegistrationTelemetry = Field(
         default_factory=FreeRegistrationTelemetry
     )
+
+    @field_validator("telemetry", mode="before")
+    @classmethod
+    def _drop_unusable_telemetry(cls, value: object) -> object:
+        # Device signals are advisory: a browser that reports one in an unexpected
+        # shape must not block sign-up with a raw 422 (production, 2026-11-19).
+        # Keep every signal that validates on its own and drop the rest.
+        if not isinstance(value, dict):
+            return {}
+        kept: dict[str, object] = {}
+        for key, item in value.items():
+            if key not in FreeRegistrationTelemetry.model_fields:
+                continue
+            try:
+                FreeRegistrationTelemetry.model_validate({key: item})
+            except ValidationError:
+                continue
+            kept[key] = item
+        return kept
 
 
 class RefreshRequest(BaseModel):
