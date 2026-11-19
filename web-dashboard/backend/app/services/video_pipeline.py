@@ -14,7 +14,11 @@ from aios.video_factory import (
 from app.db.models import MediaAssetNode
 from app.services.media_graph_runtime import MediaGraphScope, create_media_graph
 from app.services.media_orchestrator import MediaEdgeSpec, MediaGraphSpec, MediaNodeSpec
-from app.services.video_providers import ProviderVideoRequest, openai_sora_fixed_cost
+from app.services.video_providers import (
+    ProviderVideoRequest,
+    video_cost_estimate,
+    video_route_supported,
+)
 from app.services.video_runtime import VideoExecutionSpec, create_video_execution
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,7 +97,7 @@ async def create_routed_video_pipeline(
         route = runtime_ready_provider(request, evidence=runtime_evidence)
     except VideoFactoryError as exc:
         raise VideoPipelineError(str(exc)) from exc
-    if route.provider != "openai" or route.model not in {"sora-2", "sora-2-pro"}:
+    if not video_route_supported(route.provider, route.model):
         raise VideoPipelineError("Stage 36F2B worker has no accepted adapter for the selected provider")
     try:
         plan = build_video_plan_for_provider(request, provider=route.provider, model=route.model)
@@ -107,7 +111,7 @@ async def create_routed_video_pipeline(
         size = str(compiled.settings.get("size") or "")
         seconds = int(compiled.settings.get("seconds") or scene.duration_seconds)
         try:
-            estimated, _ = openai_sora_fixed_cost(
+            estimated, _ = video_cost_estimate(
                 ProviderVideoRequest(
                     provider=route.provider,
                     model=route.model,

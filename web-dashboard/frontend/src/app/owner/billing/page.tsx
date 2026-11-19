@@ -69,6 +69,17 @@ function money(amountMinor: number, currency = "USD"): string {
   }).format(amountMinor / 100);
 }
 
+// Amounts in different currencies are never added together (O-02 rehearsal).
+function moneyByCurrency(
+  totals: Record<string, number> | undefined,
+  fallbackMinor: number,
+): string {
+  const entries = Object.entries(totals ?? {}).filter(([, value]) => value);
+  if (!entries.length) return money(totals ? 0 : fallbackMinor);
+  const parts = entries.map(([currency, value]) => money(value, currency));
+  return parts.join(" · ");
+}
+
 function dateValue(value: string | null): string {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-US", {
@@ -391,8 +402,22 @@ export default function OwnerBillingPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {[
           ["Active accounts", overview.summary.active_accounts, Building2],
-          ["Gross", money(overview.summary.gross_minor), CircleDollarSign],
-          ["Refunded", money(overview.summary.refunded_minor), RotateCcw],
+          [
+            "Gross",
+            moneyByCurrency(
+              overview.summary.gross_by_currency,
+              overview.summary.gross_minor,
+            ),
+            CircleDollarSign,
+          ],
+          [
+            "Refunded",
+            moneyByCurrency(
+              overview.summary.refunded_by_currency,
+              overview.summary.refunded_minor,
+            ),
+            RotateCcw,
+          ],
           ["Open invoices", overview.summary.open_invoices, ReceiptText],
           [
             "Wallet balance",
@@ -404,7 +429,14 @@ export default function OwnerBillingPage() {
             money(overview.summary.usage_charge_minor),
             CreditCard,
           ],
-          ["MRR", money(overview.summary.mrr_minor), CircleDollarSign],
+          [
+            "MRR",
+            moneyByCurrency(
+              overview.summary.mrr_by_currency,
+              overview.summary.mrr_minor,
+            ),
+            CircleDollarSign,
+          ],
           [
             "Active subscriptions",
             overview.summary.active_subscriptions,
