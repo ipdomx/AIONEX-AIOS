@@ -13,6 +13,7 @@ from app.db.base import get_db
 from app.db.models import AuditEvent
 from app.services.three_d_policy import get_three_d_policy, update_three_d_policy
 from app.services.three_d_provider_policy import (
+    HUNYUAN_APPROVED_IMAGE_DIGEST,
     HUNYUAN_QUARANTINED_IMAGE_DIGEST,
     HUNYUAN_RUNTIME_SECURITY_APPROVED,
 )
@@ -73,6 +74,7 @@ async def _snapshot(session: AsyncSession) -> dict[str, Any]:
         "runtime_security": {
             "hunyuan3d": {
                 "approved": HUNYUAN_RUNTIME_SECURITY_APPROVED,
+                "approved_image_digest": HUNYUAN_APPROVED_IMAGE_DIGEST,
                 "quarantined_image_digest": HUNYUAN_QUARANTINED_IMAGE_DIGEST,
                 "activation_requires_new_gpu_security_acceptance": (
                     not HUNYUAN_RUNTIME_SECURITY_APPROVED

@@ -8,7 +8,8 @@ been built for RunPod or accepted. Use a **new** template pinned to its digest
 
 The image in this record is **not approved for production**.
 [`HUNYUAN_RUNTIME_SECURITY_APPROVED`](../../../web-dashboard/backend/app/services/three_d_provider_policy.py)
-is `False` in the reviewed source and the deployed backend. The 2026-10-17
+was `False` for it in the reviewed source and the deployed backend (since O-10 on
+2026-11-18 the gate is `True` only for `HUNYUAN_APPROVED_IMAGE_DIGEST`). The 2026-10-17
 review verified that both identify the digest below as quarantined. Preserve
 the record as historical evidence; do not use it to activate a worker or submit
 a job.
