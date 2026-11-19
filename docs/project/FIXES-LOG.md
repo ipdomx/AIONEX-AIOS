@@ -11,6 +11,9 @@
 
 | التاريخ | المشكلة | السبب | الحل | المرجع |
 |---|---|---|---|---|
+| 11-19 | صفحة التسجيل بتقع بـ "Application error" بعد إدخال كود SMS صح | `RecaptchaVerifier.clear()` بيتنادى مرتين على نفس الـ verifier: مرة بعد تأكيد الكود، ومرة في الـ cleanup بتاع الـ effect. والمرة التانية Firebase بيرمي فيها خطأ | الـ clear بقى بيتعمل مرة واحدة بس ومش بيرمي أخطاء. البوابة والموقع الثابت اتنشروا (`ui-74acc999`) | #1092 |
+| 11-19 | "SMS region policy does not allow EG" | سياسة SMS في Firebase (`aios-7ffd3`) كانت مسموحة للإمارات بس | **قرار المالك:** كل الدول (`allowByDefault`). النسخة الاحتياطية في `o02-stripe-20261118/sms-region-before.json`. محتاجين نراقب تكلفة الـ SMS أول أسبوع | Firebase |
+| 11-19 | "ai.vip-e.net is not an authorized authentication domain" | الدومين مكانش مضاف في Firebase Authorized domains | المالك ضاف `ai.vip-e.net` و`vip-e.net`، واتأكدنا منها بالـ admin API | Firebase |
 | 11-19 | الدفع كان مقفول في الموقع (`checkout_available=false`) | الأسعار الحية ما كانتش مربوطة بالباقات | ربط الـ 6 أسعار الحية بموافقة المالك (البوابة الإصدار 6)، والرجوع جاهز | O-02 |
 | 11-19 | أول فيديو حي على Gemini Omni اتولّد عند Google، بس ما اكتملش عندنا | الـ worker كان بيبعت cost basis اسمه `official_token_usage`، والـ execution authority بيرفضه | استخدام `official_provider_usage` (مقبول أصلًا)، واختبار بيتأكد إن كل cost basis في الـ worker مقبول. المقاطع كملت من غير ما تتولّد تاني، لأن الـ interactions متخزنة عند المزوّد | #1089 |
 | 11-19 | دبلجة عربي لجملة إنجليزي مدتها 5 ثواني فشلت (`provider_audio_duration`) | الكلام العربي أطول من مدة المقطع، والنظام بيزوّد صمت بس ومش بيقص الكلام. والخدمة بتاعة إعادة المقطع مش متوصلة بأي API | **لسه:** بند T-29 | O-14 |
