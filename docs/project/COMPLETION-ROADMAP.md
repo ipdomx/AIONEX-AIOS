@@ -100,6 +100,12 @@
   3. `PAYMENTS_PORTAL_BASE_URL`.
   4. إصلاح ملاحظتين: إشعار 3DS، وجمع العملات في ملخص المالك (#1085).
   5. فتح الدفع بعد نشر #1083.)
+  - **2026-11-19: الدفع الحي اتفتح بموافقة المالك.**
+    - الـ 6 أسعار الحية اتربطت كـ `checkout_reference` في تسعير البوابة (الإصدار 6)، وبعدها `sync_catalog`.
+    - الكتالوج العام بقى بيعرض `checkout_available=true` لـ Professional وPremium وBusiness، بالجنيه وبالدولار.
+    - `PAYMENTS_PORTAL_BASE_URL` قيمته `https://ai.vip-e.net`.
+    - النسخة الاحتياطية في `o02-stripe-20261118/live/published-before-link.json`، والرجوع بـ `link_prices.py rollback`.
+    - **الباقي:** أول عملية شراء حقيقية من المالك، ثم استرداد من `/owner/billing` عشان نتأكد إن الدورة كلها شغالة على الحساب الحي.
 - [ ] O-03 Meta (تطبيق `1056852290270430`):
   - Valid OAuth Redirect URI: `https://api.vip-e.net/api/v1/social/oauth/meta/callback`
   - Webhooks: `https://api.vip-e.net/api/v1/social/meta/webhooks`، بالحقول page: feed, messages وinstagram: comments, messages
