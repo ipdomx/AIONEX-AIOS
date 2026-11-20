@@ -180,10 +180,16 @@ def test_numbering_plan_accepts_mobile_and_rejects_known_non_mobile(
     )
     assert firebase_phone._canonical_mobile_number(PHONE) == PHONE
 
+    monkeypatch.setattr(
+        firebase_phone.phonenumbers,
+        "number_type",
+        lambda value: PhoneNumberType.FIXED_LINE_OR_MOBILE,
+    )
+    assert firebase_phone._canonical_mobile_number(PHONE) == PHONE
+
     for line_type in (
         PhoneNumberType.VOIP,
         PhoneNumberType.FIXED_LINE,
-        PhoneNumberType.FIXED_LINE_OR_MOBILE,
         PhoneNumberType.TOLL_FREE,
         PhoneNumberType.UNKNOWN,
     ):
@@ -346,3 +352,12 @@ def test_registration_ui_hides_sms_provider_branding() -> None:
     assert "The Firebase ID token" not in registration + messages
     assert "Mobile number verified by Firebase" not in registration + messages
     assert "Firebase rejected SMS for this project" not in firebase_client
+
+
+def test_nanp_and_mexico_mobiles_are_accepted() -> None:
+    # Real libphonenumber metadata: these regions report FIXED_LINE_OR_MOBILE.
+    for number in ("+14155552671", "+15145551234", "+525512345678"):
+        canonical = firebase_phone._canonical_mobile_number(number)
+        assert canonical.startswith("+")
+    with pytest.raises(HTTPException):
+        firebase_phone._canonical_mobile_number("+18005550199")  # toll free
