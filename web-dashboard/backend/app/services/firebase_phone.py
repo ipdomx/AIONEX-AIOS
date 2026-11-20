@@ -226,6 +226,11 @@ def _verify_id_token_sync(id_token: str) -> dict[str, Any]:
     )
 
 
+_ACCEPTED_LINE_TYPES = frozenset(
+    {PhoneNumberType.MOBILE, PhoneNumberType.FIXED_LINE_OR_MOBILE}
+)
+
+
 def _canonical_mobile_number(phone_number: str) -> str:
     """Validate and canonicalize a numbering-plan range classified as mobile."""
 
@@ -241,7 +246,11 @@ def _canonical_mobile_number(phone_number: str) -> str:
             status_code=422,
             detail="A valid international mobile number is required",
         )
-    if phonenumbers.number_type(parsed) != PhoneNumberType.MOBILE:
+    # NANP countries (US, CA, ...), MX, CL and a few others do not separate
+    # mobile from fixed ranges, so libphonenumber reports FIXED_LINE_OR_MOBILE
+    # for every real mobile there. Rejecting it blocked sign-up for those
+    # countries entirely; SMS delivery itself proves the line can receive.
+    if phonenumbers.number_type(parsed) not in _ACCEPTED_LINE_TYPES:
         raise HTTPException(
             status_code=422,
             detail="A verified supported mobile number is required",
