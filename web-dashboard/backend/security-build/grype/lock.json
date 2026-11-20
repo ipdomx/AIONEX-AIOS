@@ -8,8 +8,8 @@
   "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
   "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
   "files": {
-    "go.mod": "36718642a25099c700cdfadd92daea09839dd40e2c6f1dc9f1c336fcf56e127f",
-    "go.sum": "c264cd24d7251d3ce43a7209d91bfa9a00be093e5dd1a1f4439994619c777b2c"
+    "go.mod": "d44ec2920b3480b3906f66fa6c52f5aafee57372de8dcaa4c52b59e94bb1ba27",
+    "go.sum": "5880216f1080ac7909624caa3f7e2c762f562e4f6a52e480770db0ff88fc0bf6"
   },
   "modules": {
     "github.com/go-git/go-git/v5": "v5.19.2",
@@ -21,7 +21,7 @@
     "github.com/moby/moby/api": "v1.56.0"
   },
   "build_date": "2026-09-30T10:35:39Z",
-  "expected_binary_sha256": "d52f8f4fb0d1ee9fd6c84255d6bb2161a78576b6b9840f8a927c4edc04ad0772",
+  "expected_binary_sha256": "2c90ccdace2b833f7150d2a3a9d401ed6160cfb31401fa1e3edbe4a2380c990d",
   "upstream_files": {
     "go.mod": "55dcebbf99c98ecfd8ead7bb622fdc90c6004d535e54f3ec60e5e2118c151d0b",
     "go.sum": "c1407aaae73c62f0c445c06fe76a3b578533002549aaee982d6c1f752174021f"
