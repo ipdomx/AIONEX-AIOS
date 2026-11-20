@@ -8,8 +8,8 @@
   "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
   "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
   "files": {
-    "go.mod": "503f90630d6c175f8ef645254cbec9397355e610d1d5958be31847e747f173bf",
-    "go.sum": "04a72a7bc55c87ad4391c500dfc26ea8913661f372ef4d62a73bca7df0e1dbeb"
+    "go.mod": "e6c3278518f99d72d4b37dec64b6a2e2c434c112b8804fcf921f7004e53aaa36",
+    "go.sum": "893e811ed2384dd289bf6aa0250678da58465e51da429939ed6fde99857bed16"
   },
   "modules": {
     "golang.org/x/crypto": "v0.58.0",
@@ -18,7 +18,7 @@
     "google.golang.org/grpc": "v1.83.2"
   },
   "build_date": "2026-09-30T05:48:00Z",
-  "expected_binary_sha256": "f96c572ac71c75b20ab07989de7ae9b2d6ced2d1893df21801abaaed6de380f2",
+  "expected_binary_sha256": "247b99789f18d67b1fc704e5272821e397ec09c849b8c890e344ab7b729c772f",
   "upstream_files": {
     "go.mod": "f1db5a8f2feeb1a725b14c9b33d910a214008d3f1fd2d3c433f35b01af3c881d",
     "go.sum": "913b405c61335871b2998f8ad03ae68b286ae5278d6cbe0fa6a5867588daf39a"

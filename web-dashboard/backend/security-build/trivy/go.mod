@@ -37,7 +37,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/cenkalti/backoff/v6 v6.0.1
 	github.com/cheggaaa/pb/v3 v3.2.0
-	github.com/containerd/containerd/v2 v2.3.6
+	github.com/containerd/containerd/v2 v2.3.7
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v29.7.2+incompatible
