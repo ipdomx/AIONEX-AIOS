@@ -40,6 +40,16 @@ import type {
   SocialRegistrationPreparation,
 } from "@/types";
 
+const USERNAME_RE = /^[a-z0-9_.-]{3,32}$/;
+
+function normalizeUsername(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, "")
+    .slice(0, 32);
+}
+
 type PhoneStage = "idle" | "sending" | "code" | "confirming" | "verified";
 
 function messageOf(cause: unknown, fallback: string): string {
@@ -210,6 +220,11 @@ export function RegisterClient() {
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") || "");
     const confirmPassword = String(form.get("confirmPassword") || "");
+    const username = normalizeUsername(String(form.get("username") || ""));
+    if (!USERNAME_RE.test(username)) {
+      setSubmitError(t("usernameRule"));
+      return;
+    }
     if (password !== confirmPassword) {
       setSubmitError(t("passwordMismatch"));
       return;
@@ -221,7 +236,7 @@ export function RegisterClient() {
     setSubmitting(true);
     try {
       await registerFree({
-        username: String(form.get("username") || "").trim(),
+        username,
         name: String(form.get("name") || "").trim(),
         email: String(form.get("email") || "").trim(),
         password,
@@ -374,8 +389,16 @@ export function RegisterClient() {
                   className="field-control"
                   minLength={3}
                   maxLength={32}
-                  pattern="[A-Za-z0-9_.-]+"
+                  pattern="[a-z0-9_.\-]+"
                   autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  dir="ltr"
+                  onInput={(event) => {
+                    const input = event.currentTarget;
+                    const cleaned = normalizeUsername(input.value);
+                    if (cleaned !== input.value) input.value = cleaned;
+                  }}
                   required
                 />
                 <p className="mt-2 text-xs text-white/30">
