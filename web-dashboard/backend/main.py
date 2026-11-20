@@ -93,7 +93,15 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID", "X-CSRF-Token"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Correlation-ID",
+        "X-CSRF-Token",
+        # The portal (ai.vip-e.net) calls api.vip-e.net cross-origin and sends
+        # it on billing checkout, plan change, cancel and resume.
+        "Idempotency-Key",
+    ],
     expose_headers=["Content-Disposition"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
