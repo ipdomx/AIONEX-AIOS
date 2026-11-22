@@ -40,6 +40,8 @@ jobs:
   flutter:
     name: Analyze, test and build (Android + web)
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     timeout-minutes: 40
     # Flutter 3.44.0 / Dart 3.12.0, pinned by digest (same image the server uses).
     container:
@@ -53,14 +55,18 @@ jobs:
           persist-credentials: false
       - name: Trust the checkout inside the container
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Bootstrap platform folders and lockfile (one-off)
+      - name: Bootstrap platform folders and lockfile (one-off, removed in the next commit)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.head_ref }}
         run: |
           flutter create --org net.vipe --project-name aionex --platforms android,ios,web .
           rm -f test/widget_test.dart
           flutter pub get
-          tar czf /tmp/bootstrap.tgz android ios web pubspec.lock .metadata
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: bootstrap
-          path: /tmp/bootstrap.tgz
-          retention-days: 3
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "aionex-ci"
+          git config user.email "ci@vip-e.net"
+          git add -f app/android app/ios app/web app/pubspec.lock app/.metadata
+          git reset -q app/android/gradle/wrapper/gradle-wrapper.jar app/android/local.properties 2>/dev/null || true
+          git commit -qm "chore(app): generated platform folders and pubspec.lock (flutter create 3.44.0)"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
