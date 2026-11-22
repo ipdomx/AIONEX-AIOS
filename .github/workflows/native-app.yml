@@ -66,7 +66,8 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           git config user.name "aionex-ci"
           git config user.email "ci@vip-e.net"
-          git add -f app/android app/ios app/web app/pubspec.lock app/.metadata
-          git reset -q app/android/gradle/wrapper/gradle-wrapper.jar app/android/local.properties 2>/dev/null || true
+          git add app/android app/ios app/web
+          git add -f app/pubspec.lock
+          git status --short --ignored app/android app/ios app/web | head -50
           git commit -qm "chore(app): generated platform folders and pubspec.lock (flutter create 3.44.0)"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
