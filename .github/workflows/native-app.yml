@@ -40,8 +40,6 @@ jobs:
   flutter:
     name: Analyze, test and build (Android + web)
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     timeout-minutes: 40
     # Flutter 3.44.0 / Dart 3.12.0, pinned by digest (same image the server uses).
     container:
@@ -53,23 +51,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.head_ref }}
       - name: Trust the checkout inside the container
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Bootstrap platform folders and lockfile (one-off, removed in the next commit)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.head_ref }}
+      - name: Platform folders and lockfile are committed
         run: |
-          flutter create --org net.vipe --project-name aionex --platforms android,ios,web .
-          rm -f test/widget_test.dart
-          flutter pub get
-          rm -rf .git
-          cd "$GITHUB_WORKSPACE"
-          git config user.name "aionex-ci"
-          git config user.email "ci@vip-e.net"
-          git add app/android app/ios app/web
-          git add -f app/pubspec.lock
-          git status --short --ignored app/android app/ios app/web | head -50
-          git commit -qm "chore(app): generated platform folders and pubspec.lock (flutter create 3.44.0)"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
+          for path in android ios web pubspec.lock; do
+            test -e "$path" || { echo "app/$path is missing" >&2; exit 1; }
+          done
+      - name: Install packages
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+      - name: Test
+        run: flutter test
+      - name: Build web
+        run: flutter build web --release --no-web-resources-cdn
+      - name: Build Android (release, debug-signed until store signing in N-11)
+        run: flutter build apk --release --split-per-abi
