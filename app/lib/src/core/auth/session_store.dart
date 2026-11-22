@@ -83,29 +83,28 @@ class CookieSessionStore implements SessionStore {
 
 /// For tests only.
 class MemorySessionStore implements SessionStore {
-  MemorySessionStore({this.refreshToken, String? accessToken}) : _accessToken = accessToken;
+  MemorySessionStore({this.refreshToken, this.accessToken});
 
   String? refreshToken;
-  String? _accessToken;
+
+  @override
+  String? accessToken;
 
   @override
   bool get usesCookies => false;
-
-  @override
-  String? get accessToken => _accessToken;
 
   @override
   Future<String?> readRefreshToken() async => refreshToken;
 
   @override
   Future<void> save({required String accessToken, required String refreshToken}) async {
-    _accessToken = accessToken;
+    this.accessToken = accessToken;
     this.refreshToken = refreshToken;
   }
 
   @override
   Future<void> clear() async {
-    _accessToken = null;
+    accessToken = null;
     refreshToken = null;
   }
 }

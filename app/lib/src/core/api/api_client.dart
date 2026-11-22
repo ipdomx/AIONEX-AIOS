@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import '../auth/session_store.dart';
+import '../auth/sessionstore.dart';
 import '../config/app_config.dart';
 import 'api_exception.dart';
 import 'http_adapter_stub.dart' if (dart.library.js_interop) 'http_adapter_web.dart';
@@ -18,10 +18,9 @@ import 'http_adapter_stub.dart' if (dart.library.js_interop) 'http_adapter_web.d
 class ApiClient {
   ApiClient({
     required AppConfig config,
-    required SessionStore store,
+    required this.store,
     HttpClientAdapter? adapter,
-  })  : _store = store,
-        _dio = Dio(
+  })  : _dio = Dio(
           BaseOptions(
             baseUrl: config.apiBaseUrl.toString(),
             connectTimeout: const Duration(seconds: 15),
@@ -42,13 +41,13 @@ class ApiClient {
   }
 
   final Dio _dio;
-  final SessionStore _store;
+
+  /// Where the session lives (Keychain / Keystore, or browser cookies).
+  final SessionStore store;
   Future<bool>? _refreshing;
 
   /// Called once when the session can no longer be refreshed.
   void Function()? onSessionLost;
-
-  SessionStore get store => _store;
 
   Future<Map<String, Object?>> getJson(String path, {Map<String, Object?>? query, bool auth = true}) {
     return _json(_Call(path, 'GET', query: query), auth: auth);
@@ -92,7 +91,7 @@ class ApiClient {
     required bool auth,
     required bool retry,
   }) async {
-    final token = auth ? _store.accessToken : null;
+    final token = auth ? store.accessToken : null;
     try {
       return await _dio.request<Object?>(
         call.path,
@@ -118,26 +117,26 @@ class ApiClient {
   }
 
   Future<bool> _performRefresh() async {
-    final refreshToken = await _store.readRefreshToken();
-    if (!_store.usesCookies && refreshToken == null) return false;
+    final refreshToken = await store.readRefreshToken();
+    if (!store.usesCookies && refreshToken == null) return false;
     try {
       final response = await _dio.post<Object?>(
         '/auth/refresh',
-        data: _store.usesCookies ? const <String, Object?>{} : {'refresh_token': refreshToken},
+        data: store.usesCookies ? const <String, Object?>{} : {'refresh_token': refreshToken},
         options: Options(contentType: Headers.jsonContentType),
       );
       final data = response.data;
       final access = data is Map ? data['access_token'] : null;
       final refresh = data is Map ? data['refresh_token'] : null;
       if (access is! String || refresh is! String) return false;
-      await _store.save(accessToken: access, refreshToken: refresh);
+      await store.save(accessToken: access, refreshToken: refresh);
       return true;
     } on DioException catch (error) {
       final status = error.response?.statusCode;
       // Only a definite rejection ends the session. A dropped connection or a
       // server error keeps it, and the caller sees that failure instead.
       if (status == 401 || status == 403) {
-        await _store.clear();
+        await store.clear();
         onSessionLost?.call();
         return false;
       }
