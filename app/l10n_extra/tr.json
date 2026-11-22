@@ -1,0 +1,16 @@
+{
+  "systemLanguage": "Cihaz dili",
+  "retry": "Tekrar dene",
+  "networkError": "AIONEX bağlantısı yok. İnternetinizi kontrol edip tekrar deneyin.",
+  "sessionExpired": "Oturumunuz sona erdi. Lütfen yeniden giriş yapın.",
+  "ownerConsoleOnly": "Bu hesap yalnızca sahip konsolundan giriş yapar.",
+  "loading": "Yükleniyor…",
+  "languageName": {
+    "ar": "العربية",
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
+    "fr": "Français",
+    "tr": "Türkçe"
+  }
+}

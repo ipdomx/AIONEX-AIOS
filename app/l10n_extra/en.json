@@ -1,0 +1,16 @@
+{
+  "systemLanguage": "Device language",
+  "retry": "Try again",
+  "networkError": "No connection to AIONEX. Check your internet and try again.",
+  "sessionExpired": "Your session ended. Please sign in again.",
+  "ownerConsoleOnly": "This account signs in from the owner console only.",
+  "loading": "Loading…",
+  "languageName": {
+    "ar": "العربية",
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
+    "fr": "Français",
+    "tr": "Türkçe"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "systemLanguage": "Langue de l’appareil",
+  "retry": "Réessayer",
+  "networkError": "Pas de connexion à AIONEX. Vérifiez votre connexion internet et réessayez.",
+  "sessionExpired": "Votre session a pris fin. Veuillez vous reconnecter.",
+  "ownerConsoleOnly": "Ce compte se connecte uniquement depuis la console propriétaire.",
+  "loading": "Chargement…",
+  "languageName": {
+    "ar": "العربية",
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
+    "fr": "Français",
+    "tr": "Türkçe"
+  }
+}
