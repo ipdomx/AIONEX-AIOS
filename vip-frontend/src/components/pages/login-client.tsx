@@ -15,8 +15,18 @@ import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
-import { getPasskeyConfiguration } from "@/lib/api";
+import { ApiError, getPasskeyConfiguration } from "@/lib/api";
 import { passkeysSupported } from "@/lib/passkeys";
+
+/** Map a failed sign-in to the message that tells the user what actually went wrong. */
+function loginErrorKey(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "invalidCredentials";
+    if (error.status === 403) return "accountUnavailable";
+    if (error.status === 429) return "tooManyAttempts";
+  }
+  return "connectionError";
+}
 
 export function LoginClient() {
   const t = useTranslations("auth");
@@ -64,8 +74,8 @@ export function LoginClient() {
         return;
       }
       router.replace(`/${locale}/dashboard`);
-    } catch {
-      setError(t("connectionError"));
+    } catch (caught) {
+      setError(t(loginErrorKey(caught)));
     } finally {
       setSubmitting(false);
     }
