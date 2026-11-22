@@ -309,3 +309,6 @@ kubeconfig.*
 /docs/project/runtime/
 /docs/project/PROJECT-REPORT.md
 /docs/project/STATE.json
+
+# The Flutter app keeps its Dart sources in app/lib.
+!app/lib/
