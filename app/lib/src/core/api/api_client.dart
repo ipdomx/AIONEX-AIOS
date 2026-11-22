@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../auth/session_store.dart';
 import '../config/app_config.dart';
@@ -30,9 +31,13 @@ class ApiClient {
             followRedirects: false,
             headers: {
               'Accept': 'application/json',
-              // Tells the backend this is the public channel (never the owner console).
-              'X-AIOS-Auth-Channel': 'public',
-              'X-AIOS-Client': 'aionex-app/${config.appVersion}',
+              // Phones send no Origin, so name the public channel (never the owner
+              // console) explicitly. The browser's Origin already says it on the web,
+              // and extra headers there would fail the backend's CORS allow-list.
+              if (!kIsWeb) ...{
+                'X-AIOS-Auth-Channel': 'public',
+                'X-AIOS-Client': 'aionex-app/${config.appVersion}',
+              },
             },
           ),
         ) {
