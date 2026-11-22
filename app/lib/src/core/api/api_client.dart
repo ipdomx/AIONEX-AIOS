@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import '../auth/sessionstore.dart';
+import '../auth/session_store.dart';
 import '../config/app_config.dart';
 import 'api_exception.dart';
 import 'http_adapter_stub.dart' if (dart.library.js_interop) 'http_adapter_web.dart';
