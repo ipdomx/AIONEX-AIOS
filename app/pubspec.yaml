@@ -1,0 +1,50 @@
+name: aionex
+description: "AIONEX AIOS: the native app for Android, iOS and the signed-in web workspace."
+publish_to: "none"
+
+# Store version and build number. The build number must increase for every
+# upload to Google Play or the App Store.
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.0
+  flutter: 3.44.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  dio: ^5.11.1
+  dio_web_adapter: ^2.2.2
+  flutter_riverpod: ^3.5.0
+  flutter_secure_storage: ^11.2.0
+  go_router: ^18.1.4
+  intl: ^0.20.2
+  shared_preferences: ^2.5.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/brand/
+
+  # IBM Plex Sans Arabic covers both Arabic and Latin, matching the website.
+  # Bundled (OFL licence in assets/fonts) so the app never fetches fonts.
+  fonts:
+    - family: IBMPlexSansArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700

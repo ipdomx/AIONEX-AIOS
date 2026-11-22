@@ -1,0 +1,16 @@
+{
+  "systemLanguage": "Gerätesprache",
+  "retry": "Erneut versuchen",
+  "networkError": "Keine Verbindung zu AIONEX. Prüfe deine Internetverbindung und versuche es erneut.",
+  "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+  "ownerConsoleOnly": "Dieses Konto meldet sich nur über die Owner-Konsole an.",
+  "loading": "Wird geladen…",
+  "languageName": {
+    "ar": "العربية",
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
+    "fr": "Français",
+    "tr": "Türkçe"
+  }
+}

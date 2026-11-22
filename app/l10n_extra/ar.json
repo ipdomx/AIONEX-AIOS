@@ -1,0 +1,16 @@
+{
+  "systemLanguage": "لغة الجهاز",
+  "retry": "حاول مرة أخرى",
+  "networkError": "لا يوجد اتصال بـ AIONEX. تحقق من الإنترنت وحاول مرة أخرى.",
+  "sessionExpired": "انتهت جلستك. سجّل الدخول مرة أخرى.",
+  "ownerConsoleOnly": "هذا الحساب يسجّل الدخول من لوحة المالك فقط.",
+  "loading": "جارٍ التحميل…",
+  "languageName": {
+    "ar": "العربية",
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
+    "fr": "Français",
+    "tr": "Türkçe"
+  }
+}
