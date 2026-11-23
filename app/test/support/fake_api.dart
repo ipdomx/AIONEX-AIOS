@@ -61,3 +61,24 @@ final testConfig = AppConfig(apiBaseUrl: Uri.parse('https://api.example.test/api
 ApiClient fakeClient(FakeAdapter adapter, SessionStore store) {
   return ApiClient(config: testConfig, store: store, adapter: adapter);
 }
+
+Map<String, Object?> settingsJson({String role = 'Free User', bool mfa = false, int sessions = 1}) => {
+      'profile': {
+        'id': 'u1',
+        'name': 'Ahmed',
+        'email': 'user@example.com',
+        'role': role,
+        'organization': 'Personal',
+        'avatar': null,
+      },
+      'preferences': <String, Object?>{},
+      'security': {
+        'mfa_policy_enabled': false,
+        'active_sessions': sessions,
+        'password_min_length': 12,
+        'mfa_enabled': mfa,
+        'mfa_backup_codes_remaining': mfa ? 8 : 0,
+        'passkey_count': 0,
+      },
+      'free_tier': null,
+    };

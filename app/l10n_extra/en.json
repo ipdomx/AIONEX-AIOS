@@ -13,5 +13,11 @@
     "fr": "Français",
     "tr": "Türkçe"
   },
-  "deviceCompromised": "This device looks modified (rooted, jailbroken or running hooking tools). Your account stays protected by the server, but payments are turned off on this device."
+  "deviceCompromised": "This device looks modified (rooted, jailbroken or running hooking tools). Your account stays protected by the server, but payments are turned off on this device.",
+  "openAuthenticator": "Open in authenticator app",
+  "copy": "Copy",
+  "copied": "Copied",
+  "setupKey": "Setup key",
+  "scanOrOpen": "Scan the code with your authenticator app, or open it directly on this phone, then enter the 6-digit code.",
+  "changePhoto": "Change photo"
 }

@@ -57,7 +57,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final session = ref.watch(sessionProvider).value;
-    final expired = session is SignedOut && session.expired;
+    final notice = switch (session) {
+      SignedOut(notice: SignOutNotice.expired) => l.app_sessionExpired,
+      SignedOut(notice: SignOutNotice.passwordChanged) => l.passwordRecovery_resetSuccess,
+      SignedOut(notice: SignOutNotice.mfaDisabled) => l.profile_mfaDisabled,
+      _ => null,
+    };
     return Scaffold(
       body: AutofillGroup(
         child: Form(
@@ -74,8 +79,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 28),
-              if (expired && _error == null) ...[
-                _Banner(text: l.app_sessionExpired),
+              if (notice != null && _error == null) ...[
+                _Banner(key: const Key('login-notice'), text: notice),
                 const SizedBox(height: 16),
               ],
               TextFormField(
@@ -118,8 +123,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 validator: (value) => (value == null || value.isEmpty) ? l.auth_password : null,
               ),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  key: const Key('forgot-password'),
+                  onPressed: _busy ? null : () => context.go('/login/forgot'),
+                  child: Text(l.auth_forgotPassword),
+                ),
+              ),
               if (_error != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 _Banner(key: const Key('login-error'), text: _error!),
               ],
               const SizedBox(height: 24),

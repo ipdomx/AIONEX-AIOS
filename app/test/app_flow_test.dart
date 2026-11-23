@@ -71,6 +71,7 @@ void main() {
       return switch (request.uri.path) {
         '/api/v1/auth/login' => jsonBody(200, grantJson()),
         '/api/v1/auth/logout' => jsonBody(200, {'message': 'ok'}),
+        '/api/v1/settings' => jsonBody(200, settingsJson()),
         _ => jsonBody(404, {'detail': 'not found'}),
       };
     });
@@ -89,7 +90,11 @@ void main() {
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('sign-out')), 200);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('sign-out')),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
     await tester.tap(find.byKey(const Key('sign-out')));
     await tester.pumpAndSettle();
 
