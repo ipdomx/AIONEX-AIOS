@@ -10,6 +10,7 @@ import '../../features/home/home_shell.dart';
 import '../../features/profile/profile_page.dart';
 import '../auth/models.dart';
 import '../auth/session_controller.dart';
+import '../security/device_security.dart';
 
 /// Where a user may be, given the session. Pure, so it is unit-tested directly.
 String? redirectFor(AsyncValue<SessionState> session, String location) {
@@ -37,12 +38,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginPage(),
+        builder: (context, state) => const SecureScreen(child: LoginPage()),
         routes: [
           GoRoute(
             path: 'mfa',
             redirect: (context, state) => state.extra is MfaChallenge ? null : '/login',
-            builder: (context, state) => MfaPage(challenge: state.extra! as MfaChallenge),
+            builder: (context, state) => SecureScreen(child: MfaPage(challenge: state.extra! as MfaChallenge)),
           ),
         ],
       ),

@@ -12,5 +12,6 @@
     "es": "Español",
     "fr": "Français",
     "tr": "Türkçe"
-  }
+  },
+  "deviceCompromised": "This device looks modified (rooted, jailbroken or running hooking tools). Your account stays protected by the server, but payments are turned off on this device."
 }

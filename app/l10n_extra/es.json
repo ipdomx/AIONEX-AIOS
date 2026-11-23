@@ -12,5 +12,6 @@
     "es": "Español",
     "fr": "Français",
     "tr": "Türkçe"
-  }
+  },
+  "deviceCompromised": "Este dispositivo parece modificado (root, jailbreak o herramientas de manipulación). Tu cuenta sigue protegida por el servidor, pero los pagos están desactivados en este dispositivo."
 }

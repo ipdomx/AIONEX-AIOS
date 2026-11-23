@@ -245,6 +245,7 @@
   "ads_tabs_create": "Create campaign",
   "ads_tabs_dashboard": "Dashboard",
   "ads_tabs_planning": "Planning",
+  "app_deviceCompromised": "This device looks modified (rooted, jailbroken or running hooking tools). Your account stays protected by the server, but payments are turned off on this device.",
   "app_languageName_ar": "العربية",
   "app_languageName_de": "Deutsch",
   "app_languageName_en": "English",
