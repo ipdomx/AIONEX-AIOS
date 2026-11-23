@@ -90,7 +90,11 @@ void main() {
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('sign-out')), 200);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('sign-out')),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
     await tester.tap(find.byKey(const Key('sign-out')));
     await tester.pumpAndSettle();
 

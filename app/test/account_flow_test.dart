@@ -58,6 +58,12 @@ Future<void> openSecurity(WidgetTester tester, ProviderContainer container) asyn
   await tester.pumpAndSettle();
 }
 
+/// Scroll the visible list (not the off-stage tabs) until [finder] is on screen.
+Future<void> reveal(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(finder, 150, scrollable: find.byType(Scrollable).hitTestable().first);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('forgot password sends the email and never says whether it exists', (tester) async {
     final adapter = FakeAdapter((request) async {
@@ -121,7 +127,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('password-current')), 'old-password');
     await tester.enterText(find.byKey(const Key('password-new')), 'brand-new-password');
     await tester.enterText(find.byKey(const Key('password-confirm')), 'brand-new-password');
-    await tester.ensureVisible(find.byKey(const Key('password-submit')));
+    await reveal(tester, find.byKey(const Key('password-submit')));
     await tester.tap(find.byKey(const Key('password-submit')));
     await tester.pumpAndSettle();
 
@@ -138,7 +144,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('password-current')), 'old-password');
     await tester.enterText(find.byKey(const Key('password-new')), 'short');
     await tester.enterText(find.byKey(const Key('password-confirm')), 'short');
-    await tester.ensureVisible(find.byKey(const Key('password-submit')));
+    await reveal(tester, find.byKey(const Key('password-submit')));
     await tester.tap(find.byKey(const Key('password-submit')));
     await tester.pumpAndSettle();
 
@@ -171,10 +177,11 @@ void main() {
     expect(find.text('aaaa-1111'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('mfa-setup-code')), '123456');
-    await tester.ensureVisible(find.byKey(const Key('mfa-verify')));
+    await reveal(tester, find.byKey(const Key('mfa-verify')));
     await tester.tap(find.byKey(const Key('mfa-verify')));
     await tester.pumpAndSettle();
 
+    await reveal(tester, find.text('Enabled — 8 recovery codes remaining'));
     expect(find.text('Enabled — 8 recovery codes remaining'), findsOneWidget);
     expect(find.byKey(const Key('mfa-disable')), findsOneWidget);
   });
@@ -202,7 +209,7 @@ void main() {
     final container = await pumpApp(tester, adapter, MemorySessionStore(refreshToken: 'saved'));
     await openSecurity(tester, container);
 
-    await tester.scrollUntilVisible(find.text('Chrome on Android'), 200);
+    await reveal(tester, find.text('Chrome on Android'));
     expect(find.textContaining('Active'), findsOneWidget);
     await tester.tap(find.byTooltip('Revoke session'));
     await tester.pumpAndSettle();
