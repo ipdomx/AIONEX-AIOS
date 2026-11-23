@@ -178,7 +178,10 @@ void main() {
     await tester.enterText(find.byKey(const Key('conversation-message')), 'Draft a launch checklist');
     await tester.pump();
     await tester.tap(find.byKey(const Key('conversation-send')));
-    await tester.pumpAndSettle();
+    // The pending answer shows a spinner, so pump fixed steps instead of settling.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.textContaining('Still working'), findsOneWidget);
     final send = sends.single! as Map;
@@ -188,6 +191,7 @@ void main() {
 
     phase = 2;
     await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     expect(find.text('Here is the checklist.'), findsOneWidget);
     expect(sends, hasLength(1));

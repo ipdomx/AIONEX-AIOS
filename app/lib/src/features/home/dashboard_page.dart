@@ -127,6 +127,7 @@ class DashboardPage extends ConsumerWidget {
                       ),
                     ),
                 ],
+              AsyncError() => const <Widget>[],
               _ => [const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))],
             },
           ],
