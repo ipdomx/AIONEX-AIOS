@@ -22,5 +22,10 @@
   "changePhoto": "Fotoğrafı değiştir",
   "chatsTab": "Sohbetler",
   "gb": "{value} GB",
-  "mb": "{value} MB"
+  "mb": "{value} MB",
+  "registerOnWebsite": "Web'de hesap web sitesinden oluşturulur.",
+  "pushEnabled": "Bu telefonda bildirimler açık.",
+  "pushDenied": "AIONEX bildirimleri telefon ayarlarında kapalı.",
+  "newNotification": "Yeni bildirim",
+  "codeSentTo": "{phone} numarasına bir kod gönderdik."
 }

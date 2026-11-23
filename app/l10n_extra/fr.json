@@ -22,5 +22,10 @@
   "changePhoto": "Changer la photo",
   "chatsTab": "Discussions",
   "gb": "{value} Go",
-  "mb": "{value} Mo"
+  "mb": "{value} Mo",
+  "registerOnWebsite": "Sur le web, le compte se crée sur le site.",
+  "pushEnabled": "Les notifications sont activées sur ce téléphone.",
+  "pushDenied": "Les notifications AIONEX sont désactivées dans les réglages du téléphone.",
+  "newNotification": "Nouvelle notification",
+  "codeSentTo": "Nous avons envoyé un code au {phone}."
 }

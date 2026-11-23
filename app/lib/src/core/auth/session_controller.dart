@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
+import '../push/push_controller.dart';
 import 'models.dart';
 
 sealed class SessionState {
@@ -43,6 +44,11 @@ class SessionController extends AsyncNotifier<SessionState> {
     return outcome;
   }
 
+  Future<void> register(RegistrationForm form) async {
+    final user = await ref.read(authRepositoryProvider).register(form);
+    state = AsyncData(SignedIn(user));
+  }
+
   Future<void> verifyMfa(MfaChallenge challenge, String code) async {
     final user = await ref.read(authRepositoryProvider).completeMfa(challenge, code);
     state = AsyncData(SignedIn(user));
@@ -54,6 +60,9 @@ class SessionController extends AsyncNotifier<SessionState> {
   }
 
   Future<void> signOut({SignOutNotice? notice}) async {
+    // Remove this phone's push endpoint while the session can still do it.
+    // After a password change the server already revoked it; that is fine.
+    if (notice == null) await ref.read(pushControllerProvider).stop();
     await ref.read(authRepositoryProvider).logout();
     state = AsyncData(SignedOut(notice: notice));
   }

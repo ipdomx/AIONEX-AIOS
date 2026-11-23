@@ -22,5 +22,10 @@
   "changePhoto": "Change photo",
   "chatsTab": "Chats",
   "gb": "{value} GB",
-  "mb": "{value} MB"
+  "mb": "{value} MB",
+  "registerOnWebsite": "Account creation on the web is done on the website.",
+  "pushEnabled": "Notifications are on for this phone.",
+  "pushDenied": "Notifications are off for AIONEX in the phone settings.",
+  "newNotification": "New notification",
+  "codeSentTo": "We sent a code to {phone}."
 }

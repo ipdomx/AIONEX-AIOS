@@ -8,6 +8,7 @@ import '../../core/auth/session_controller.dart';
 import '../../core/security/device_security.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/error_text.dart';
+import '../notifications/notifications.dart';
 import '../workspace/workspace_models.dart';
 import '../workspace/workspace_repository.dart';
 
@@ -29,6 +30,7 @@ class DashboardPage extends ConsumerWidget {
     Future<void> refresh() async {
       ref.invalidate(quotaProvider);
       ref.invalidate(projectsProvider);
+      ref.invalidate(notificationsProvider);
       try {
         await ref.read(sessionProvider.notifier).reloadUser();
       } on Object catch (error) {
@@ -47,7 +49,19 @@ class DashboardPage extends ConsumerWidget {
             Flexible(child: Text(l.dashboard_title, overflow: TextOverflow.ellipsis)),
           ],
         ),
-        actions: [IconButton(tooltip: l.dashboard_refresh, onPressed: refresh, icon: const Icon(Icons.refresh))],
+        actions: [
+          IconButton(
+            key: const Key('open-notifications'),
+            tooltip: l.nav_notifications,
+            onPressed: () => context.go('/notifications'),
+            icon: Badge(
+              isLabelVisible: ref.watch(unreadCountProvider) > 0,
+              label: Text('${ref.watch(unreadCountProvider)}'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+          ),
+          IconButton(tooltip: l.dashboard_refresh, onPressed: refresh, icon: const Icon(Icons.refresh)),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: refresh,
