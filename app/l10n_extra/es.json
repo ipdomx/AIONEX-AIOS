@@ -19,5 +19,8 @@
   "copied": "Copiado",
   "setupKey": "Clave de configuración",
   "scanOrOpen": "Escanea el código con tu app de autenticación o ábrelo directamente en este teléfono y luego introduce el código de 6 dígitos.",
-  "changePhoto": "Cambiar foto"
+  "changePhoto": "Cambiar foto",
+  "chatsTab": "Chats",
+  "gb": "{value} GB",
+  "mb": "{value} MB"
 }

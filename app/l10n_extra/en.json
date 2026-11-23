@@ -19,5 +19,8 @@
   "copied": "Copied",
   "setupKey": "Setup key",
   "scanOrOpen": "Scan the code with your authenticator app, or open it directly on this phone, then enter the 6-digit code.",
-  "changePhoto": "Change photo"
+  "changePhoto": "Change photo",
+  "chatsTab": "Chats",
+  "gb": "{value} GB",
+  "mb": "{value} MB"
 }

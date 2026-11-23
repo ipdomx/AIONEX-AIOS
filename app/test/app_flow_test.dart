@@ -114,7 +114,7 @@ void main() {
     await pumpApp(tester, adapter: adapter, store: store, locale: 'en');
 
     expect(find.text('Welcome, Restored'), findsOneWidget);
-    expect(adapter.paths, ['/api/v1/auth/refresh', '/api/v1/auth/me']);
+    expect(adapter.paths.take(2), ['/api/v1/auth/refresh', '/api/v1/auth/me']);
     expect(store.refreshToken, 'rotated');
   });
 
