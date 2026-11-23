@@ -40,7 +40,13 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(children: [const BrandMark(size: 32), const SizedBox(width: 10), Text(l.dashboard_title)]),
+        title: Row(
+          children: [
+            const BrandMark(size: 32),
+            const SizedBox(width: 10),
+            Flexible(child: Text(l.dashboard_title, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
         actions: [IconButton(tooltip: l.dashboard_refresh, onPressed: refresh, icon: const Icon(Icons.refresh))],
       ),
       body: RefreshIndicator(

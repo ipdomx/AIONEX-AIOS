@@ -174,6 +174,7 @@ class _NewTicketSheetState extends ConsumerState<_NewTicketSheet> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _category,
                       items: [
                         for (final value in supportCategories)
@@ -185,6 +186,7 @@ class _NewTicketSheetState extends ConsumerState<_NewTicketSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _priority,
                       items: [
                         for (final value in supportPriorities)
