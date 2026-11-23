@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../auth/session_store.dart';
 import '../config/app_config.dart';
 import 'api_exception.dart';
-import 'http_adapter_stub.dart' if (dart.library.js_interop) 'http_adapter_web.dart';
+import 'http_adapter_io.dart' if (dart.library.js_interop) 'http_adapter_web.dart';
 
 /// The one HTTP client for the AIONEX API.
 ///
@@ -21,6 +21,7 @@ class ApiClient {
     required AppConfig config,
     required this.store,
     HttpClientAdapter? adapter,
+    List<int>? trustedRoots,
   })  : _dio = Dio(
           BaseOptions(
             baseUrl: config.apiBaseUrl.toString(),
@@ -41,8 +42,13 @@ class ApiClient {
             },
           ),
         ) {
-    final platformAdapter = adapter ?? createPlatformAdapter();
-    if (platformAdapter != null) _dio.httpClientAdapter = platformAdapter;
+    final platformAdapter = adapter ?? createPlatformAdapter(trustedRoots: trustedRoots);
+    if (platformAdapter != null) {
+      _dio.httpClientAdapter = platformAdapter;
+    } else if (kReleaseMode && !kIsWeb) {
+      // A release build must never talk to the API without pinning.
+      throw StateError('ApiClient needs the pinned root certificates');
+    }
   }
 
   final Dio _dio;

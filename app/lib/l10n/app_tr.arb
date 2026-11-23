@@ -245,6 +245,7 @@
   "ads_tabs_create": "Kampanya oluştur",
   "ads_tabs_dashboard": "Pano",
   "ads_tabs_planning": "Planlama",
+  "app_deviceCompromised": "Bu cihaz değiştirilmiş görünüyor (root, jailbreak veya müdahale araçları). Hesabınız sunucu tarafından korunmaya devam eder, ancak bu cihazda ödemeler kapalıdır.",
   "app_languageName_ar": "العربية",
   "app_languageName_de": "Deutsch",
   "app_languageName_en": "English",

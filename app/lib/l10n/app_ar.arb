@@ -245,6 +245,7 @@
   "ads_tabs_create": "إنشاء حملة",
   "ads_tabs_dashboard": "لوحة الأداء",
   "ads_tabs_planning": "التخطيط",
+  "app_deviceCompromised": "يبدو أن هذا الجهاز معدّل (روت أو جيلبريك أو أدوات تلاعب). حسابك محمي من السيرفر، لكن الدفع متوقف على هذا الجهاز.",
   "app_languageName_ar": "العربية",
   "app_languageName_de": "Deutsch",
   "app_languageName_en": "English",

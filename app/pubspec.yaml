@@ -34,6 +34,7 @@ flutter:
 
   assets:
     - assets/brand/
+    - assets/security/
 
   # IBM Plex Sans Arabic covers both Arabic and Latin, matching the website.
   # Bundled (OFL licence in assets/fonts) so the app never fetches fonts.

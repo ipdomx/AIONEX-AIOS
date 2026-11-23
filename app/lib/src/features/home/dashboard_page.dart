@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/security/device_security.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/error_text.dart';
 
@@ -16,6 +17,7 @@ class DashboardPage extends ConsumerWidget {
     final session = ref.watch(sessionProvider).value;
     if (session is! SignedIn) return const SizedBox.shrink();
     final user = session.user;
+    final compromised = ref.watch(deviceIntegrityProvider).value?.compromised ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -40,6 +42,17 @@ class DashboardPage extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            if (compromised) ...[
+              Card(
+                key: const Key('device-compromised'),
+                color: theme.colorScheme.primaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(l.app_deviceCompromised, style: TextStyle(color: theme.colorScheme.onPrimaryContainer)),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Text(l.dashboard_eyebrow, style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.secondary)),
             const SizedBox(height: 6),
             Text(l.dashboard_welcome(user.name), style: theme.textTheme.headlineSmall),

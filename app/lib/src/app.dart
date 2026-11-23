@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/generated/app_localizations.dart';
 import 'core/locale/locale_controller.dart';
 import 'core/router/app_router.dart';
+import 'core/security/device_security.dart';
 import 'core/theme/app_theme.dart';
+import 'widgets/brand_header.dart';
 
 class AionexApp extends ConsumerWidget {
   const AionexApp({super.key});
@@ -30,6 +32,10 @@ class AionexApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       localeListResolutionCallback: (devices, _) => resolveLocale(devices),
+      builder: (context, child) => PrivacyShield(
+        cover: const ColoredBox(color: AionexColors.obsidian950, child: Center(child: BrandMark(size: 96))),
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

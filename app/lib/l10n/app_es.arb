@@ -245,6 +245,7 @@
   "ads_tabs_create": "Crear campaña",
   "ads_tabs_dashboard": "Panel",
   "ads_tabs_planning": "Planificación",
+  "app_deviceCompromised": "Este dispositivo parece modificado (root, jailbreak o herramientas de manipulación). Tu cuenta sigue protegida por el servidor, pero los pagos están desactivados en este dispositivo.",
   "app_languageName_ar": "العربية",
   "app_languageName_de": "Deutsch",
   "app_languageName_en": "English",

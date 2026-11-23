@@ -14,6 +14,9 @@ on:
       - "vip-frontend/src/messages/**"
       - ".github/workflows/native-app.yml"
   workflow_dispatch:
+  schedule:
+    # Daily: warn early if Cloudflare moves api.vip-e.net to a CA the app does not pin.
+    - cron: "17 4 * * *"
 
 permissions:
   contents: read
@@ -36,6 +39,21 @@ jobs:
           python-version: "3.12"
       - name: Check app/lib/l10n against vip-frontend/src/messages
         run: python3 app/tool/sync_messages.py --check
+
+  pinned-roots:
+    name: Live API certificate chains to a pinned root
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify api.vip-e.net against app/assets/security/api_roots.pem only
+        run: |
+          set -o pipefail
+          echo | openssl s_client -connect api.vip-e.net:443 -servername api.vip-e.net \
+            -CAfile app/assets/security/api_roots.pem -no-CApath -no-CAstore -verify_return_error 2>&1 \
+            | grep -E "Verify return code: 0 \(ok\)"
 
   flutter:
     name: Analyze, test and build (Android + web)
@@ -64,7 +82,11 @@ jobs:
         run: flutter analyze --fatal-infos
       - name: Test
         run: flutter test
+      - name: Pinning works against the real API (no account needed)
+        env:
+          AIONEX_LIVE_NETWORK: "1"
+        run: flutter test test/live/ --plain-name "certificate pinning"
       - name: Build web
         run: flutter build web --release --no-web-resources-cdn
-      - name: Build Android (release, debug-signed until store signing in N-11)
-        run: flutter build apk --release --split-per-abi
+      - name: Build Android (release, R8 + Dart obfuscation; debug-signed until N-11)
+        run: flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols/android
