@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../core/auth/models.dart';
 import '../../core/auth/session_controller.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/error_text.dart';
+import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -141,7 +143,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 onPressed: _busy ? null : _submit,
                 child: Text(_busy ? l.auth_signingIn : l.auth_signIn),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+              TextButton(
+                key: const Key('create-account'),
+                onPressed: _busy
+                    ? null
+                    : () => kIsWeb ? openWebsiteRegistration(context) : context.go('/login/register'),
+                child: Text('${l.auth_noAccount} ${l.auth_createAccount}'),
+              ),
+              const SizedBox(height: 12),
               Text(
                 l.auth_securityNote,
                 textAlign: TextAlign.center,

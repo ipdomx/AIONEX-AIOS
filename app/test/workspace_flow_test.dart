@@ -88,6 +88,7 @@ Future<ProviderContainer> pumpSignedIn(WidgetTester tester, Map<String, Response
     };
   });
   final container = ProviderContainer(
+    retry: retryOnlyNetworkErrors,
     overrides: [
       sharedPreferencesProvider.overrideWithValue(preferences),
       sessionStoreProvider.overrideWithValue(store),

@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/auth/mfa_page.dart';
 import '../../features/auth/password_recovery_pages.dart';
+import '../../features/auth/register_page.dart';
 import '../../features/auth/splash_page.dart';
 import '../../features/conversations/conversation_page.dart';
 import '../../features/conversations/conversations_page.dart';
 import '../../features/home/dashboard_page.dart';
 import '../../features/home/home_shell.dart';
+import '../../features/notifications/notifications.dart';
 import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/projects/projects_page.dart';
@@ -67,6 +69,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SecureScreen(child: LoginPage()),
         routes: [
           GoRoute(path: 'forgot', builder: (context, state) => const ForgotPasswordPage()),
+          GoRoute(path: 'register', builder: (context, state) => const SecureScreen(child: RegisterPage())),
           GoRoute(
             path: 'mfa',
             redirect: (context, state) => state.extra is MfaChallenge ? null : '/login',
@@ -88,6 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 builder: (context, state) => const DashboardPage(),
                 routes: [
+                  GoRoute(path: 'notifications', builder: (context, state) => const NotificationsPage()),
                   GoRoute(
                     path: 'support',
                     builder: (context, state) => const SupportPage(),

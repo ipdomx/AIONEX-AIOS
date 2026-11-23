@@ -17,6 +17,7 @@ Future<void> main() async {
   final pinnedRoots = kIsWeb ? null : (await rootBundle.load('assets/security/api_roots.crt')).buffer.asUint8List();
   runApp(
     ProviderScope(
+      retry: retryOnlyNetworkErrors,
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
         pinnedRootsProvider.overrideWithValue(pinnedRoots),

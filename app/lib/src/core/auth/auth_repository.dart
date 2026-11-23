@@ -26,6 +26,15 @@ class AuthRepository {
     return LoginSucceeded(await _accept(SessionGrant.fromJson(json)));
   }
 
+  Future<RegistrationPolicy> registrationPolicy() async =>
+      RegistrationPolicy.fromJson(await _api.getJson('/auth/free-tier/public', auth: false));
+
+  /// Free sign-up; the response is a normal session, so the user is signed in.
+  Future<AppUser> register(RegistrationForm form) async {
+    final json = await _api.postJson('/auth/register/free', body: form.toJson(), auth: false, retry: false);
+    return _accept(SessionGrant.fromJson(json));
+  }
+
   Future<AppUser> completeMfa(MfaChallenge challenge, String code) async {
     final json = await _api.postJson(
       '/auth/mfa/challenge',

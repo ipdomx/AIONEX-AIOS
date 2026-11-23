@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api_client.dart';
+import 'api/api_exception.dart';
 import 'auth/auth_repository.dart';
 import 'auth/session_store.dart';
 import 'config/app_config.dart';
@@ -28,3 +29,10 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw StateError('sharedPreferencesProvider must be overridden at startup');
 });
+
+/// Riverpod's automatic retry, limited to dropped connections: a 4xx answer
+/// (not found, forbidden, …) will not change by asking again.
+Duration? retryOnlyNetworkErrors(int retryCount, Object error) {
+  if (retryCount >= 3 || error is! ApiException || error.failure != ApiFailure.network) return null;
+  return Duration(seconds: 2 << retryCount);
+}

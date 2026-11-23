@@ -27,6 +27,10 @@ final class SignedIn extends SessionState {
 final sessionProvider = AsyncNotifierProvider<SessionController, SessionState>(SessionController.new);
 
 class SessionController extends AsyncNotifier<SessionState> {
+  /// Set by the push controller (kept as a hook so the two providers do not
+  /// depend on each other).
+  static Future<void> Function()? beforeSignOut;
+
   @override
   Future<SessionState> build() async {
     ref.watch(apiClientProvider).onSessionLost = () {
@@ -43,6 +47,11 @@ class SessionController extends AsyncNotifier<SessionState> {
     return outcome;
   }
 
+  Future<void> register(RegistrationForm form) async {
+    final user = await ref.read(authRepositoryProvider).register(form);
+    state = AsyncData(SignedIn(user));
+  }
+
   Future<void> verifyMfa(MfaChallenge challenge, String code) async {
     final user = await ref.read(authRepositoryProvider).completeMfa(challenge, code);
     state = AsyncData(SignedIn(user));
@@ -54,6 +63,9 @@ class SessionController extends AsyncNotifier<SessionState> {
   }
 
   Future<void> signOut({SignOutNotice? notice}) async {
+    // Remove this phone's push endpoint while the session can still do it.
+    // After a password change the server already revoked it; that is fine.
+    if (notice == null) await beforeSignOut?.call();
     await ref.read(authRepositoryProvider).logout();
     state = AsyncData(SignedOut(notice: notice));
   }

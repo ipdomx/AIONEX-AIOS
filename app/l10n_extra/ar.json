@@ -22,5 +22,10 @@
   "changePhoto": "تغيير الصورة",
   "chatsTab": "المحادثات",
   "gb": "{value} جيجابايت",
-  "mb": "{value} ميجابايت"
+  "mb": "{value} ميجابايت",
+  "registerOnWebsite": "إنشاء الحساب على الويب بيتم من الموقع.",
+  "pushEnabled": "الإشعارات شغالة على هذا الهاتف.",
+  "pushDenied": "إشعارات AIONEX مقفولة من إعدادات الهاتف.",
+  "newNotification": "إشعار جديد",
+  "codeSentTo": "أرسلنا رمزًا إلى {phone}."
 }

@@ -20,6 +20,7 @@ Future<ProviderContainer> pumpApp(
   SharedPreferences.setMockInitialValues({'aionex.locale': locale});
   final preferences = await SharedPreferences.getInstance();
   final container = ProviderContainer(
+    retry: retryOnlyNetworkErrors,
     overrides: [
       sharedPreferencesProvider.overrideWithValue(preferences),
       sessionStoreProvider.overrideWithValue(store),

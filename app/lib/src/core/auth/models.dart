@@ -98,3 +98,74 @@ final class LoginNeedsMfa extends LoginOutcome {
   const LoginNeedsMfa(this.challenge);
   final MfaChallenge challenge;
 }
+
+/// GET /auth/free-tier/public: what free sign-up requires right now (owner-set).
+@immutable
+class RegistrationPolicy {
+  const RegistrationPolicy({
+    required this.enabled,
+    required this.consentVersion,
+    required this.minimumAge,
+    required this.phoneRequired,
+  });
+
+  final bool enabled;
+  final String consentVersion;
+  final int minimumAge;
+  final bool phoneRequired;
+
+  factory RegistrationPolicy.fromJson(Map<String, Object?> json) {
+    final identity = json['identity'];
+    final id = identity is Map ? identity : const <Object?, Object?>{};
+    final age = id['minimum_age'];
+    return RegistrationPolicy(
+      enabled: json['enabled'] == true,
+      consentVersion: (json['consent_version'] as String?) ?? '',
+      minimumAge: age is num ? age.toInt() : 18,
+      phoneRequired: id['phone_verification_required'] != false,
+    );
+  }
+}
+
+/// The free sign-up form (POST /auth/register/free).
+@immutable
+class RegistrationForm {
+  const RegistrationForm({
+    required this.username,
+    required this.name,
+    required this.email,
+    required this.password,
+    required this.birthDate,
+    required this.countryCode,
+    required this.phoneNumber,
+    required this.firebaseIdToken,
+    required this.consentVersion,
+    required this.telemetry,
+  });
+
+  final String username;
+  final String name;
+  final String email;
+  final String password;
+  final DateTime birthDate;
+  final String countryCode;
+  final String phoneNumber;
+  final String? firebaseIdToken;
+  final String consentVersion;
+  final Map<String, Object?> telemetry;
+
+  Map<String, Object?> toJson() => {
+        'username': username,
+        'name': name.trim(),
+        'email': email.trim(),
+        'password': password,
+        'birth_date': '${birthDate.year.toString().padLeft(4, '0')}-'
+            '${birthDate.month.toString().padLeft(2, '0')}-${birthDate.day.toString().padLeft(2, '0')}',
+        'country_code': countryCode.toUpperCase(),
+        'phone_number': phoneNumber,
+        'firebase_id_token': ?firebaseIdToken,
+        'consent_accepted': true,
+        'consent_version': consentVersion,
+        'telemetry': telemetry,
+      };
+}
