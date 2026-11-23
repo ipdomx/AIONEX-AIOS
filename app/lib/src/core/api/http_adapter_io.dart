@@ -15,8 +15,8 @@ HttpClientAdapter? createPlatformAdapter({List<int>? trustedRoots}) {
     createHttpClient: () {
       final context = SecurityContext(withTrustedRoots: false)..setTrustedCertificatesBytes(trustedRoots);
       return HttpClient(context: context)
-        ..badCertificateCallback = (certificate, host, port) => false
-        ..connectionTimeout = const Duration(seconds: 15);
+        ..connectionTimeout = const Duration(seconds: 15)
+        ..badCertificateCallback = ((certificate, host, port) => false);
     },
   );
 }
