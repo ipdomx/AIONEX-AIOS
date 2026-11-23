@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -146,6 +147,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       'screen_width': size.width.round(),
       'screen_height': size.height.round(),
       'user_agent': 'aionex-app/${ref.read(appConfigProvider).appVersion} (${defaultTargetPlatform.name})',
+      // Real-device signals the backend requires (_assert_real_device_signals):
+      // the app keeps its session (the web's "cookies"), is not driven by
+      // WebDriver, and reports the phone's processor count.
+      'cookie_enabled': true,
+      'webdriver': false,
+      'hardware_concurrency': kIsWeb ? 1 : Platform.numberOfProcessors,
+      'max_touch_points': 5,
     };
   }
 
