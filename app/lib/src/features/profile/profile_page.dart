@@ -100,9 +100,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Future<void> _pickAvatar() async {
     final l = AppLocalizations.of(context);
-    final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
+    final Uint8List bytes;
+    try {
+      final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
+      if (file == null) return;
+      bytes = await file.readAsBytes();
+    } on Object catch (error) {
+      debugPrint('profile photo could not be read: ${error.runtimeType}');
+      if (mounted) _showError(l.profile_avatarReadError);
+      return;
+    }
     final mime = avatarMime(bytes);
     if (!mounted) return;
     if (mime == null) {
