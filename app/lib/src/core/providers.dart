@@ -10,7 +10,7 @@ final appConfigProvider = Provider<AppConfig>((ref) => AppConfig.fromEnvironment
 
 final sessionStoreProvider = Provider<SessionStore>((ref) => createSessionStore());
 
-/// The root CAs the phone apps trust for the API (assets/security/api_roots.pem),
+/// The root CAs the phone apps trust for the API (assets/security/api_roots.crt),
 /// loaded in main(). Null on the web, where the browser checks certificates.
 final pinnedRootsProvider = Provider<List<int>?>((ref) => null);
 

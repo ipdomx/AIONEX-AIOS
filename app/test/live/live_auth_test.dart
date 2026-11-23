@@ -19,7 +19,7 @@ void main() {
   final email = Platform.environment['AIONEX_LIVE_EMAIL'];
   final password = Platform.environment['AIONEX_LIVE_PASSWORD'];
   final skip = email == null || password == null ? 'live account not configured' : null;
-  final roots = File('assets/security/api_roots.pem').readAsBytesSync();
+  final roots = File('assets/security/api_roots.crt').readAsBytesSync();
   final network = Platform.environment['AIONEX_LIVE_NETWORK'] == '1' || email != null;
   final config = AppConfig(
     apiBaseUrl: parseApiBase(Platform.environment['AIONEX_LIVE_API'] ?? 'https://api.vip-e.net/api/v1'),
@@ -77,7 +77,7 @@ void main() {
     }, skip: skipNetwork);
 
     test('a certificate from any other CA is refused before a byte is sent', () async {
-      final pem = File('assets/security/api_roots.pem').readAsStringSync();
+      final pem = File('assets/security/api_roots.crt').readAsStringSync();
       final isrgOnly = RegExp(r'# ISRG_Root_X1\n(-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----)')
           .firstMatch(pem)!
           .group(1)!;

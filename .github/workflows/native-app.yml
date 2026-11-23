@@ -48,11 +48,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Verify api.vip-e.net against app/assets/security/api_roots.pem only
+      - name: Verify api.vip-e.net against app/assets/security/api_roots.crt only
         run: |
           set -o pipefail
           echo | openssl s_client -connect api.vip-e.net:443 -servername api.vip-e.net \
-            -CAfile app/assets/security/api_roots.pem -no-CApath -no-CAstore -verify_return_error 2>&1 \
+            -CAfile app/assets/security/api_roots.crt -no-CApath -no-CAstore -verify_return_error 2>&1 \
             | grep -E "Verify return code: 0 \(ok\)"
 
   flutter:

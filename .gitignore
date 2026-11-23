@@ -312,5 +312,3 @@ kubeconfig.*
 
 # The Flutter app keeps its Dart sources in app/lib.
 !app/lib/
-# Public root CA certificates pinned by the app (no private keys).
-!app/assets/security/api_roots.pem

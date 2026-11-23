@@ -10,7 +10,7 @@ import 'src/core/providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final preferences = await SharedPreferences.getInstance();
-  final pinnedRoots = kIsWeb ? null : (await rootBundle.load('assets/security/api_roots.pem')).buffer.asUint8List();
+  final pinnedRoots = kIsWeb ? null : (await rootBundle.load('assets/security/api_roots.crt')).buffer.asUint8List();
   runApp(
     ProviderScope(
       overrides: [
