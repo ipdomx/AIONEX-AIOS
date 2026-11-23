@@ -846,11 +846,15 @@ async def _ensure_notification_deliveries(
     endpoints = list(
         (
             await session.scalars(
-                select(CommunicationEndpoint).where(
+                select(CommunicationEndpoint)
+                .where(
                     CommunicationEndpoint.user_id == recipient.id,
                     CommunicationEndpoint.status == "active",
                     CommunicationEndpoint.verified_at.is_not(None),
                 )
+                # Newest first: a reinstalled app registers a fresh push token
+                # while the old one stays behind and no longer works.
+                .order_by(CommunicationEndpoint.created_at.desc())
             )
         ).all()
     )
@@ -1199,8 +1203,16 @@ def _send_push(address: str, notification: NotificationMessageData) -> str:
         raise
     except Exception as exc:
         name = type(exc).__name__
+        # FCM answers these documented errors only after it handled the request,
+        # so the outcome is known: a dead or foreign token will never work, and a
+        # permission/quota problem is a definite "not sent". Anything else stays
+        # "uncertain" (the safe default).
         if name in {"UnregisteredError", "SenderIdMismatchError", "InvalidArgumentError"}:
-            raise PermanentDeliveryError(name) from exc
+            raise _DefiniteDeliveryRejection(f"push-{name}") from None
+        if name in {"PermissionDeniedError", "UnauthenticatedError", "ThirdPartyAuthError"}:
+            raise _DefiniteDeliveryRejection(f"push-{name}", retryable=True) from None
+        if name in {"QuotaExceededError", "UnavailableError"}:
+            raise _DefiniteDeliveryRejection(f"push-{name}", retryable=True) from None
         raise CommunicationError(name) from exc
 
 
