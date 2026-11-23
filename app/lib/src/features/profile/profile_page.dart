@@ -106,7 +106,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       if (file == null) return;
       bytes = await file.readAsBytes();
     } on Object catch (error) {
-      debugPrint('profile photo could not be read: ${error.runtimeType}');
+      debugPrint('profile photo could not be read: $error');
       if (mounted) _showError(l.profile_avatarReadError);
       return;
     }
