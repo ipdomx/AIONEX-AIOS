@@ -31,6 +31,16 @@ class PushController {
   PushStatus status = PushStatus.unavailable;
 
   Future<void> start() async {
+    try {
+      await _start();
+    } on Object catch (error) {
+      // Push is a convenience: the in-app inbox still has every notification.
+      debugPrint('push could not start: ${error.runtimeType}');
+      status = PushStatus.unavailable;
+    }
+  }
+
+  Future<void> _start() async {
     if (kIsWeb || !await ensureFirebase()) return;
     final messaging = FirebaseMessaging.instance;
     final settings = await messaging.requestPermission();
