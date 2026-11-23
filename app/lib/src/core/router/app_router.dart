@@ -19,17 +19,35 @@ import '../auth/session_controller.dart';
 import '../security/device_security.dart';
 
 /// Where a user may be, given the session. Pure, so it is unit-tested directly.
-String? redirectFor(AsyncValue<SessionState> session, String location) {
+///
+/// A deep link opened before the session is known (or while signed out) is kept
+/// in `?from=` and honoured once the user is signed in.
+String? redirectFor(AsyncValue<SessionState> session, Uri uri) {
+  final location = uri.path;
   // The emailed recovery link works whether or not someone is signed in.
   if (location == '/reset-password') return null;
   final onAuth = location == '/login' || location.startsWith('/login/');
+  final from = _safeFrom(uri.queryParameters['from']);
+  String withFrom(String target) {
+    if (location == '/splash' || onAuth || location == '/') return from == null ? target : '$target?from=${Uri.encodeComponent(from)}';
+    return '$target?from=${Uri.encodeComponent(uri.toString())}';
+  }
+
   if (session.isLoading && !session.hasValue || session.hasError) {
-    return location == '/splash' ? null : '/splash';
+    return location == '/splash' ? null : withFrom('/splash');
   }
   return switch (session.value) {
-    SignedIn() => onAuth || location == '/splash' ? '/' : null,
-    _ => onAuth ? null : '/login',
+    SignedIn() => onAuth || location == '/splash' ? (from ?? '/') : null,
+    _ => onAuth ? null : withFrom('/login'),
   };
+}
+
+/// Only in-app paths may be followed after sign-in (never another site).
+String? _safeFrom(String? value) {
+  if (value == null || !value.startsWith('/') || value.startsWith('//')) return null;
+  final path = Uri.tryParse(value)?.path ?? '';
+  if (path == '/splash' || path == '/login' || path.startsWith('/login/')) return null;
+  return value;
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -41,7 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: refresh,
     debugLogDiagnostics: kDebugMode,
-    redirect: (context, state) => redirectFor(ref.read(sessionProvider), state.matchedLocation),
+    redirect: (context, state) => redirectFor(ref.read(sessionProvider), state.uri),
     routes: [
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(

@@ -93,20 +93,33 @@ void main() {
     );
 
     test('waits on the splash screen while the session loads or fails', () {
-      expect(redirectFor(const AsyncLoading<SessionState>(), '/'), '/splash');
-      expect(redirectFor(AsyncError<SessionState>(Exception(), StackTrace.empty), '/profile'), '/splash');
-      expect(redirectFor(const AsyncLoading<SessionState>(), '/splash'), isNull);
+      expect(redirectFor(const AsyncLoading<SessionState>(), Uri.parse('/')), '/splash');
+      expect(redirectFor(AsyncError<SessionState>(Exception(), StackTrace.empty), Uri.parse('/profile')), '/splash?from=%2Fprofile');
+      expect(redirectFor(const AsyncLoading<SessionState>(), Uri.parse('/splash')), isNull);
     });
 
     test('keeps signed-out users on the sign-in pages', () {
-      expect(redirectFor(const AsyncData<SessionState>(SignedOut()), '/'), '/login');
-      expect(redirectFor(const AsyncData<SessionState>(SignedOut()), '/login/mfa'), isNull);
+      expect(redirectFor(const AsyncData<SessionState>(SignedOut()), Uri.parse('/')), '/login');
+      expect(redirectFor(const AsyncData<SessionState>(SignedOut()), Uri.parse('/login/mfa')), isNull);
+    });
+
+    test('a deep link survives the splash screen and sign-in', () {
+      expect(redirectFor(const AsyncLoading<SessionState>(), Uri.parse('/support/t1')), '/splash?from=%2Fsupport%2Ft1');
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/splash?from=%2Fsupport%2Ft1')), '/support/t1');
+      expect(redirectFor(const AsyncData<SessionState>(SignedOut()), Uri.parse('/splash?from=%2Fsupport%2Ft1')),
+          '/login?from=%2Fsupport%2Ft1');
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/login?from=%2Fsupport%2Ft1')), '/support/t1');
+    });
+
+    test('only in-app paths are followed after sign-in', () {
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/login?from=https%3A%2F%2Fevil.example')), '/');
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/login?from=%2F%2Fevil.example')), '/');
     });
 
     test('sends signed-in users into the workspace', () {
-      expect(redirectFor(const AsyncData<SessionState>(user), '/login'), '/');
-      expect(redirectFor(const AsyncData<SessionState>(user), '/splash'), '/');
-      expect(redirectFor(const AsyncData<SessionState>(user), '/profile'), isNull);
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/login')), '/');
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/splash')), '/');
+      expect(redirectFor(const AsyncData<SessionState>(user), Uri.parse('/profile')), isNull);
     });
   });
 
