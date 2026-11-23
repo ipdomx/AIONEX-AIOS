@@ -25,6 +25,16 @@ class HomeShell extends StatelessWidget {
             label: l.nav_dashboard,
           ),
           NavigationDestination(
+            icon: const Icon(Icons.folder_outlined),
+            selectedIcon: const Icon(Icons.folder),
+            label: l.nav_projects,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.forum_outlined),
+            selectedIcon: const Icon(Icons.forum),
+            label: l.app_chatsTab,
+          ),
+          NavigationDestination(
             icon: const Icon(Icons.person_outline),
             selectedIcon: const Icon(Icons.person),
             label: l.nav_profile,

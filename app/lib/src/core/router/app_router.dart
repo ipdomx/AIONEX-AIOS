@@ -6,10 +6,14 @@ import '../../features/auth/login_page.dart';
 import '../../features/auth/mfa_page.dart';
 import '../../features/auth/password_recovery_pages.dart';
 import '../../features/auth/splash_page.dart';
+import '../../features/conversations/conversation_page.dart';
+import '../../features/conversations/conversations_page.dart';
 import '../../features/home/dashboard_page.dart';
 import '../../features/home/home_shell.dart';
 import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
+import '../../features/projects/projects_page.dart';
+import '../../features/support/support_pages.dart';
 import '../auth/models.dart';
 import '../auth/session_controller.dart';
 import '../security/device_security.dart';
@@ -60,7 +64,44 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => HomeShell(navigationShell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: '/', builder: (context, state) => const DashboardPage())]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const DashboardPage(),
+                routes: [
+                  GoRoute(
+                    path: 'support',
+                    builder: (context, state) => const SupportPage(),
+                    routes: [
+                      GoRoute(
+                        path: ':ticketId',
+                        builder: (context, state) => SupportTicketPage(ticketId: state.pathParameters['ticketId']!),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/projects', builder: (context, state) => const ProjectsPage())],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/conversations',
+                builder: (context, state) => ConversationsPage(projectId: state.uri.queryParameters['project']),
+                routes: [
+                  GoRoute(
+                    path: ':conversationId',
+                    builder: (context, state) =>
+                        ConversationPage(conversationId: state.pathParameters['conversationId']!),
+                  ),
+                ],
+              ),
+            ],
+          ),
           StatefulShellBranch(
             routes: [
               GoRoute(

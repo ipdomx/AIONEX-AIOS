@@ -19,5 +19,8 @@
   "copied": "Copié",
   "setupKey": "Clé de configuration",
   "scanOrOpen": "Scannez le code avec votre application d’authentification ou ouvrez-le directement sur ce téléphone, puis saisissez le code à 6 chiffres.",
-  "changePhoto": "Changer la photo"
+  "changePhoto": "Changer la photo",
+  "chatsTab": "Discussions",
+  "gb": "{value} Go",
+  "mb": "{value} Mo"
 }

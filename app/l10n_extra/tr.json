@@ -19,5 +19,8 @@
   "copied": "Kopyalandı",
   "setupKey": "Kurulum anahtarı",
   "scanOrOpen": "Kodu doğrulama uygulamanızla tarayın veya doğrudan bu telefonda açın, ardından 6 haneli kodu girin.",
-  "changePhoto": "Fotoğrafı değiştir"
+  "changePhoto": "Fotoğrafı değiştir",
+  "chatsTab": "Sohbetler",
+  "gb": "{value} GB",
+  "mb": "{value} MB"
 }
