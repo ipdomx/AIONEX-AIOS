@@ -93,6 +93,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
+  void _showError(String message) => setState(() {
+        _message = message;
+        _tone = NoticeTone.error;
+      });
+
   Future<void> _pickAvatar() async {
     final l = AppLocalizations.of(context);
     final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
@@ -101,11 +106,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final mime = avatarMime(bytes);
     if (!mounted) return;
     if (mime == null) {
-      setState(() => (_message, _tone) = (l.profile_avatarTypeError, NoticeTone.error));
+      _showError(l.profile_avatarTypeError);
       return;
     }
     if (bytes.length > _maxAvatarBytes) {
-      setState(() => (_message, _tone) = (l.profile_avatarSizeError, NoticeTone.error));
+      _showError(l.profile_avatarSizeError);
       return;
     }
     await _save(avatar: 'data:$mime;base64,${base64Encode(bytes)}');
