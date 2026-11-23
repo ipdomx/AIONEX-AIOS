@@ -94,15 +94,19 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         _stage = token == null ? _PhoneStage.code : _PhoneStage.verified;
       });
     } on StateError {
-      if (mounted) setState(() {
-        _stage = _PhoneStage.idle;
-        _phoneError = l.register_phoneUnavailable;
-      });
+      if (mounted) {
+        setState(() {
+          _stage = _PhoneStage.idle;
+          _phoneError = l.register_phoneUnavailable;
+        });
+      }
     } on Object {
-      if (mounted) setState(() {
-        _stage = _PhoneStage.idle;
-        _phoneError = l.register_phoneSendError;
-      });
+      if (mounted) {
+        setState(() {
+          _stage = _PhoneStage.idle;
+          _phoneError = l.register_phoneSendError;
+        });
+      }
     }
   }
 
@@ -115,15 +119,19 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     });
     try {
       final token = await ref.read(phoneVerifierProvider).confirmCode(_code.text);
-      if (mounted) setState(() {
-        _idToken = token;
-        _stage = _PhoneStage.verified;
-      });
+      if (mounted) {
+        setState(() {
+          _idToken = token;
+          _stage = _PhoneStage.verified;
+        });
+      }
     } on Object {
-      if (mounted) setState(() {
-        _stage = _PhoneStage.code;
-        _phoneError = l.register_phoneConfirmError;
-      });
+      if (mounted) {
+        setState(() {
+          _stage = _PhoneStage.code;
+          _phoneError = l.register_phoneConfirmError;
+        });
+      }
     }
   }
 

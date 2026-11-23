@@ -38,13 +38,13 @@ class PushController {
       status = PushStatus.denied;
       return;
     }
-    final token = await messaging.getToken();
-    if (token != null) await _register(token);
     _cancel();
+    // onRegistered delivers the device token now and again whenever it rotates.
     _subscriptions
-      ..add(messaging.onTokenRefresh.listen(_register))
+      ..add(messaging.onRegistered.listen((token) => unawaited(_register(token))))
       ..add(FirebaseMessaging.onMessage.listen(_showInApp))
       ..add(FirebaseMessaging.onMessageOpenedApp.listen((_) => _openInbox()));
+    await messaging.register();
     final initial = await messaging.getInitialMessage();
     if (initial != null) _openInbox();
     status = PushStatus.enabled;
@@ -96,7 +96,7 @@ class PushController {
     await prefs.remove(_tokenKey);
     if (!kIsWeb && status == PushStatus.enabled) {
       try {
-        await FirebaseMessaging.instance.deleteToken();
+        await FirebaseMessaging.instance.unregister();
       } on Object {
         // Nothing else to clean up.
       }
