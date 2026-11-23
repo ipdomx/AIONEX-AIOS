@@ -114,10 +114,14 @@ class PushController {
 
 final pushControllerProvider = Provider<PushController>((ref) {
   final controller = PushController(ref);
+  SessionController.beforeSignOut = controller.stop;
   ref.listen(sessionProvider, (previous, next) {
     final was = previous?.value is SignedIn;
     if (next.value is SignedIn && !was) unawaited(controller.start());
   }, fireImmediately: true);
-  ref.onDispose(controller._cancel);
+  ref.onDispose(() {
+    controller._cancel();
+    if (SessionController.beforeSignOut == controller.stop) SessionController.beforeSignOut = null;
+  });
   return controller;
 });

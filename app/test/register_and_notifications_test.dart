@@ -48,6 +48,7 @@ Future<ProviderContainer> pumpApp(
   final preferences = await SharedPreferences.getInstance();
   final sessionStore = store ?? MemorySessionStore();
   final container = ProviderContainer(
+    retry: retryOnlyNetworkErrors,
     overrides: [
       sharedPreferencesProvider.overrideWithValue(preferences),
       sessionStoreProvider.overrideWithValue(sessionStore),
@@ -90,7 +91,8 @@ void main() {
             registered = body(request);
             return jsonBody(201, grantJson());
           }(),
-        _ => jsonBody(401, {'detail': 'no session'}),
+        '/api/v1/auth/refresh' || '/api/v1/auth/me' => jsonBody(401, {'detail': 'no session'}),
+        _ => jsonBody(404, {'detail': 'not found'}),
       },
       store: store,
       verifier: verifier,

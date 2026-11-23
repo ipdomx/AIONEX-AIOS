@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
-import '../push/push_controller.dart';
 import 'models.dart';
 
 sealed class SessionState {
@@ -28,6 +27,10 @@ final class SignedIn extends SessionState {
 final sessionProvider = AsyncNotifierProvider<SessionController, SessionState>(SessionController.new);
 
 class SessionController extends AsyncNotifier<SessionState> {
+  /// Set by the push controller (kept as a hook so the two providers do not
+  /// depend on each other).
+  static Future<void> Function()? beforeSignOut;
+
   @override
   Future<SessionState> build() async {
     ref.watch(apiClientProvider).onSessionLost = () {
@@ -62,7 +65,7 @@ class SessionController extends AsyncNotifier<SessionState> {
   Future<void> signOut({SignOutNotice? notice}) async {
     // Remove this phone's push endpoint while the session can still do it.
     // After a password change the server already revoked it; that is fine.
-    if (notice == null) await ref.read(pushControllerProvider).stop();
+    if (notice == null) await beforeSignOut?.call();
     await ref.read(authRepositoryProvider).logout();
     state = AsyncData(SignedOut(notice: notice));
   }
