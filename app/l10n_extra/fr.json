@@ -13,5 +13,11 @@
     "fr": "Français",
     "tr": "Türkçe"
   },
-  "deviceCompromised": "Cet appareil semble modifié (root, jailbreak ou outils d’injection). Votre compte reste protégé par le serveur, mais les paiements sont désactivés sur cet appareil."
+  "deviceCompromised": "Cet appareil semble modifié (root, jailbreak ou outils d’injection). Votre compte reste protégé par le serveur, mais les paiements sont désactivés sur cet appareil.",
+  "openAuthenticator": "Ouvrir dans l’application d’authentification",
+  "copy": "Copier",
+  "copied": "Copié",
+  "setupKey": "Clé de configuration",
+  "scanOrOpen": "Scannez le code avec votre application d’authentification ou ouvrez-le directement sur ce téléphone, puis saisissez le code à 6 chiffres.",
+  "changePhoto": "Changer la photo"
 }

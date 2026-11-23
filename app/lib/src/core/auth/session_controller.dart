@@ -7,11 +7,16 @@ sealed class SessionState {
   const SessionState();
 }
 
+/// Why the user is looking at the sign-in screen, when it is worth saying.
+enum SignOutNotice { expired, passwordChanged, mfaDisabled }
+
 final class SignedOut extends SessionState {
-  const SignedOut({this.expired = false});
+  const SignedOut({this.notice});
+
+  final SignOutNotice? notice;
 
   /// True when the server ended the session (show "sign in again").
-  final bool expired;
+  bool get expired => notice == SignOutNotice.expired;
 }
 
 final class SignedIn extends SessionState {
@@ -25,7 +30,7 @@ class SessionController extends AsyncNotifier<SessionState> {
   @override
   Future<SessionState> build() async {
     ref.watch(apiClientProvider).onSessionLost = () {
-      state = const AsyncData(SignedOut(expired: true));
+      state = const AsyncData(SignedOut(notice: SignOutNotice.expired));
     };
     final user = await ref.read(authRepositoryProvider).restore();
     return user == null ? const SignedOut() : SignedIn(user);
@@ -48,9 +53,9 @@ class SessionController extends AsyncNotifier<SessionState> {
     state = AsyncData(SignedIn(user));
   }
 
-  Future<void> signOut() async {
+  Future<void> signOut({SignOutNotice? notice}) async {
     await ref.read(authRepositoryProvider).logout();
-    state = const AsyncData(SignedOut());
+    state = AsyncData(SignedOut(notice: notice));
   }
 
   void retry() => ref.invalidateSelf();

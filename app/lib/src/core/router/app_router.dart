@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/login_page.dart';
 import '../../features/auth/mfa_page.dart';
+import '../../features/auth/password_recovery_pages.dart';
 import '../../features/auth/splash_page.dart';
 import '../../features/home/dashboard_page.dart';
 import '../../features/home/home_shell.dart';
+import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../auth/models.dart';
 import '../auth/session_controller.dart';
@@ -14,6 +16,8 @@ import '../security/device_security.dart';
 
 /// Where a user may be, given the session. Pure, so it is unit-tested directly.
 String? redirectFor(AsyncValue<SessionState> session, String location) {
+  // The emailed recovery link works whether or not someone is signed in.
+  if (location == '/reset-password') return null;
   final onAuth = location == '/login' || location.startsWith('/login/');
   if (session.isLoading && !session.hasValue || session.hasError) {
     return location == '/splash' ? null : '/splash';
@@ -40,6 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (context, state) => const SecureScreen(child: LoginPage()),
         routes: [
+          GoRoute(path: 'forgot', builder: (context, state) => const ForgotPasswordPage()),
           GoRoute(
             path: 'mfa',
             redirect: (context, state) => state.extra is MfaChallenge ? null : '/login',
@@ -47,12 +52,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) =>
+            SecureScreen(child: ResetPasswordPage(token: state.uri.queryParameters['token'] ?? '')),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => HomeShell(navigationShell: shell),
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: '/', builder: (context, state) => const DashboardPage())]),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/profile', builder: (context, state) => const ProfilePage())],
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfilePage(),
+                routes: [
+                  GoRoute(
+                    path: 'security',
+                    builder: (context, state) => const SecureScreen(child: AccountSecurityPage()),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),

@@ -13,5 +13,11 @@
     "fr": "Français",
     "tr": "Türkçe"
   },
-  "deviceCompromised": "Dieses Gerät scheint verändert zu sein (Root, Jailbreak oder Hooking-Tools). Dein Konto bleibt durch den Server geschützt, aber Zahlungen sind auf diesem Gerät deaktiviert."
+  "deviceCompromised": "Dieses Gerät scheint verändert zu sein (Root, Jailbreak oder Hooking-Tools). Dein Konto bleibt durch den Server geschützt, aber Zahlungen sind auf diesem Gerät deaktiviert.",
+  "openAuthenticator": "In Authenticator-App öffnen",
+  "copy": "Kopieren",
+  "copied": "Kopiert",
+  "setupKey": "Einrichtungsschlüssel",
+  "scanOrOpen": "Scanne den Code mit deiner Authenticator-App oder öffne ihn direkt auf diesem Telefon und gib dann den 6-stelligen Code ein.",
+  "changePhoto": "Foto ändern"
 }

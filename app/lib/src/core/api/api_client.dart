@@ -80,6 +80,20 @@ class ApiClient {
     );
   }
 
+  Future<Map<String, Object?>> patchJson(String path, {required Object body}) {
+    return _json(_Call(path, 'PATCH', data: body, contentType: Headers.jsonContentType), auth: true);
+  }
+
+  Future<Map<String, Object?>> deleteJson(String path) => _json(_Call(path, 'DELETE'), auth: true);
+
+  /// For endpoints that answer with a JSON array.
+  Future<List<Object?>> getList(String path, {Map<String, Object?>? query}) async {
+    final response = await _send(_Call(path, 'GET', query: query), auth: true, retry: true);
+    final data = response.data;
+    if (data is List) return data.cast<Object?>();
+    throw ApiException(failure: ApiFailure.unknown, message: 'Expected a list', statusCode: response.statusCode);
+  }
+
   Future<Map<String, Object?>> _json(
     _Call call, {
     required bool auth,

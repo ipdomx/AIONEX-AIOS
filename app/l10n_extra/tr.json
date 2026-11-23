@@ -13,5 +13,11 @@
     "fr": "Français",
     "tr": "Türkçe"
   },
-  "deviceCompromised": "Bu cihaz değiştirilmiş görünüyor (root, jailbreak veya müdahale araçları). Hesabınız sunucu tarafından korunmaya devam eder, ancak bu cihazda ödemeler kapalıdır."
+  "deviceCompromised": "Bu cihaz değiştirilmiş görünüyor (root, jailbreak veya müdahale araçları). Hesabınız sunucu tarafından korunmaya devam eder, ancak bu cihazda ödemeler kapalıdır.",
+  "openAuthenticator": "Doğrulama uygulamasında aç",
+  "copy": "Kopyala",
+  "copied": "Kopyalandı",
+  "setupKey": "Kurulum anahtarı",
+  "scanOrOpen": "Kodu doğrulama uygulamanızla tarayın veya doğrudan bu telefonda açın, ardından 6 haneli kodu girin.",
+  "changePhoto": "Fotoğrafı değiştir"
 }
