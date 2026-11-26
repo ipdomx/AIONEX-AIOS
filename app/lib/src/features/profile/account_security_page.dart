@@ -7,10 +7,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../core/api/api_exception.dart';
 import '../../core/auth/session_controller.dart';
 import '../../widgets/notice.dart';
 import '../account/account_repository.dart';
 import '../auth/password_recovery_pages.dart';
+import '../billing/billing_page.dart' show billingSummaryProvider;
 
 /// Password, two-factor authentication and sessions (same rules as the website's
 /// AccountSecurityManager). Shown inside SecureScreen: setup keys and recovery
@@ -54,6 +56,8 @@ class AccountSecurityPage extends ConsumerWidget {
             _PasswordSection(account: account),
             const SizedBox(height: 20),
             const _SessionsSection(),
+            const SizedBox(height: 20),
+            _DeleteSection(account: account),
           ],
         ),
       ),
@@ -433,6 +437,106 @@ class _SessionsSection extends ConsumerWidget {
               ],
             );
           },
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Permanent account deletion, asked again for the password (and MFA code).
+class _DeleteSection extends ConsumerStatefulWidget {
+  const _DeleteSection({required this.account});
+  final AccountSettings account;
+
+  @override
+  ConsumerState<_DeleteSection> createState() => _DeleteSectionState();
+}
+
+class _DeleteSectionState extends ConsumerState<_DeleteSection> {
+  final _password = TextEditingController();
+  final _code = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _code.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    final l = AppLocalizations.of(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(accountRepositoryProvider).deleteAccount(password: _password.text, mfaCode: _code.text);
+      await ref.read(sessionProvider.notifier).signOut(notice: SignOutNotice.accountDeleted);
+    } on Object catch (error) {
+      final owner = error is ApiException && error.code == 'ACCOUNT_OWNER_HAS_MEMBERS';
+      if (mounted) setState(() => _error = owner ? l.app_deleteAccountOwnerHasMembers : describeAccountError(l, error, l.profile_securityLoadError));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final store = ref.watch(billingSummaryProvider).value?.subscription?.fromStore ?? false;
+    final ready = _password.text.isNotEmpty && _confirm.text.trim() == 'DELETE' && (!widget.account.mfaEnabled || _code.text.trim().isNotEmpty);
+    return _Section(
+      title: l.app_deleteAccountTitle,
+      children: [
+        Text(l.app_deleteAccountBody, style: theme.textTheme.bodySmall),
+        if (store) ...[
+          const SizedBox(height: 8),
+          Notice(key: const Key('delete-store-warning'), text: l.app_deleteAccountStoreWarning, tone: NoticeTone.error),
+        ],
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('delete-password'),
+          controller: _password,
+          enabled: !_busy,
+          obscureText: true,
+          autofillHints: const [AutofillHints.password],
+          decoration: InputDecoration(labelText: l.profile_currentPassword),
+          onChanged: (_) => setState(() {}),
+        ),
+        if (widget.account.mfaEnabled)
+          TextField(
+            key: const Key('delete-mfa'),
+            controller: _code,
+            enabled: !_busy,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: l.app_deleteAccountMfaCode),
+            onChanged: (_) => setState(() {}),
+          ),
+        TextField(
+          key: const Key('delete-confirm'),
+          controller: _confirm,
+          enabled: !_busy,
+          autocorrect: false,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(labelText: l.app_deleteAccountTypeConfirm),
+          onChanged: (_) => setState(() {}),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Notice(key: const Key('delete-error'), text: _error!, tone: NoticeTone.error),
+        ],
+        const SizedBox(height: 12),
+        FilledButton(
+          key: const Key('delete-account'),
+          style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error),
+          onPressed: _busy || !ready ? null : _delete,
+          child: Text(l.app_deleteAccountButton),
         ),
       ],
     );

@@ -36,5 +36,13 @@
   "socialConnectOnWebsite": "Les nouveaux comptes se connectent sur le site avec la connexion officielle Meta. Revenez ensuite et actualisez.",
   "socialOpenWebsite": "Ouvrir le site",
   "ads": "Publicités",
-  "adsOnWebsite": "La liaison des comptes publicitaires et la création de campagnes se font sur le site. Ici, vous suivez les performances et mettez en pause ou activez vos campagnes."
+  "adsOnWebsite": "La liaison des comptes publicitaires et la création de campagnes se font sur le site. Ici, vous suivez les performances et mettez en pause ou activez vos campagnes.",
+  "deleteAccountTitle": "Supprimer le compte",
+  "deleteAccountBody": "Cela supprime définitivement votre compte : vos données personnelles sont effacées, tous les appareils sont déconnectés et, si vous êtes le seul membre de votre organisation, ses projets et l'organisation sont fermés. Un abonnement web est annulé immédiatement. Cette action est irréversible.",
+  "deleteAccountStoreWarning": "Vous avez un abonnement via la boutique d'applications. Supprimer le compte ne l'annule pas : annulez-le vous-même dans les réglages de la boutique pour ne plus être débité.",
+  "deleteAccountTypeConfirm": "Tapez DELETE pour confirmer",
+  "deleteAccountButton": "Supprimer définitivement mon compte",
+  "accountDeleted": "Votre compte a été supprimé. Merci d'avoir utilisé AIONEX.",
+  "deleteAccountOwnerHasMembers": "Vous êtes propriétaire d'une organisation avec d'autres membres. Transférez la propriété ou retirez d'abord les membres.",
+  "deleteAccountMfaCode": "Code de vérification en deux étapes"
 }

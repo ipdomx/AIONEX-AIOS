@@ -36,5 +36,13 @@
   "socialConnectOnWebsite": "Neue Konten werden auf der Website mit dem offiziellen Meta-Login verbunden. Danach hier aktualisieren.",
   "socialOpenWebsite": "Website öffnen",
   "ads": "Anzeigen",
-  "adsOnWebsite": "Werbekonten verknüpfen und Kampagnen erstellen erfolgt auf der Website. Hier verfolgen Sie die Leistung und pausieren oder aktivieren Kampagnen."
+  "adsOnWebsite": "Werbekonten verknüpfen und Kampagnen erstellen erfolgt auf der Website. Hier verfolgen Sie die Leistung und pausieren oder aktivieren Kampagnen.",
+  "deleteAccountTitle": "Konto löschen",
+  "deleteAccountBody": "Damit wird Ihr Konto dauerhaft gelöscht: Ihre persönlichen Daten werden entfernt, alle Geräte abgemeldet, und wenn Sie das einzige Mitglied Ihrer Organisation sind, werden deren Projekte und die Organisation geschlossen. Ein Web-Abonnement wird sofort gekündigt. Dies kann nicht rückgängig gemacht werden.",
+  "deleteAccountStoreWarning": "Sie haben ein App-Store-Abonnement. Das Löschen des Kontos kündigt es nicht: Kündigen Sie es selbst in den Store-Einstellungen, damit Sie nicht erneut belastet werden.",
+  "deleteAccountTypeConfirm": "Zur Bestätigung DELETE eingeben",
+  "deleteAccountButton": "Mein Konto dauerhaft löschen",
+  "accountDeleted": "Ihr Konto wurde gelöscht. Danke, dass Sie AIONEX genutzt haben.",
+  "deleteAccountOwnerHasMembers": "Sie besitzen eine Organisation mit weiteren Mitgliedern. Übertragen Sie zuerst die Inhaberschaft oder entfernen Sie die Mitglieder.",
+  "deleteAccountMfaCode": "Code der Zwei-Schritt-Verifizierung"
 }

@@ -124,6 +124,16 @@ class AccountRepository {
     await _api.postJson('/auth/mfa/disable', body: {'current_password': currentPassword, 'code': code.trim()});
   }
 
+  /// Permanent deletion (App Store / Google Play rule). Returns whether a store subscription is still running.
+  Future<bool> deleteAccount({required String password, String? mfaCode}) async {
+    final json = await _api.postJson(
+      '/settings/account/delete',
+      body: {'current_password': password, 'mfa_code': (mfaCode?.trim().isEmpty ?? true) ? null : mfaCode!.trim(), 'confirm': 'DELETE'},
+      retry: false,
+    );
+    return json['store_subscription_active'] == true;
+  }
+
   Future<List<AccountSession>> sessions() async {
     final rows = await _api.getList('/settings/sessions');
     return [

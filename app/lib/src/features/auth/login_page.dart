@@ -63,6 +63,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       SignedOut(notice: SignOutNotice.expired) => l.app_sessionExpired,
       SignedOut(notice: SignOutNotice.passwordChanged) => l.passwordRecovery_resetSuccess,
       SignedOut(notice: SignOutNotice.mfaDisabled) => l.profile_mfaDisabled,
+      SignedOut(notice: SignOutNotice.accountDeleted) => l.app_accountDeleted,
       _ => null,
     };
     return Scaffold(

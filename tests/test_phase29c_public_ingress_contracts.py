@@ -13,7 +13,7 @@ def test_public_identity_recovery_and_mfa_routes_reach_backend() -> None:
 
 def test_public_account_session_management_is_allowlisted() -> None:
     assert (
-        "settings(?:/(?:password|sessions(?:/[0-9a-f]{8}-[0-9a-f]{4}-"
+        "settings(?:/(?:password|account/delete|sessions(?:/[0-9a-f]{8}-[0-9a-f]{4}-"
         "[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?))?"
         in NGINX
     )

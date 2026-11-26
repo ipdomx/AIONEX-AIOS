@@ -8,7 +8,7 @@ sealed class SessionState {
 }
 
 /// Why the user is looking at the sign-in screen, when it is worth saying.
-enum SignOutNotice { expired, passwordChanged, mfaDisabled }
+enum SignOutNotice { expired, passwordChanged, mfaDisabled, accountDeleted }
 
 final class SignedOut extends SessionState {
   const SignedOut({this.notice});

@@ -12,6 +12,7 @@ from app.core.auth import UserRecord, current_user, hash_password, verify_passwo
 from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import OwnerControlRecord, PasskeyCredential, RefreshSession, User, uuid_str
+from app.services import account_deletion
 from app.services.account_security import mfa_status
 from app.services.free_tier import (
     FREE_USER_ROLE_NAME,
@@ -325,3 +326,21 @@ async def revoke_sessions(
         item.revoked_at = now
     await session.commit()
     return {"revoked": len(sessions)}
+
+
+class AccountDeletion(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    mfa_code: str | None = Field(default=None, max_length=32)
+    confirm: Literal["DELETE"]
+
+
+@router.post("/account/delete")
+async def delete_account(
+    data: AccountDeletion,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Delete the signed-in account (required in-app by the App Store and Google Play)."""
+    return await account_deletion.delete_own_account(
+        session, actor, password=data.current_password, mfa_code=data.mfa_code
+    )
