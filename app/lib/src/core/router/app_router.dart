@@ -18,6 +18,7 @@ import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/projects/projects_page.dart';
 import '../../features/realtime/realtime_page.dart';
+import '../../features/security_lab/security_lab_page.dart';
 import '../../features/social/social_inbox.dart';
 import '../../features/social/social_page.dart';
 import '../../features/studio/studio_page.dart';
@@ -103,6 +104,19 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(path: 'academy', builder: (context, state) => const AcademyPage()),
                   GoRoute(path: 'ads', builder: (context, state) => const AdsPage()),
                   GoRoute(path: 'realtime', builder: (context, state) => const RealtimePage()),
+                  GoRoute(
+                    path: 'security-lab',
+                    builder: (context, state) => const SecurityLabPage(),
+                    routes: [
+                      GoRoute(
+                        path: 'scans/:scanId',
+                        builder: (context, state) => SecurityScanPage(
+                          scanId: state.pathParameters['scanId']!,
+                          origin: state.uri.queryParameters['origin'] ?? '',
+                        ),
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'social',
                     builder: (context, state) => const SocialPage(),
