@@ -36,5 +36,13 @@
   "socialConnectOnWebsite": "Yeni hesaplar web sitesinde Meta'nın resmi girişiyle bağlanır. Ardından buraya dönüp yenileyin.",
   "socialOpenWebsite": "Web sitesini aç",
   "ads": "Reklamlar",
-  "adsOnWebsite": "Reklam hesaplarını bağlama ve kampanya oluşturma web sitesinde yapılır. Burada performansı izler, kampanyalarınızı duraklatır veya etkinleştirirsiniz."
+  "adsOnWebsite": "Reklam hesaplarını bağlama ve kampanya oluşturma web sitesinde yapılır. Burada performansı izler, kampanyalarınızı duraklatır veya etkinleştirirsiniz.",
+  "deleteAccountTitle": "Hesabı sil",
+  "deleteAccountBody": "Bu işlem hesabınızı kalıcı olarak siler: kişisel bilgileriniz kaldırılır, tüm cihazlarda oturum kapatılır ve kuruluşunuzun tek üyesiyseniz projeleri ve kuruluş kapatılır. Web aboneliği hemen iptal edilir. Bu işlem geri alınamaz.",
+  "deleteAccountStoreWarning": "Uygulama mağazası aboneliğiniz var. Hesabı silmek onu iptal etmez: tekrar ücret alınmaması için mağaza ayarlarından kendiniz iptal edin.",
+  "deleteAccountTypeConfirm": "Onaylamak için DELETE yazın",
+  "deleteAccountButton": "Hesabımı kalıcı olarak sil",
+  "accountDeleted": "Hesabınız silindi. AIONEX'i kullandığınız için teşekkürler.",
+  "deleteAccountOwnerHasMembers": "Başka üyeleri olan bir kuruluşun sahibisiniz. Önce sahipliği devredin veya üyeleri çıkarın.",
+  "deleteAccountMfaCode": "İki adımlı doğrulama kodu"
 }

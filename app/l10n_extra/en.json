@@ -36,5 +36,13 @@
   "socialConnectOnWebsite": "New accounts are connected on the website with Meta's official login. Come back and refresh afterwards.",
   "socialOpenWebsite": "Open the website",
   "ads": "Ads",
-  "adsOnWebsite": "Linking ad accounts and creating campaigns happen on the website. Here you follow performance and pause or activate your campaigns."
+  "adsOnWebsite": "Linking ad accounts and creating campaigns happen on the website. Here you follow performance and pause or activate your campaigns.",
+  "deleteAccountTitle": "Delete account",
+  "deleteAccountBody": "This permanently deletes your account: your personal details are removed, every device is signed out, and if you are the only member of your organization its projects and the organization are closed. A web subscription is cancelled at once. This cannot be undone.",
+  "deleteAccountStoreWarning": "You have an app store subscription. Deleting the account does not cancel it: cancel it yourself in the store settings so you are not charged again.",
+  "deleteAccountTypeConfirm": "Type DELETE to confirm",
+  "deleteAccountButton": "Delete my account permanently",
+  "accountDeleted": "Your account was deleted. Thank you for using AIONEX.",
+  "deleteAccountOwnerHasMembers": "You own an organization with other members. Transfer ownership or remove the members first.",
+  "deleteAccountMfaCode": "Two-step verification code"
 }
