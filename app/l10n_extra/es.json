@@ -31,5 +31,8 @@
   "academy": "Academia",
   "threeDLinks": "Obtener enlaces de descarga",
   "realtime": "Salas en vivo",
-  "realtimePlanTitle": "Las salas en vivo requieren un plan de pago"
+  "realtimePlanTitle": "Las salas en vivo requieren un plan de pago",
+  "social": "Redes sociales",
+  "socialConnectOnWebsite": "Las cuentas nuevas se conectan en el sitio web con el inicio de sesión oficial de Meta. Luego vuelve y actualiza.",
+  "socialOpenWebsite": "Abrir el sitio web"
 }

@@ -31,5 +31,8 @@
   "academy": "Akademi",
   "threeDLinks": "İndirme bağlantılarını al",
   "realtime": "Canlı odalar",
-  "realtimePlanTitle": "Canlı odalar ücretli bir plan gerektirir"
+  "realtimePlanTitle": "Canlı odalar ücretli bir plan gerektirir",
+  "social": "Sosyal medya",
+  "socialConnectOnWebsite": "Yeni hesaplar web sitesinde Meta'nın resmi girişiyle bağlanır. Ardından buraya dönüp yenileyin.",
+  "socialOpenWebsite": "Web sitesini aç"
 }
