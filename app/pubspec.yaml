@@ -27,7 +27,9 @@ dependencies:
   go_router: ^18.1.4
   image_picker: ^1.2.4
   intl: ^0.20.2
+  path_provider: ^2.1.6
   qr_flutter: ^4.1.0
+  share_plus: ^13.3.1
   shared_preferences: ^2.5.6
   url_launcher: ^6.3.3
 
