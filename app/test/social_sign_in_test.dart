@@ -4,7 +4,6 @@ import 'package:aionex/src/app.dart';
 import 'package:aionex/src/core/auth/session_store.dart';
 import 'package:aionex/src/core/firebase/firebase_setup.dart';
 import 'package:aionex/src/core/providers.dart';
-import 'package:aionex/src/core/router/app_router.dart';
 import 'package:aionex/src/core/security/device_security.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -88,7 +87,8 @@ void main() {
             exchanged = body(request);
             return jsonBody(200, grantJson());
           }(),
-        _ => jsonBody(401, {'detail': 'no session'}),
+        '/api/v1/auth/refresh' || '/api/v1/auth/me' => jsonBody(401, {'detail': 'no session'}),
+        _ => jsonBody(404, {'detail': 'not found'}),
       },
       signer: signer,
       store: store,
@@ -112,7 +112,8 @@ void main() {
         '/api/v1/auth/firebase/social/public' => jsonBody(200, socialConfig),
         '/api/v1/auth/firebase/social/session' =>
           jsonBody(200, {'mfa_required': true, 'challenge_token': 'c' * 40, 'expires_in': 300}),
-        _ => jsonBody(401, {'detail': 'no session'}),
+        '/api/v1/auth/refresh' || '/api/v1/auth/me' => jsonBody(401, {'detail': 'no session'}),
+        _ => jsonBody(404, {'detail': 'not found'}),
       },
       signer: FakeSocialSigner(),
       store: store,
@@ -147,7 +148,8 @@ void main() {
             registered = body(request);
             return jsonBody(201, grantJson());
           }(),
-        _ => jsonBody(401, {'detail': 'no session'}),
+        '/api/v1/auth/refresh' || '/api/v1/auth/me' => jsonBody(401, {'detail': 'no session'}),
+        _ => jsonBody(404, {'detail': 'not found'}),
       },
       signer: FakeSocialSigner(),
     );
