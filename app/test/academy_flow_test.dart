@@ -157,9 +157,14 @@ void main() {
         _ => jsonBody(404, {'detail': 'not found'}),
       };
     });
-    await start(tester, adapter);
+    final container = await start(tester, adapter);
     expect(find.text('Academy requires an eligible paid plan'), findsOneWidget);
     expect(find.byKey(const Key('new-course')), findsNothing);
     expect(adapter.paths.where((p) => p.contains('/academy')), isEmpty);
+    // No notifications:read on the free plan: no bell and no 403 call.
+    container.read(routerProvider).go('/');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('open-notifications')), findsNothing);
+    expect(adapter.paths.where((p) => p.contains('/notifications')), isEmpty);
   });
 }

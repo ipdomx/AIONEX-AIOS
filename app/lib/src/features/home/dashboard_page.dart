@@ -50,7 +50,8 @@ class DashboardPage extends ConsumerWidget {
           ],
         ),
         actions: [
-          IconButton(
+          if (ref.watch(canReadNotificationsProvider))
+            IconButton(
             key: const Key('open-notifications'),
             tooltip: l.nav_notifications,
             onPressed: () => context.go('/notifications'),
