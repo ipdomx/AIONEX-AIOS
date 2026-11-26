@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:aionex/src/app.dart';
@@ -17,7 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fake_api.dart';
 
-final png = Uint8List.fromList([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+// A real 1×1 PNG, so the preview decodes.
+final png = Uint8List.fromList(base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='));
 
 Map<String, Object?> access({bool eligible = true, int remaining = 4}) => {
       'eligible': eligible,
@@ -128,12 +130,18 @@ void main() {
     await tester.tap(find.byKey(const Key('three-d-pick')));
     await tester.pumpAndSettle();
     expect(find.text('Selected: chair.png'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('three-d-submit')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('three-d-submit')));
     await tester.pumpAndSettle();
     // Terms first: nothing is sent without them.
     expect(created, isNull);
     expect(find.text('Accept the current third-party 3D model terms first.'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('three-d-terms')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('three-d-terms')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('three-d-submit')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('three-d-submit')));
     await tester.pump();
