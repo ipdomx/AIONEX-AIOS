@@ -495,7 +495,7 @@ class _InboxThreadPageState extends ConsumerState<InboxThreadPage> {
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
-                      Row(children: [
+                      Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
                         TextButton.icon(
                           key: const Key('inbox-suggest'),
                           onPressed: _busy
@@ -508,7 +508,6 @@ class _InboxThreadPageState extends ConsumerState<InboxThreadPage> {
                           icon: const Icon(Icons.auto_awesome),
                           label: Text(l.socialInbox_reply_suggest),
                         ),
-                        const Spacer(),
                         FilledButton.icon(
                           key: const Key('inbox-send'),
                           style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
