@@ -79,7 +79,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SecureScreen(child: LoginPage()),
         routes: [
           GoRoute(path: 'forgot', builder: (context, state) => const ForgotPasswordPage()),
-          GoRoute(path: 'register', builder: (context, state) => const SecureScreen(child: RegisterPage())),
+          GoRoute(
+            path: 'register',
+            builder: (context, state) => SecureScreen(
+              child: RegisterPage(social: state.extra is SocialRegistration ? state.extra! as SocialRegistration : null),
+            ),
+          ),
           GoRoute(
             path: 'mfa',
             redirect: (context, state) => state.extra is MfaChallenge ? null : '/login',

@@ -30,11 +30,21 @@ final registrationPolicyProvider = FutureProvider.autoDispose<RegistrationPolicy
   (ref) => ref.watch(authRepositoryProvider).registrationPolicy(),
 );
 
+String _providerLabel(String id) => switch (id) {
+      'google' => 'Google',
+      'apple' => 'Apple',
+      'facebook' => 'Facebook',
+      _ => id,
+    };
+
 enum _PhoneStage { idle, sending, code, confirming, verified }
 
 /// Free sign-up with SMS verification (the website's register page, natively).
 class RegisterPage extends ConsumerStatefulWidget {
-  const RegisterPage({super.key});
+  const RegisterPage({super.key, this.social});
+
+  /// Set when Google / Apple verified an email that has no account yet.
+  final SocialRegistration? social;
 
   @override
   ConsumerState<RegisterPage> createState() => _RegisterPageState();
@@ -57,6 +67,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   String? _phoneError;
   String? _error;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final social = widget.social;
+    if (social != null) {
+      _email.text = social.email;
+      if (social.name != null) _name.text = social.name!;
+    }
+  }
 
   @override
   void dispose() {
@@ -186,6 +206,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               firebaseIdToken: _idToken,
               consentVersion: policy.consentVersion,
               telemetry: _telemetry(context),
+              socialRegistrationToken: widget.social?.token,
             ),
           );
     } on ApiException catch (error) {
@@ -248,6 +269,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   const SizedBox(height: 16),
                   Text(l.register_title, textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 20),
+                  if (widget.social != null) ...[
+                    Notice(
+                      key: const Key('register-social-note'),
+                      text: l.app_socialSignUpNote(_providerLabel(widget.social!.provider)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextFormField(
                     key: const Key('register-name'),
                     controller: _name,
@@ -273,6 +301,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     key: const Key('register-email'),
                     controller: _email,
                     enabled: !_busy,
+                    // The backend requires the provider's email (SOCIAL_EMAIL_MISMATCH).
+                    readOnly: widget.social != null,
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     textDirection: TextDirection.ltr,

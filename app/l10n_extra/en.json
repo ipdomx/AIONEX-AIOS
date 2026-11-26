@@ -44,5 +44,7 @@
   "deleteAccountButton": "Delete my account permanently",
   "accountDeleted": "Your account was deleted. Thank you for using AIONEX.",
   "deleteAccountOwnerHasMembers": "You own an organization with other members. Transfer ownership or remove the members first.",
-  "deleteAccountMfaCode": "Two-step verification code"
+  "deleteAccountMfaCode": "Two-step verification code",
+  "continueWith": "Continue with {provider}",
+  "socialSignUpNote": "Finish creating your account. Your email comes from {provider} and cannot be changed here."
 }

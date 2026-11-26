@@ -44,5 +44,7 @@
   "deleteAccountButton": "Hesabımı kalıcı olarak sil",
   "accountDeleted": "Hesabınız silindi. AIONEX'i kullandığınız için teşekkürler.",
   "deleteAccountOwnerHasMembers": "Başka üyeleri olan bir kuruluşun sahibisiniz. Önce sahipliği devredin veya üyeleri çıkarın.",
-  "deleteAccountMfaCode": "İki adımlı doğrulama kodu"
+  "deleteAccountMfaCode": "İki adımlı doğrulama kodu",
+  "continueWith": "{provider} ile devam et",
+  "socialSignUpNote": "Hesabınızı oluşturmayı tamamlayın. E-postanız {provider} hesabından gelir ve burada değiştirilemez."
 }

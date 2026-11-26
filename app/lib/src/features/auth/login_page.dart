@@ -5,11 +5,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/auth/auth_repository.dart';
 import '../../core/auth/models.dart';
 import '../../core/auth/session_controller.dart';
+import '../../core/firebase/firebase_setup.dart';
+import '../../core/providers.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/error_text.dart';
 import 'register_page.dart';
+
+/// Google / Apple / Facebook buttons: only providers the owner switched on and
+/// the phone can run (Firebase configured in this build). None on the web build.
+final socialSignInProvidersProvider = FutureProvider.autoDispose<List<SocialProvider>>((ref) async {
+  if (kIsWeb) return const [];
+  if (!await ref.watch(firebaseReadyProvider.future)) return const [];
+  try {
+    final all = await ref.watch(authRepositoryProvider).socialProviders();
+    final usable = [for (final p in all) if (FirebaseSocialSigner.providerFor(p.firebaseProvider) != null) p];
+    // Apple's guideline: on iPhone, Sign in with Apple comes first.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      usable.sort((a, b) => (a.id == 'apple' ? 0 : 1).compareTo(b.id == 'apple' ? 0 : 1));
+    }
+    return usable;
+  } on Object {
+    return const [];
+  }
+});
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -54,11 +76,41 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  Future<void> _social(SocialProvider provider) async {
+    if (_busy) return;
+    final l = AppLocalizations.of(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final token = await ref.read(socialSignerProvider).idToken(provider.firebaseProvider);
+      final outcome = await ref.read(sessionProvider.notifier).signInWithSocial(token);
+      if (!mounted) return;
+      if (outcome is LoginNeedsMfa) context.go('/login/mfa', extra: outcome.challenge);
+    } on SocialSignInCancelled {
+      // Closed the provider sheet: nothing to report.
+    } on SocialRegistrationRequired catch (needed) {
+      if (mounted) context.go('/login/register', extra: needed.registration);
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() => _error = error is ApiException && error.failure == ApiFailure.server
+            ? l.auth_socialUnavailable
+            : error is ApiException || error is OwnerConsoleOnlyException
+                ? describeLoginError(l, error)
+                : l.auth_socialError);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final session = ref.watch(sessionProvider).value;
+    final socialProviders = ref.watch(socialSignInProvidersProvider).value ?? const <SocialProvider>[];
     final notice = switch (session) {
       SignedOut(notice: SignOutNotice.expired) => l.app_sessionExpired,
       SignedOut(notice: SignOutNotice.passwordChanged) => l.passwordRecovery_resetSuccess,
@@ -144,6 +196,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 onPressed: _busy ? null : _submit,
                 child: Text(_busy ? l.auth_signingIn : l.auth_signIn),
               ),
+              if (socialProviders.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(l.auth_socialDivider, style: theme.textTheme.bodySmall),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (final provider in socialProviders) ...[
+                  OutlinedButton.icon(
+                    key: Key('social-${provider.id}'),
+                    onPressed: _busy ? null : () => _social(provider),
+                    icon: Icon(switch (provider.id) {
+                      'apple' => Icons.apple,
+                      'google' => Icons.g_mobiledata,
+                      'facebook' => Icons.facebook,
+                      _ => Icons.login,
+                    }),
+                    label: Text(l.app_continueWith(provider.label)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
               const SizedBox(height: 8),
               TextButton(
                 key: const Key('create-account'),
