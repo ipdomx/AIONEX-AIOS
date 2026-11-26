@@ -235,7 +235,8 @@ class _RealtimePageState extends ConsumerState<RealtimePage> {
               ),
             FilledButton.icon(
               key: const Key('leave-room'),
-              style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error),
+              // The theme's full-width buttons need a finite width inside a Wrap.
+              style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error, minimumSize: const Size(0, 48)),
               onPressed: _leave,
               icon: const Icon(Icons.call_end),
               label: Text(l.realtime_leave),
@@ -256,7 +257,12 @@ class _RealtimePageState extends ConsumerState<RealtimePage> {
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton(key: const Key('create-room'), onPressed: _busy == null ? _create : null, child: Text(l.realtime_create)),
+          FilledButton(
+            key: const Key('create-room'),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+            onPressed: _busy == null ? _create : null,
+            child: Text(l.realtime_create),
+          ),
         ]),
         const SizedBox(height: 8),
         Text(l.realtime_rooms, style: theme.textTheme.titleMedium),
