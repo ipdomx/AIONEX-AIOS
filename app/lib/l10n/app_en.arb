@@ -267,6 +267,8 @@
   "app_ownerConsoleOnly": "This account signs in from the owner console only.",
   "app_pushDenied": "Notifications are off for AIONEX in the phone settings.",
   "app_pushEnabled": "Notifications are on for this phone.",
+  "app_realtime": "Live rooms",
+  "app_realtimePlanTitle": "Live rooms need a paid plan",
   "app_registerOnWebsite": "Account creation on the web is done on the website.",
   "app_retry": "Try again",
   "app_scanOrOpen": "Scan the code with your authenticator app, or open it directly on this phone, then enter the 6-digit code.",

@@ -17,7 +17,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>audio</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Talk in AIONEX live rooms.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Share your video in AIONEX live rooms.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a profile photo or files for your AIONEX projects.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

@@ -29,5 +29,7 @@
   "newNotification": "إشعار جديد",
   "codeSentTo": "أرسلنا رمزًا إلى {phone}.",
   "academy": "الأكاديمية",
-  "threeDLinks": "روابط التنزيل"
+  "threeDLinks": "روابط التنزيل",
+  "realtime": "الغرف المباشرة",
+  "realtimePlanTitle": "الغرف المباشرة محتاجة باقة مدفوعة"
 }

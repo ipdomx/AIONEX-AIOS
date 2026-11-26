@@ -29,5 +29,7 @@
   "newNotification": "Yeni bildirim",
   "codeSentTo": "{phone} numarasına bir kod gönderdik.",
   "academy": "Akademi",
-  "threeDLinks": "İndirme bağlantılarını al"
+  "threeDLinks": "İndirme bağlantılarını al",
+  "realtime": "Canlı odalar",
+  "realtimePlanTitle": "Canlı odalar ücretli bir plan gerektirir"
 }

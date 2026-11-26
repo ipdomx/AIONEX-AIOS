@@ -267,6 +267,8 @@
   "app_ownerConsoleOnly": "Ce compte se connecte uniquement depuis la console propriétaire.",
   "app_pushDenied": "Les notifications AIONEX sont désactivées dans les réglages du téléphone.",
   "app_pushEnabled": "Les notifications sont activées sur ce téléphone.",
+  "app_realtime": "Salles en direct",
+  "app_realtimePlanTitle": "Les salles en direct nécessitent une offre payante",
   "app_registerOnWebsite": "Sur le web, le compte se crée sur le site.",
   "app_retry": "Réessayer",
   "app_scanOrOpen": "Scannez le code avec votre application d’authentification ou ouvrez-le directement sur ce téléphone, puis saisissez le code à 6 chiffres.",

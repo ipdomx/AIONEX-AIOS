@@ -115,6 +115,7 @@ class DashboardPage extends ConsumerWidget {
                 _Action(icon: Icons.forum_outlined, label: l.nav_conversations, path: '/conversations'),
                 _Action(icon: Icons.auto_awesome, label: l.nav_studio, path: '/studio'),
                 _Action(icon: Icons.school_outlined, label: l.app_academy, path: '/academy'),
+                _Action(icon: Icons.video_call_outlined, label: l.app_realtime, path: '/realtime'),
                 _Action(icon: Icons.support_agent, label: l.dashboard_contactSupport, path: '/support'),
                 _Action(icon: Icons.manage_accounts_outlined, label: l.dashboard_accountSettings, path: '/profile'),
               ],

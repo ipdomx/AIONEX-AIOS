@@ -29,5 +29,7 @@
   "newNotification": "New notification",
   "codeSentTo": "We sent a code to {phone}.",
   "academy": "Academy",
-  "threeDLinks": "Get download links"
+  "threeDLinks": "Get download links",
+  "realtime": "Live rooms",
+  "realtimePlanTitle": "Live rooms need a paid plan"
 }
