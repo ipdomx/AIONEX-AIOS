@@ -127,6 +127,12 @@ class _ProjectCard extends StatelessWidget {
               spacing: 4,
               children: [
                 TextButton.icon(
+                  key: Key('open-execution-${project.id}'),
+                  onPressed: () => context.go('/projects/${Uri.encodeComponent(project.id)}'),
+                  icon: const Icon(Icons.account_tree_outlined),
+                  label: Text(l.projects_execution_title),
+                ),
+                TextButton.icon(
                   key: Key('open-3d-${project.id}'),
                   onPressed: () => context.go('/projects/${Uri.encodeComponent(project.id)}/3d'),
                   icon: const Icon(Icons.view_in_ar_outlined),
