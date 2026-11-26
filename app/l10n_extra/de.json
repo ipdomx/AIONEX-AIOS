@@ -29,5 +29,7 @@
   "newNotification": "Neue Benachrichtigung",
   "codeSentTo": "Wir haben einen Code an {phone} gesendet.",
   "academy": "Akademie",
-  "threeDLinks": "Download-Links abrufen"
+  "threeDLinks": "Download-Links abrufen",
+  "realtime": "Live-Räume",
+  "realtimePlanTitle": "Live-Räume erfordern einen kostenpflichtigen Tarif"
 }

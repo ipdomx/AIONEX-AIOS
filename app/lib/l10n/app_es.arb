@@ -267,6 +267,8 @@
   "app_ownerConsoleOnly": "Esta cuenta solo inicia sesión desde la consola del propietario.",
   "app_pushDenied": "Las notificaciones de AIONEX están desactivadas en los ajustes del teléfono.",
   "app_pushEnabled": "Las notificaciones están activadas en este teléfono.",
+  "app_realtime": "Salas en vivo",
+  "app_realtimePlanTitle": "Las salas en vivo requieren un plan de pago",
   "app_registerOnWebsite": "En la web, la cuenta se crea en el sitio.",
   "app_retry": "Intentar de nuevo",
   "app_scanOrOpen": "Escanea el código con tu app de autenticación o ábrelo directamente en este teléfono y luego introduce el código de 6 dígitos.",

@@ -29,5 +29,7 @@
   "newNotification": "Nouvelle notification",
   "codeSentTo": "Nous avons envoyé un code au {phone}.",
   "academy": "Académie",
-  "threeDLinks": "Obtenir les liens de téléchargement"
+  "threeDLinks": "Obtenir les liens de téléchargement",
+  "realtime": "Salles en direct",
+  "realtimePlanTitle": "Les salles en direct nécessitent une offre payante"
 }

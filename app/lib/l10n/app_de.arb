@@ -267,6 +267,8 @@
   "app_ownerConsoleOnly": "Dieses Konto meldet sich nur über die Owner-Konsole an.",
   "app_pushDenied": "Benachrichtigungen für AIONEX sind in den Telefoneinstellungen deaktiviert.",
   "app_pushEnabled": "Benachrichtigungen sind auf diesem Telefon aktiv.",
+  "app_realtime": "Live-Räume",
+  "app_realtimePlanTitle": "Live-Räume erfordern einen kostenpflichtigen Tarif",
   "app_registerOnWebsite": "Im Web wird das Konto auf der Website erstellt.",
   "app_retry": "Erneut versuchen",
   "app_scanOrOpen": "Scanne den Code mit deiner Authenticator-App oder öffne ihn direkt auf diesem Telefon und gib dann den 6-stelligen Code ein.",

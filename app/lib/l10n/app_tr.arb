@@ -267,6 +267,8 @@
   "app_ownerConsoleOnly": "Bu hesap yalnızca sahip konsolundan giriş yapar.",
   "app_pushDenied": "AIONEX bildirimleri telefon ayarlarında kapalı.",
   "app_pushEnabled": "Bu telefonda bildirimler açık.",
+  "app_realtime": "Canlı odalar",
+  "app_realtimePlanTitle": "Canlı odalar ücretli bir plan gerektirir",
   "app_registerOnWebsite": "Web'de hesap web sitesinden oluşturulur.",
   "app_retry": "Tekrar dene",
   "app_scanOrOpen": "Kodu doğrulama uygulamanızla tarayın veya doğrudan bu telefonda açın, ardından 6 haneli kodu girin.",
