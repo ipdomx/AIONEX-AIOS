@@ -512,14 +512,15 @@ export function getFirebaseSocialConfiguration(): Promise<FirebaseSocialConfigur
 
 export async function createFirebaseSocialSession(
   idToken: string,
-): Promise<LoginResponse> {
-  const session = await jsonRequest<LoginResponse>(
+): Promise<LoginAttempt> {
+  const result = await jsonRequest<LoginAttempt>(
     "/auth/firebase/social/session",
     "POST",
     { id_token: idToken },
     { auth: false, retry: false },
   );
-  return storeSession(session);
+  // Accounts with MFA get a challenge first, exactly like password sign-in.
+  return "mfa_required" in result ? result : storeSession(result);
 }
 
 export function prepareFirebaseSocialRegistration(

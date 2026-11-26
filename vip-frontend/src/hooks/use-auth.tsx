@@ -41,7 +41,7 @@ interface AuthContextValue {
   loginWithSocial: (
     provider: OAuthProviderId,
     configuration: FirebaseSocialConfiguration,
-  ) => Promise<User>;
+  ) => Promise<User | MFAChallengeResponse>;
   loginWithPasskey: () => Promise<User>;
   registerFree: (payload: FreeRegistrationPayload) => Promise<User>;
   logout: () => Promise<void>;
@@ -95,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) => {
       const idToken = await firebaseSocialIdToken(provider, configuration);
       const response = await createFirebaseSocialSession(idToken);
+      if ("mfa_required" in response) return response;
       setUser(response.user);
       return response.user;
     },

@@ -69,11 +69,13 @@ const knownProviders: OAuthProvider[] = [
 interface OAuthButtonsProps {
   mode?: "login" | "register";
   onRegistrationPrepared?: (value: SocialRegistrationPreparation) => void;
+  onMfaRequired?: (challengeToken: string) => void;
 }
 
 export function OAuthButtons({
   mode = "login",
   onRegistrationPrepared,
+  onMfaRequired,
 }: OAuthButtonsProps) {
   const t = useTranslations("auth");
   const locale = useLocale();
@@ -117,13 +119,22 @@ export function OAuthButtons({
     setLoadingProvider(providerId);
     try {
       if (mode === "login") {
-        await loginWithSocial(providerId, configuration);
+        const result = await loginWithSocial(providerId, configuration);
+        if ("mfa_required" in result) {
+          onMfaRequired?.(result.challenge_token);
+          return;
+        }
         router.replace(`/${locale}/dashboard`);
         return;
       }
       const idToken = await firebaseSocialIdToken(providerId, configuration);
       try {
-        await createFirebaseSocialSession(idToken);
+        const result = await createFirebaseSocialSession(idToken);
+        if ("mfa_required" in result) {
+          // The register page has no code step; finish on the sign-in page.
+          router.replace(`/${locale}/login`);
+          return;
+        }
         await refreshUser();
         router.replace(`/${locale}/dashboard`);
       } catch (cause) {
