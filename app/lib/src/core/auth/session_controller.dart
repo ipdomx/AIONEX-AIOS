@@ -47,6 +47,14 @@ class SessionController extends AsyncNotifier<SessionState> {
     return outcome;
   }
 
+  /// Google / Apple: same outcome as [signIn]; throws
+  /// SocialRegistrationRequired when the identity has no account yet.
+  Future<LoginOutcome> signInWithSocial(String idToken) async {
+    final outcome = await ref.read(authRepositoryProvider).socialSignIn(idToken);
+    if (outcome is LoginSucceeded) state = AsyncData(SignedIn(outcome.user));
+    return outcome;
+  }
+
   Future<void> register(RegistrationForm form) async {
     final user = await ref.read(authRepositoryProvider).register(form);
     state = AsyncData(SignedIn(user));

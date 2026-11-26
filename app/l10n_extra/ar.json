@@ -44,5 +44,7 @@
   "deleteAccountButton": "احذف حسابي نهائي",
   "accountDeleted": "اتمسح حسابك. شكرًا إنك استخدمت AIONEX.",
   "deleteAccountOwnerHasMembers": "إنت صاحب مؤسسة فيها أعضاء تانيين. انقل الملكية أو شيل الأعضاء الأول.",
-  "deleteAccountMfaCode": "كود التحقق بخطوتين"
+  "deleteAccountMfaCode": "كود التحقق بخطوتين",
+  "continueWith": "المتابعة باستخدام {provider}",
+  "socialSignUpNote": "أكمل إنشاء حسابك. بريدك الإلكتروني من {provider} ولا يمكن تغييره هنا."
 }

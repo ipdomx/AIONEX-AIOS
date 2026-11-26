@@ -141,6 +141,7 @@ class RegistrationForm {
     required this.firebaseIdToken,
     required this.consentVersion,
     required this.telemetry,
+    this.socialRegistrationToken,
   });
 
   final String username;
@@ -153,6 +154,10 @@ class RegistrationForm {
   final String? firebaseIdToken;
   final String consentVersion;
   final Map<String, Object?> telemetry;
+
+  /// One-use token from /auth/firebase/social/registration/prepare: links the
+  /// Google / Apple identity to the new account (email must match it).
+  final String? socialRegistrationToken;
 
   Map<String, Object?> toJson() => {
         'username': username,
@@ -167,5 +172,67 @@ class RegistrationForm {
         'consent_accepted': true,
         'consent_version': consentVersion,
         'telemetry': telemetry,
+        'social_registration_token': ?socialRegistrationToken,
       };
+}
+
+/// One sign-in provider the backend has switched on (/auth/firebase/social/public).
+@immutable
+class SocialProvider {
+  const SocialProvider({required this.id, required this.label, required this.firebaseProvider});
+
+  final String id;
+  final String label;
+  final String firebaseProvider;
+
+  static List<SocialProvider> listFromJson(Map<String, Object?> json) {
+    if (json['enabled'] != true) return const [];
+    final items = json['providers'];
+    if (items is! List) return const [];
+    return [
+      for (final item in items)
+        if (item is Map &&
+            item['enabled'] == true &&
+            item['id'] is String &&
+            item['firebase_provider'] is String)
+          SocialProvider(
+            id: item['id'] as String,
+            label: item['label'] is String ? item['label'] as String : item['id'] as String,
+            firebaseProvider: item['firebase_provider'] as String,
+          ),
+    ];
+  }
+}
+
+/// A verified provider identity with no AIONEX account yet: sign-up continues
+/// with the email fixed to the provider's.
+@immutable
+class SocialRegistration {
+  const SocialRegistration({required this.token, required this.provider, required this.email, this.name});
+
+  final String token;
+  final String provider;
+  final String email;
+  final String? name;
+
+  factory SocialRegistration.fromJson(Map<String, Object?> json) {
+    final token = json['registration_token'];
+    final email = json['email'];
+    if (token is! String || token.isEmpty || email is! String || email.isEmpty) {
+      throw const FormatException('Social registration is incomplete');
+    }
+    final name = json['name'];
+    return SocialRegistration(
+      token: token,
+      provider: json['provider'] is String ? json['provider'] as String : '',
+      email: email,
+      name: name is String && name.trim().isNotEmpty ? name.trim() : null,
+    );
+  }
+}
+
+/// The provider identity is verified but has no account: offer sign-up.
+class SocialRegistrationRequired implements Exception {
+  const SocialRegistrationRequired(this.registration);
+  final SocialRegistration registration;
 }

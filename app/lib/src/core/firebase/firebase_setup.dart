@@ -135,3 +135,52 @@ class FirebasePhoneVerifier implements PhoneVerifier {
 }
 
 final phoneVerifierProvider = Provider<PhoneVerifier>((ref) => FirebasePhoneVerifier());
+
+/// The person closed the provider's sign-in sheet; not an error to show.
+class SocialSignInCancelled implements Exception {
+  const SocialSignInCancelled();
+}
+
+/// Google / Apple / Facebook sign-in through Firebase, ending in the same
+/// Firebase ID token the website sends to /auth/firebase/social/session.
+abstract interface class SocialSigner {
+  /// [firebaseProvider] is the id the backend lists (google.com, apple.com, ...).
+  Future<String> idToken(String firebaseProvider);
+}
+
+class FirebaseSocialSigner implements SocialSigner {
+  static AuthProvider? providerFor(String firebaseProvider) => switch (firebaseProvider) {
+        'google.com' => GoogleAuthProvider()..addScope('email'),
+        'apple.com' => AppleAuthProvider()
+          ..addScope('email')
+          ..addScope('name'),
+        'facebook.com' => FacebookAuthProvider()..addScope('email'),
+        _ => null,
+      };
+
+  @override
+  Future<String> idToken(String firebaseProvider) async {
+    if (!await ensureFirebase()) throw StateError('social-sign-in-unavailable');
+    final provider = providerFor(firebaseProvider);
+    if (provider == null) throw StateError('social-provider-unsupported');
+    final auth = FirebaseAuth.instance;
+    try {
+      final signedIn = await auth.signInWithProvider(provider);
+      // Fresh token: the backend only accepts a recent sign-in (auth_time).
+      final token = await signedIn.user?.getIdToken(true);
+      if (token == null || token.isEmpty) throw StateError('no-id-token');
+      return token;
+    } on FirebaseAuthException catch (error) {
+      final code = error.code.toLowerCase();
+      if (code.contains('cancel') || code == 'web-context-already-presented') {
+        throw const SocialSignInCancelled();
+      }
+      rethrow;
+    } finally {
+      // As with SMS: Firebase only carries the token; AIONEX issues the session.
+      await auth.signOut();
+    }
+  }
+}
+
+final socialSignerProvider = Provider<SocialSigner>((ref) => FirebaseSocialSigner());

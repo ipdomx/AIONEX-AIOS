@@ -15,6 +15,38 @@ class AuthRepository {
 
   Future<LoginOutcome> login(String email, String password) async {
     final json = await _api.postForm('/auth/login', {'username': email.trim(), 'password': password});
+    return _outcome(json);
+  }
+
+  /// Providers switched on by the owner. Empty when social sign-in is off.
+  Future<List<SocialProvider>> socialProviders() async =>
+      SocialProvider.listFromJson(await _api.getJson('/auth/firebase/social/public', auth: false));
+
+  /// Exchange a provider's Firebase ID token for an AIONEX session (or an MFA
+  /// challenge). An identity without an account throws
+  /// [SocialRegistrationRequired] carrying a one-use sign-up token.
+  Future<LoginOutcome> socialSignIn(String idToken) async {
+    try {
+      final json = await _api.postJson(
+        '/auth/firebase/social/session',
+        body: {'id_token': idToken},
+        auth: false,
+        retry: false,
+      );
+      return _outcome(json);
+    } on ApiException catch (error) {
+      if (error.code != 'ACCOUNT_REGISTRATION_REQUIRED') rethrow;
+    }
+    final prepared = await _api.postJson(
+      '/auth/firebase/social/registration/prepare',
+      body: {'id_token': idToken},
+      auth: false,
+      retry: false,
+    );
+    throw SocialRegistrationRequired(SocialRegistration.fromJson(prepared));
+  }
+
+  Future<LoginOutcome> _outcome(Map<String, Object?> json) async {
     if (json['mfa_required'] == true) {
       final token = json['challenge_token'];
       if (token is! String || token.isEmpty) throw const FormatException('MFA challenge is incomplete');
