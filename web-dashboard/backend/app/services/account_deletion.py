@@ -43,6 +43,18 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _authenticator_code_ok(record: UserMFA, code: str | None) -> bool:
+    """Only the authenticator app's current code deletes an account (not a backup code)."""
+    digits = "".join(ch for ch in (code or "") if ch.isdigit())
+    if len(digits) != 6:
+        return False
+    try:
+        secret = account_security._decrypt_secret(record.secret_ciphertext)
+    except Exception:
+        return False
+    return account_security.verify_totp(secret, digits)
+
+
 async def delete_own_account(
     session: AsyncSession,
     actor: UserRecord,
@@ -59,8 +71,7 @@ async def delete_own_account(
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     mfa = await session.get(UserMFA, user.id)
     if mfa is not None and mfa.enabled:
-        code = (mfa_code or "").strip()
-        if not code or not await account_security._verify_mfa_code(session, user.id, code, consume_backup=True):
+        if not _authenticator_code_ok(mfa, mfa_code):
             raise HTTPException(status_code=400, detail={"code": "MFA_CODE_REQUIRED", "message": "A valid MFA code is required"})
 
     others = int(

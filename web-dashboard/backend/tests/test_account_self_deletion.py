@@ -96,10 +96,12 @@ async def test_mfa_code_is_required_when_mfa_is_on(monkeypatch: pytest.MonkeyPat
         assert missing.value.status_code == 400
         await session.rollback()
 
-        async def accept(_session, user_id, code, *, consume_backup):
-            return user_id == actor.id and code == "123456"
-
-        monkeypatch.setattr(account_security, "_verify_mfa_code", accept)
+        monkeypatch.setattr(account_security, "_decrypt_secret", lambda _value: "SECRET")
+        monkeypatch.setattr(account_security, "verify_totp", lambda secret, code, **_: secret == "SECRET" and code == "123456")
+        with pytest.raises(HTTPException) as backup:
+            await account_deletion.delete_own_account(session, actor, password=password, mfa_code="ABCD-1234")
+        assert backup.value.status_code == 400
+        await session.rollback()
         result = await account_deletion.delete_own_account(session, actor, password=password, mfa_code="123456")
         assert result["deleted"] is True
         assert await session.get(UserMFA, actor.id) is None

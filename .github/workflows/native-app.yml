@@ -89,4 +89,12 @@ jobs:
       - name: Build web
         run: flutter build web --release --no-web-resources-cdn
       - name: Build Android (release, R8 + Dart obfuscation; debug-signed until N-11)
-        run: flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols/android
+        # Maven Central sometimes answers 429 to shared runners; Gradle keeps what it already
+        # downloaded, so a short wait and another try finishes the build.
+        run: |
+          for attempt in 1 2 3; do
+            flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols/android && exit 0
+            echo "Android build attempt $attempt failed; retrying in $((attempt * 45))s" >&2
+            sleep $((attempt * 45))
+          done
+          exit 1
