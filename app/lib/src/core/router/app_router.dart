@@ -18,6 +18,7 @@ import '../../features/profile/profile_page.dart';
 import '../../features/projects/projects_page.dart';
 import '../../features/studio/studio_page.dart';
 import '../../features/support/support_pages.dart';
+import '../../features/three_d/three_d_page.dart';
 import '../auth/models.dart';
 import '../auth/session_controller.dart';
 import '../security/device_security.dart';
@@ -111,7 +112,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/projects', builder: (context, state) => const ProjectsPage())],
+            routes: [
+              GoRoute(
+                path: '/projects',
+                builder: (context, state) => const ProjectsPage(),
+                routes: [
+                  GoRoute(
+                    path: ':projectId/3d',
+                    builder: (context, state) => ThreeDPage(projectId: state.pathParameters['projectId']!),
+                  ),
+                ],
+              ),
+            ],
           ),
           StatefulShellBranch(
             routes: [

@@ -273,6 +273,7 @@
   "app_sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
   "app_setupKey": "Einrichtungsschlüssel",
   "app_systemLanguage": "Gerätesprache",
+  "app_threeDLinks": "Download-Links abrufen",
   "auth_accountUnavailable": "Dieses Konto kann sich derzeit nicht anmelden. Bitte kontaktiere den Support.",
   "auth_connectionError": "Authentifizierungsdienst nicht erreichbar. Bitte erneut versuchen.",
   "auth_createAccount": "Konto erstellen",

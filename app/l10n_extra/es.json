@@ -28,5 +28,6 @@
   "pushDenied": "Las notificaciones de AIONEX están desactivadas en los ajustes del teléfono.",
   "newNotification": "Nueva notificación",
   "codeSentTo": "Enviamos un código a {phone}.",
-  "academy": "Academia"
+  "academy": "Academia",
+  "threeDLinks": "Obtener enlaces de descarga"
 }

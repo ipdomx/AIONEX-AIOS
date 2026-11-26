@@ -86,6 +86,52 @@ class ApiClient {
 
   Future<Map<String, Object?>> deleteJson(String path) => _json(_Call(path, 'DELETE'), auth: true);
 
+  /// A multipart upload (3D source images and the like). [headers] carries
+  /// per-request headers such as Idempotency-Key.
+  Future<Map<String, Object?>> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required String fileField,
+    required List<int> bytes,
+    required String filename,
+    required String mediaType,
+    Map<String, String>? headers,
+  }) async {
+    FormData form() => FormData.fromMap({
+          ...fields,
+          fileField: MultipartFile.fromBytes(bytes, filename: filename, contentType: DioMediaType.parse(mediaType)),
+        });
+    final response = await _send(
+      _Call(path, 'POST', data: form, contentType: Headers.multipartFormDataContentType, headers: headers),
+      auth: true,
+      retry: true,
+    );
+    final data = response.data;
+    if (data is Map) return data.cast<String, Object?>();
+    return const {};
+  }
+
+  /// A download from a short-lived signed link the API issued. The token in
+  /// the link is the credential, so no bearer token is sent; only API links
+  /// are followed.
+  Future<DownloadedFile> downloadSigned(Uri url, {required String fallbackName}) async {
+    final base = Uri.parse(_dio.options.baseUrl);
+    if (url.scheme != 'https' || url.host != base.host) {
+      throw ApiException(failure: ApiFailure.validation, message: 'Unexpected download link');
+    }
+    try {
+      final response = await _dio.getUri<Object?>(url, options: Options(responseType: ResponseType.bytes));
+      final data = response.data;
+      return DownloadedFile(
+        bytes: data is List<int> ? data : const <int>[],
+        filename: filenameFromDisposition(response.headers.value('content-disposition'), fallbackName),
+        mediaType: response.headers.value('content-type') ?? 'application/octet-stream',
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// An authenticated file download (studio assets and the like).
   Future<DownloadedFile> download(String path, {String fallbackName = 'download'}) async {
     final response = await _send(_Call(path, 'GET', responseType: ResponseType.bytes), auth: true, retry: true);
@@ -131,13 +177,14 @@ class ApiClient {
     try {
       return await _dio.request<Object?>(
         call.path,
-        data: call.data,
+        // A body that can only be read once (a multipart form) is rebuilt for the replay after a refresh.
+        data: call.data is Object Function() ? (call.data! as Object Function())() : call.data,
         queryParameters: call.query,
         options: Options(
           method: call.method,
           contentType: call.contentType,
           responseType: call.responseType,
-          headers: token == null ? null : {'Authorization': 'Bearer $token'},
+          headers: {...?call.headers, if (token != null) 'Authorization': 'Bearer $token'},
         ),
       );
     } on DioException catch (error) {
@@ -184,7 +231,7 @@ class ApiClient {
 }
 
 class _Call {
-  const _Call(this.path, this.method, {this.data, this.query, this.contentType, this.responseType});
+  const _Call(this.path, this.method, {this.data, this.query, this.contentType, this.responseType, this.headers});
 
   final String path;
   final String method;
@@ -192,6 +239,7 @@ class _Call {
   final Map<String, Object?>? query;
   final String? contentType;
   final ResponseType? responseType;
+  final Map<String, String>? headers;
 }
 
 /// A downloaded file: its bytes, the server's file name and media type.

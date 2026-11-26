@@ -273,6 +273,7 @@
   "app_sessionExpired": "Tu sesión terminó. Vuelve a iniciar sesión.",
   "app_setupKey": "Clave de configuración",
   "app_systemLanguage": "Idioma del dispositivo",
+  "app_threeDLinks": "Obtener enlaces de descarga",
   "auth_accountUnavailable": "Esta cuenta no puede iniciar sesión ahora. Contacta con soporte.",
   "auth_connectionError": "No se pudo conectar con el servicio de autenticación. Inténtalo de nuevo.",
   "auth_createAccount": "Crear una cuenta",

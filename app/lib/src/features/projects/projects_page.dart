@@ -122,13 +122,22 @@ class _ProjectCard extends StatelessWidget {
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: [for (final tag in project.tags) Chip(label: Text(tag))]),
             ],
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton.icon(
-                onPressed: () => context.go('/conversations?project=${Uri.encodeComponent(project.id)}'),
-                icon: const Icon(Icons.forum_outlined),
-                label: Text(l.projects_openConversations),
-              ),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 4,
+              children: [
+                TextButton.icon(
+                  key: Key('open-3d-${project.id}'),
+                  onPressed: () => context.go('/projects/${Uri.encodeComponent(project.id)}/3d'),
+                  icon: const Icon(Icons.view_in_ar_outlined),
+                  label: Text(l.threeDStudio_title),
+                ),
+                TextButton.icon(
+                  onPressed: () => context.go('/conversations?project=${Uri.encodeComponent(project.id)}'),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: Text(l.projects_openConversations),
+                ),
+              ],
             ),
           ],
         ),
