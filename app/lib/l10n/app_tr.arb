@@ -273,6 +273,7 @@
   "app_sessionExpired": "Oturumunuz sona erdi. Lütfen yeniden giriş yapın.",
   "app_setupKey": "Kurulum anahtarı",
   "app_systemLanguage": "Cihaz dili",
+  "app_threeDLinks": "İndirme bağlantılarını al",
   "auth_accountUnavailable": "Bu hesapla şu anda giriş yapılamıyor. Lütfen destekle iletişime geçin.",
   "auth_connectionError": "Kimlik doğrulama servisine ulaşılamadı. Tekrar deneyin.",
   "auth_createAccount": "Hesap oluştur",

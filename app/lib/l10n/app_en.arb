@@ -273,6 +273,7 @@
   "app_sessionExpired": "Your session ended. Please sign in again.",
   "app_setupKey": "Setup key",
   "app_systemLanguage": "Device language",
+  "app_threeDLinks": "Get download links",
   "auth_accountUnavailable": "This account can’t sign in right now. Please contact support.",
   "auth_connectionError": "Unable to reach the authentication service. Please try again.",
   "auth_createAccount": "Create an account",
