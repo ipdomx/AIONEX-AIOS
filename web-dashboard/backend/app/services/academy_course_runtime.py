@@ -29,6 +29,13 @@ PACKAGE_STATUSES = frozenset(
 LEARNER_READY_PACKAGE_STATUSES = frozenset({"approved"})
 PROGRESS_STATUSES = frozenset({"not_started", "in_progress", "completed"})
 SUPPORTED_LOCALES = ("ar", "en", "fr", "de", "es", "tr")
+# One organization cannot fill the shared package builder queue.
+MAX_ACTIVE_PACKAGES_PER_ORGANIZATION = 5
+ACTIVE_PACKAGE_STATUSES = ("queued", "building")
+
+
+class PackageQueueFull(Exception):
+    """The organization already has the most packages waiting or building."""
 
 
 def now() -> datetime:
@@ -130,6 +137,17 @@ async def create_package_job(
     )
     if existing is not None:
         return existing
+    active = int(
+        await session.scalar(
+            select(func.count(AcademyCoursePackage.id)).where(
+                AcademyCoursePackage.organization_id == actor.organization_id,
+                AcademyCoursePackage.status.in_(ACTIVE_PACKAGE_STATUSES),
+            )
+        )
+        or 0
+    )
+    if active >= MAX_ACTIVE_PACKAGES_PER_ORGANIZATION:
+        raise PackageQueueFull("Too many course packages are already being built")
     max_version = int(
         await session.scalar(
             select(func.max(AcademyCoursePackage.version)).where(

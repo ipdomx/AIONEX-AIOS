@@ -389,6 +389,9 @@ async def create_course_package(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Academy course package admission is currently unavailable.",
         ) from None
+    except academy_course_runtime.PackageQueueFull as exc:
+        await session.rollback()
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except (ValueError, PermissionError) as exc:
         await session.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
