@@ -114,6 +114,7 @@ void main() {
         sessionStoreProvider.overrideWithValue(store),
         apiClientProvider.overrideWithValue(fakeClient(adapter, store)),
         deviceIntegrityProvider.overrideWith((ref) async => DeviceIntegrity.unknown),
+        fileSharerProvider.overrideWithValue((file) async => shared.add(file)),
       ],
     );
     addTearDown(container.dispose);
