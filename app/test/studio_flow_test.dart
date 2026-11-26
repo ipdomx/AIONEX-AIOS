@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:aionex/src/app.dart';
 import 'package:aionex/src/core/api/api_client.dart';
 import 'package:aionex/src/core/auth/session_store.dart';
+import 'package:aionex/src/core/files/file_share.dart';
 import 'package:aionex/src/core/providers.dart';
 import 'package:aionex/src/core/router/app_router.dart';
 import 'package:aionex/src/core/security/device_security.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,18 +54,7 @@ void main() {
     addTearDown(tester.view.reset);
     var status = 'none';
     Object? created;
-    final shared = <MethodCall>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('dev.fluttercommunity.plus/share'),
-      (call) async {
-        shared.add(call);
-        return 'dev.fluttercommunity.plus/share/unavailable';
-      },
-    );
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (call) async => '/tmp',
-    );
+    final shared = <DownloadedFile>[];
     SharedPreferences.setMockInitialValues({'aionex.locale': 'en'});
     final preferences = await SharedPreferences.getInstance();
     final store = MemorySessionStore(refreshToken: 'saved');
@@ -157,7 +146,8 @@ void main() {
     expect(find.textContaining('launch-brief.md'), findsOneWidget);
     await tester.tap(find.byKey(const Key('download-a1')));
     await tester.pumpAndSettle();
-    expect(shared, isNotEmpty);
+    expect(shared.single.filename, 'launch-brief.md');
+    expect(utf8.decode(shared.single.bytes), '# Launch brief');
     expect(adapter.paths, contains('/api/v1/studio/assets/a1/download'));
   });
 

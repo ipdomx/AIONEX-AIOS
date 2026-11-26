@@ -232,7 +232,7 @@ class _StudioPageState extends ConsumerState<StudioPage> {
                               label: Text(l.studio_download),
                               onPressed: () => _run(() async {
                                 final file = await ref.read(studioRepositoryProvider).download(asset);
-                                await shareDownloadedFile(file);
+                                await ref.read(fileSharerProvider)(file);
                               }, l.studio_downloadStarted),
                             ),
                             TextButton.icon(

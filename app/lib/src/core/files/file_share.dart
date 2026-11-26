@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../api/api_client.dart';
@@ -13,3 +14,6 @@ Future<void> shareDownloadedFile(DownloadedFile file) async {
       : XFile(await writeTempFile(file.filename, bytes), name: file.filename, mimeType: file.mediaType);
   await SharePlus.instance.share(ShareParams(files: [xfile], fileNameOverrides: [file.filename]));
 }
+
+/// Overridable in tests (the share sheet and file system are platform plugins).
+final fileSharerProvider = Provider<Future<void> Function(DownloadedFile file)>((ref) => shareDownloadedFile);
