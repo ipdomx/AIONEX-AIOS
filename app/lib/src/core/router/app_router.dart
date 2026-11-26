@@ -17,6 +17,7 @@ import '../../features/home/home_shell.dart';
 import '../../features/notifications/notifications.dart';
 import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
+import '../../features/projects/project_execution.dart';
 import '../../features/projects/projects_page.dart';
 import '../../features/realtime/realtime_page.dart';
 import '../../features/security_lab/security_lab_page.dart';
@@ -149,6 +150,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/projects',
                 builder: (context, state) => const ProjectsPage(),
                 routes: [
+                  GoRoute(
+                    path: ':projectId',
+                    builder: (context, state) => ProjectDetailPage(projectId: state.pathParameters['projectId']!),
+                  ),
                   GoRoute(
                     path: ':projectId/3d',
                     builder: (context, state) => ThreeDPage(projectId: state.pathParameters['projectId']!),
