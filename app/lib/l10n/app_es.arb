@@ -246,6 +246,8 @@
   "ads_tabs_dashboard": "Panel",
   "ads_tabs_planning": "Planificación",
   "app_academy": "Academia",
+  "app_ads": "Anuncios",
+  "app_adsOnWebsite": "Las cuentas publicitarias se vinculan y las campañas se crean en el sitio web. Aquí sigues el rendimiento y pausas o activas tus campañas.",
   "app_changePhoto": "Cambiar foto",
   "app_chatsTab": "Chats",
   "app_codeSentTo": "Enviamos un código a {phone}.",

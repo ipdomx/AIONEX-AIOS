@@ -246,6 +246,8 @@
   "ads_tabs_dashboard": "Dashboard",
   "ads_tabs_planning": "Planning",
   "app_academy": "Academy",
+  "app_ads": "Ads",
+  "app_adsOnWebsite": "Linking ad accounts and creating campaigns happen on the website. Here you follow performance and pause or activate your campaigns.",
   "app_changePhoto": "Change photo",
   "app_chatsTab": "Chats",
   "app_codeSentTo": "We sent a code to {phone}.",

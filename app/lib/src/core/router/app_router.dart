@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/academy/academy_page.dart';
+import '../../features/ads/ads_page.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/auth/mfa_page.dart';
 import '../../features/auth/password_recovery_pages.dart';
@@ -17,6 +18,7 @@ import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/projects/projects_page.dart';
 import '../../features/realtime/realtime_page.dart';
+import '../../features/social/social_inbox.dart';
 import '../../features/social/social_page.dart';
 import '../../features/studio/studio_page.dart';
 import '../../features/support/support_pages.dart';
@@ -99,8 +101,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(path: 'notifications', builder: (context, state) => const NotificationsPage()),
                   GoRoute(path: 'studio', builder: (context, state) => const StudioPage()),
                   GoRoute(path: 'academy', builder: (context, state) => const AcademyPage()),
+                  GoRoute(path: 'ads', builder: (context, state) => const AdsPage()),
                   GoRoute(path: 'realtime', builder: (context, state) => const RealtimePage()),
-                  GoRoute(path: 'social', builder: (context, state) => const SocialPage()),
+                  GoRoute(
+                    path: 'social',
+                    builder: (context, state) => const SocialPage(),
+                    routes: [
+                      GoRoute(
+                        path: 'inbox/:conversationId',
+                        builder: (context, state) => InboxThreadPage(conversationId: state.pathParameters['conversationId']!),
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'support',
                     builder: (context, state) => const SupportPage(),

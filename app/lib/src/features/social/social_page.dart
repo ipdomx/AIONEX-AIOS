@@ -12,6 +12,7 @@ import '../../widgets/async_view.dart';
 import '../../widgets/notice.dart';
 import '../three_d/three_d_repository.dart' show sourceImageType;
 import '../workspace/workspace_models.dart' show newRequestId;
+import 'social_inbox.dart';
 import 'social_repository.dart';
 
 /// Picks an image to upload; replaced in tests.
@@ -135,7 +136,7 @@ class _SocialPageState extends ConsumerState<SocialPage> with WidgetsBindingObse
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text(l.app_social),
@@ -150,13 +151,14 @@ class _SocialPageState extends ConsumerState<SocialPage> with WidgetsBindingObse
               },
             ),
           ],
-          bottom: TabBar(tabs: [
+          bottom: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [
             Tab(text: l.socialPublishing_nav_accounts),
             Tab(text: l.socialPublishing_nav_compose),
             Tab(text: l.socialPublishing_nav_calendar),
+            Tab(text: l.socialInbox_eyebrow),
           ]),
         ),
-        body: const TabBarView(children: [_AccountsTab(), _ComposeTab(), _CalendarTab()]),
+        body: const TabBarView(children: [_AccountsTab(), _ComposeTab(), _CalendarTab(), InboxTab()]),
       ),
     );
   }

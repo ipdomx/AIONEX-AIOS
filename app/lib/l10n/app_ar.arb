@@ -246,6 +246,8 @@
   "ads_tabs_dashboard": "لوحة الأداء",
   "ads_tabs_planning": "التخطيط",
   "app_academy": "الأكاديمية",
+  "app_ads": "الإعلانات",
+  "app_adsOnWebsite": "ربط حسابات الإعلانات وإنشاء الحملات بيتم من الموقع. هنا تتابع الأداء وتوقف أو تشغّل حملاتك.",
   "app_changePhoto": "تغيير الصورة",
   "app_chatsTab": "المحادثات",
   "app_codeSentTo": "أرسلنا رمزًا إلى {phone}.",
