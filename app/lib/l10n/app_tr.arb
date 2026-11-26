@@ -246,6 +246,8 @@
   "ads_tabs_dashboard": "Pano",
   "ads_tabs_planning": "Planlama",
   "app_academy": "Akademi",
+  "app_ads": "Reklamlar",
+  "app_adsOnWebsite": "Reklam hesaplarını bağlama ve kampanya oluşturma web sitesinde yapılır. Burada performansı izler, kampanyalarınızı duraklatır veya etkinleştirirsiniz.",
   "app_changePhoto": "Fotoğrafı değiştir",
   "app_chatsTab": "Sohbetler",
   "app_codeSentTo": "{phone} numarasına bir kod gönderdik.",

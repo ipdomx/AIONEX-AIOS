@@ -34,5 +34,7 @@
   "realtimePlanTitle": "Live rooms need a paid plan",
   "social": "Social",
   "socialConnectOnWebsite": "New accounts are connected on the website with Meta's official login. Come back and refresh afterwards.",
-  "socialOpenWebsite": "Open the website"
+  "socialOpenWebsite": "Open the website",
+  "ads": "Ads",
+  "adsOnWebsite": "Linking ad accounts and creating campaigns happen on the website. Here you follow performance and pause or activate your campaigns."
 }

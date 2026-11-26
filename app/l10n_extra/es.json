@@ -34,5 +34,7 @@
   "realtimePlanTitle": "Las salas en vivo requieren un plan de pago",
   "social": "Redes sociales",
   "socialConnectOnWebsite": "Las cuentas nuevas se conectan en el sitio web con el inicio de sesión oficial de Meta. Luego vuelve y actualiza.",
-  "socialOpenWebsite": "Abrir el sitio web"
+  "socialOpenWebsite": "Abrir el sitio web",
+  "ads": "Anuncios",
+  "adsOnWebsite": "Las cuentas publicitarias se vinculan y las campañas se crean en el sitio web. Aquí sigues el rendimiento y pausas o activas tus campañas."
 }
