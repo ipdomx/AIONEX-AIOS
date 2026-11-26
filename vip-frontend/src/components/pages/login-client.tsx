@@ -261,7 +261,7 @@ export function LoginClient() {
               <span className="h-px flex-1 bg-white/[0.07]" />
             </div>
           )}
-          {!mfaChallenge && <OAuthButtons />}
+          {!mfaChallenge && <OAuthButtons onMfaRequired={setMfaChallenge} />}
 
           {!mfaChallenge && (
             <p className="mt-8 text-center text-sm text-white/45">

@@ -22,6 +22,7 @@ from app.db.models import (
     User,
 )
 from app.services.account_bans import assert_social_identity_not_banned
+from app.services.account_security import create_mfa_challenge, mfa_enabled
 from app.services.firebase_social import (
     create_social_registration,
     firebase_social_public_configuration,
@@ -51,6 +52,12 @@ class SessionResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: dict
+
+
+class SocialMFAChallengeResponse(BaseModel):
+    mfa_required: bool = True
+    challenge_token: str
+    expires_in: int
 
 
 class FirebaseSocialSessionRequest(BaseModel):
@@ -138,7 +145,10 @@ async def get_social_configuration():
     return firebase_social_public_configuration()
 
 
-@router.post("/firebase/social/session", response_model=SessionResponse)
+@router.post(
+    "/firebase/social/session",
+    response_model=SessionResponse | SocialMFAChallengeResponse,
+)
 async def create_social_session(
     data: FirebaseSocialSessionRequest,
     request: Request,
@@ -224,6 +234,11 @@ async def create_social_session(
 
     user = await auth_service.get_user_by_id(session, row.user_id)
     enforce_auth_channel_role(request, user)
+    if await mfa_enabled(session, user.id):
+        # Same rule as password sign-in: the provider proves the email, the
+        # authenticator code is still required before any session exists.
+        await session.commit()
+        return create_mfa_challenge(user)
     response = await auth_service.issue_pair(session, user)
     await _audit_session(
         session,
