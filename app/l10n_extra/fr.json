@@ -31,5 +31,8 @@
   "academy": "Académie",
   "threeDLinks": "Obtenir les liens de téléchargement",
   "realtime": "Salles en direct",
-  "realtimePlanTitle": "Les salles en direct nécessitent une offre payante"
+  "realtimePlanTitle": "Les salles en direct nécessitent une offre payante",
+  "social": "Réseaux sociaux",
+  "socialConnectOnWebsite": "Les nouveaux comptes se connectent sur le site avec la connexion officielle Meta. Revenez ensuite et actualisez.",
+  "socialOpenWebsite": "Ouvrir le site"
 }

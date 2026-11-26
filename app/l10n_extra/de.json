@@ -31,5 +31,8 @@
   "academy": "Akademie",
   "threeDLinks": "Download-Links abrufen",
   "realtime": "Live-Räume",
-  "realtimePlanTitle": "Live-Räume erfordern einen kostenpflichtigen Tarif"
+  "realtimePlanTitle": "Live-Räume erfordern einen kostenpflichtigen Tarif",
+  "social": "Social Media",
+  "socialConnectOnWebsite": "Neue Konten werden auf der Website mit dem offiziellen Meta-Login verbunden. Danach hier aktualisieren.",
+  "socialOpenWebsite": "Website öffnen"
 }

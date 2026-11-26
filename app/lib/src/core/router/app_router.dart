@@ -17,6 +17,7 @@ import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/projects/projects_page.dart';
 import '../../features/realtime/realtime_page.dart';
+import '../../features/social/social_page.dart';
 import '../../features/studio/studio_page.dart';
 import '../../features/support/support_pages.dart';
 import '../../features/three_d/three_d_page.dart';
@@ -99,6 +100,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(path: 'studio', builder: (context, state) => const StudioPage()),
                   GoRoute(path: 'academy', builder: (context, state) => const AcademyPage()),
                   GoRoute(path: 'realtime', builder: (context, state) => const RealtimePage()),
+                  GoRoute(path: 'social', builder: (context, state) => const SocialPage()),
                   GoRoute(
                     path: 'support',
                     builder: (context, state) => const SupportPage(),
