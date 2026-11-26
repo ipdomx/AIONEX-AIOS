@@ -635,3 +635,30 @@ async def test_publication_rejects_every_mismatched_owner_without_mutation(
         await session.rollback()
 
     assert await _snapshot(case) == before
+
+
+@pytest.mark.asyncio
+async def test_one_organization_cannot_fill_the_package_queue(academy_case):
+    case = academy_case
+    keys = [str(uuid4()) for _ in range(runtime.MAX_ACTIVE_PACKAGES_PER_ORGANIZATION)]
+    for key in keys:
+        await create_queued_package(case, idempotency_key=key)
+
+    with pytest.raises(runtime.PackageQueueFull):
+        await create_queued_package(case)
+
+    # A retried request still answers with its package instead of the limit.
+    async with case.sessions() as session:
+        again = await _create_in_session(case, session, idempotency_key=keys[0])
+        assert again.status == "queued"
+
+    # A package that leaves the queue frees one place.
+    async with case.sessions() as session:
+        first = await session.scalar(
+            select(AcademyCoursePackage).where(
+                AcademyCoursePackage.idempotency_key == keys[0]
+            )
+        )
+        first.status = "review_pending"
+        await session.commit()
+    await create_queued_package(case)
