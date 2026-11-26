@@ -115,6 +115,8 @@ void main() {
     await tester.pumpAndSettle();
     expect((createdCourse! as Map)['passing_score'], 80.0);
     expect(find.text('Safety basics'), findsOneWidget);
+    tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first).clearSnackBars();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('build-c1')));
     await tester.pumpAndSettle();
@@ -128,6 +130,7 @@ void main() {
     expect(sent['module_count'], 2);
     expect((sent['idempotency_key'] as String).length, greaterThanOrEqualTo(4));
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first).clearSnackBars();
 
     status = 'review_pending';
     await tester.pump(const Duration(seconds: 4));
