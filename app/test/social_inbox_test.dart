@@ -109,6 +109,8 @@ Future<FakeAdapter> start(WidgetTester tester, Map<String, Object?> sent, {bool 
   await tester.pumpAndSettle();
   container.read(routerProvider).go('/social');
   await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text('Unified inbox'));
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Unified inbox'));
   await tester.pumpAndSettle();
   return adapter;
