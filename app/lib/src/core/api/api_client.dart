@@ -64,9 +64,15 @@ class ApiClient {
     return _json(_Call(path, 'GET', query: query), auth: auth);
   }
 
-  Future<Map<String, Object?>> postJson(String path, {Object? body, bool auth = true, bool retry = true}) {
+  Future<Map<String, Object?>> postJson(
+    String path, {
+    Object? body,
+    bool auth = true,
+    bool retry = true,
+    Map<String, String>? headers,
+  }) {
     return _json(
-      _Call(path, 'POST', data: body ?? const <String, Object?>{}, contentType: Headers.jsonContentType),
+      _Call(path, 'POST', data: body ?? const <String, Object?>{}, contentType: Headers.jsonContentType, headers: headers),
       auth: auth,
       retry: retry,
     );
