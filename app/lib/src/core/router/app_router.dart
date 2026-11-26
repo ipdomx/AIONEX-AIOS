@@ -9,6 +9,7 @@ import '../../features/auth/mfa_page.dart';
 import '../../features/auth/password_recovery_pages.dart';
 import '../../features/auth/register_page.dart';
 import '../../features/auth/splash_page.dart';
+import '../../features/billing/billing_page.dart';
 import '../../features/conversations/conversation_page.dart';
 import '../../features/conversations/conversations_page.dart';
 import '../../features/home/dashboard_page.dart';
@@ -103,6 +104,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(path: 'studio', builder: (context, state) => const StudioPage()),
                   GoRoute(path: 'academy', builder: (context, state) => const AcademyPage()),
                   GoRoute(path: 'ads', builder: (context, state) => const AdsPage()),
+                  GoRoute(path: 'billing', builder: (context, state) => const BillingPage()),
                   GoRoute(path: 'realtime', builder: (context, state) => const RealtimePage()),
                   GoRoute(
                     path: 'security-lab',

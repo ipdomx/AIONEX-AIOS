@@ -119,6 +119,7 @@ class DashboardPage extends ConsumerWidget {
                 _Action(icon: Icons.campaign_outlined, label: l.app_social, path: '/social'),
                 _Action(icon: Icons.insights_outlined, label: l.app_ads, path: '/ads'),
                 _Action(icon: Icons.shield_outlined, label: l.securityLab_eyebrow, path: '/security-lab'),
+                _Action(icon: Icons.receipt_long_outlined, label: l.billing_eyebrow, path: '/billing'),
                 _Action(icon: Icons.support_agent, label: l.dashboard_contactSupport, path: '/support'),
                 _Action(icon: Icons.manage_accounts_outlined, label: l.dashboard_accountSettings, path: '/profile'),
               ],
