@@ -15,6 +15,7 @@ import '../../features/notifications/notifications.dart';
 import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/projects/projects_page.dart';
+import '../../features/studio/studio_page.dart';
 import '../../features/support/support_pages.dart';
 import '../auth/models.dart';
 import '../auth/session_controller.dart';
@@ -92,6 +93,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const DashboardPage(),
                 routes: [
                   GoRoute(path: 'notifications', builder: (context, state) => const NotificationsPage()),
+                  GoRoute(path: 'studio', builder: (context, state) => const StudioPage()),
                   GoRoute(
                     path: 'support',
                     builder: (context, state) => const SupportPage(),

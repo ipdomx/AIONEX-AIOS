@@ -112,6 +112,8 @@ class DashboardPage extends ConsumerWidget {
               children: [
                 _Action(icon: Icons.folder_outlined, label: l.dashboard_manageProjects, path: '/projects'),
                 _Action(icon: Icons.forum_outlined, label: l.nav_conversations, path: '/conversations'),
+                // Studio stays unlinked until the public API gateway serves /studio
+                // (it answers 404 there today; see COMPLETION-ROADMAP N-05).
                 _Action(icon: Icons.support_agent, label: l.dashboard_contactSupport, path: '/support'),
                 _Action(icon: Icons.manage_accounts_outlined, label: l.dashboard_accountSettings, path: '/profile'),
               ],

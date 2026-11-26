@@ -86,6 +86,17 @@ class ApiClient {
 
   Future<Map<String, Object?>> deleteJson(String path) => _json(_Call(path, 'DELETE'), auth: true);
 
+  /// An authenticated file download (studio assets and the like).
+  Future<DownloadedFile> download(String path, {String fallbackName = 'download'}) async {
+    final response = await _send(_Call(path, 'GET', responseType: ResponseType.bytes), auth: true, retry: true);
+    final data = response.data;
+    return DownloadedFile(
+      bytes: data is List<int> ? data : const <int>[],
+      filename: filenameFromDisposition(response.headers.value('content-disposition'), fallbackName),
+      mediaType: response.headers.value('content-type') ?? 'application/octet-stream',
+    );
+  }
+
   /// For endpoints that answer with a JSON array.
   Future<List<Object?>> getList(String path, {Map<String, Object?>? query}) async {
     final response = await _send(_Call(path, 'GET', query: query), auth: true, retry: true);
@@ -125,6 +136,7 @@ class ApiClient {
         options: Options(
           method: call.method,
           contentType: call.contentType,
+          responseType: call.responseType,
           headers: token == null ? null : {'Authorization': 'Bearer $token'},
         ),
       );
@@ -172,11 +184,33 @@ class ApiClient {
 }
 
 class _Call {
-  const _Call(this.path, this.method, {this.data, this.query, this.contentType});
+  const _Call(this.path, this.method, {this.data, this.query, this.contentType, this.responseType});
 
   final String path;
   final String method;
   final Object? data;
   final Map<String, Object?>? query;
   final String? contentType;
+  final ResponseType? responseType;
+}
+
+/// A downloaded file: its bytes, the server's file name and media type.
+class DownloadedFile {
+  const DownloadedFile({required this.bytes, required this.filename, required this.mediaType});
+
+  final List<int> bytes;
+  final String filename;
+  final String mediaType;
+}
+
+/// RFC 6266 file name, preferring filename*=UTF-8''…; never a path.
+String filenameFromDisposition(String? header, String fallback) {
+  if (header != null) {
+    final star = RegExp(r"filename\*=(?:UTF-8|utf-8)''([^;]+)").firstMatch(header);
+    final plain = RegExp(r'filename="?([^";]+)"?').firstMatch(header);
+    final raw = star != null ? Uri.decodeComponent(star.group(1)!) : plain?.group(1);
+    final name = raw?.split(RegExp(r'[\\/]')).last.trim();
+    if (name != null && name.isNotEmpty && name != '.' && name != '..') return name;
+  }
+  return fallback;
 }

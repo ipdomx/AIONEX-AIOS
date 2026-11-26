@@ -114,6 +114,7 @@ void main() {
     expect(find.text('1 / 3'), findsOneWidget);
     expect(find.text('90 / 100'), findsOneWidget);
     expect(find.text('50 MB / 1.0 GB'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Launch site'), 200, scrollable: find.byType(Scrollable).hitTestable().first);
     expect(find.text('Launch site'), findsOneWidget);
   });
 
