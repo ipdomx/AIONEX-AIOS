@@ -220,8 +220,11 @@ class _AccountsTab extends ConsumerWidget {
                         trailing: PopupMenuButton<String>(
                           key: Key('social-account-menu-${a.id}'),
                           onSelected: (v) async {
-                            if (v == 'health') await act(() => ref.read(socialRepositoryProvider).checkHealth(a.id));
-                            if (v == 'disconnect') {
+                            if (v == 'health') {
+                              await act(() => ref.read(socialRepositoryProvider).checkHealth(a.id));
+                              return;
+                            }
+                            if (v == 'disconnect' && context.mounted) {
                               final ok = await showDialog<bool>(
                                 context: context,
                                 builder: (context) => AlertDialog(
