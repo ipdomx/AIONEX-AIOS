@@ -191,34 +191,12 @@ class _PackageRow extends ConsumerWidget {
 
   Future<void> _review(BuildContext context, WidgetRef ref, {required bool approved}) async {
     final l = AppLocalizations.of(context);
-    final notes = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(approved ? l.academyUser_approve : l.academyUser_reject),
-        content: TextField(
-          key: const Key('review-notes'),
-          controller: notes,
-          maxLength: 4000,
-          decoration: InputDecoration(labelText: approved ? l.academyUser_approvePrompt : l.academyUser_rejectPrompt),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.projects_cancel)),
-          FilledButton(
-            key: const Key('review-confirm'),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(approved ? l.academyUser_approve : l.academyUser_reject),
-          ),
-        ],
-      ),
-    );
-    final text = notes.text;
-    notes.dispose();
-    if (ok != true || !context.mounted) return;
+    final notes = await showDialog<String>(context: context, builder: (_) => _ReviewDialog(approved: approved));
+    if (notes == null || !context.mounted) return;
     await _run(
       context,
       ref,
-      () => ref.read(academyRepositoryProvider).review(package.id, approved: approved, notes: text),
+      () => ref.read(academyRepositoryProvider).review(package.id, approved: approved, notes: notes),
       approved ? l.academyUser_approved : l.academyUser_rejected,
       l.academyUser_reviewError,
     );
@@ -283,6 +261,45 @@ class _PackageRow extends ConsumerWidget {
           ]),
         ],
       ),
+    );
+  }
+}
+
+/// Owns its text controller, so it outlives the closing animation.
+class _ReviewDialog extends StatefulWidget {
+  const _ReviewDialog({required this.approved});
+
+  final bool approved;
+
+  @override
+  State<_ReviewDialog> createState() => _ReviewDialogState();
+}
+
+class _ReviewDialogState extends State<_ReviewDialog> {
+  final _notes = TextEditingController();
+
+  @override
+  void dispose() {
+    _notes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final label = widget.approved ? l.academyUser_approve : l.academyUser_reject;
+    return AlertDialog(
+      title: Text(label),
+      content: TextField(
+        key: const Key('review-notes'),
+        controller: _notes,
+        maxLength: 4000,
+        decoration: InputDecoration(labelText: widget.approved ? l.academyUser_approvePrompt : l.academyUser_rejectPrompt),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.projects_cancel)),
+        FilledButton(key: const Key('review-confirm'), onPressed: () => Navigator.pop(context, _notes.text), child: Text(label)),
+      ],
     );
   }
 }
