@@ -27,5 +27,6 @@
   "pushEnabled": "Las notificaciones están activadas en este teléfono.",
   "pushDenied": "Las notificaciones de AIONEX están desactivadas en los ajustes del teléfono.",
   "newNotification": "Nueva notificación",
-  "codeSentTo": "Enviamos un código a {phone}."
+  "codeSentTo": "Enviamos un código a {phone}.",
+  "academy": "Academia"
 }

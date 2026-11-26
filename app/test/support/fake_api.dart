@@ -38,14 +38,20 @@ ResponseBody jsonBody(int status, Object body, {Map<String, List<String>> header
   );
 }
 
-Map<String, Object?> userJson({String role = 'Free User', String name = 'Ahmed'}) => {
+Map<String, Object?> userJson({
+  String role = 'Free User',
+  String name = 'Ahmed',
+  String plan = 'Free',
+  List<String> permissions = const [],
+}) =>
+    {
       'id': 'u1',
       'email': 'user@example.com',
       'name': name,
       'role': role,
       'status': 'active',
-      'permissions': <String>[],
-      'organization': {'id': 'o1', 'name': 'Personal', 'plan': 'Free'},
+      'permissions': permissions,
+      'organization': {'id': 'o1', 'name': 'Personal', 'plan': plan},
     };
 
 Map<String, Object?> grantJson({String access = 'access-1', String refresh = 'refresh-1', String role = 'Free User'}) => {
