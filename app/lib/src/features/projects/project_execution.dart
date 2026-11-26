@@ -13,6 +13,7 @@ import '../../widgets/async_view.dart';
 import '../../widgets/notice.dart';
 import '../auth/password_recovery_pages.dart';
 import '../workspace/workspace_models.dart';
+import '../workspace/workspace_repository.dart';
 
 String _s(Object? v, [String f = '']) => v is String ? v : f;
 int _i(Object? v) => v is num ? v.toInt() : 0;
@@ -216,7 +217,7 @@ class _ExecutionPanelState extends ConsumerState<ExecutionPanel> {
         ? l.projects_execution_threeDConfirm
         : free
             ? l.projects_execution_localConfirm
-            : l.projects_execution_confirm('AIOS governed AI runtime', '0.05');
+            : l.projects_execution_confirm;
     if (!await _confirm(text)) return;
     await _run(
       () => ref
