@@ -11,6 +11,7 @@
 
 | التاريخ | المشكلة | السبب | الحل | المرجع |
 |---|---|---|---|---|
+| 11-27 | بعد البصمة: Google بيرجع `operation-not-allowed` | مزودين الدخول (Google وApple وFacebook) ما اتفعّلوش في Firebase Authentication خالص؛ السيرفر بيعرضهم من إعداداته (`FIREBASE_SOCIAL_PROVIDERS`) من غير ما يتأكد من Firebase. صفر دخول اجتماعي في الـ audit من الأول | المالك فعّل Google من Firebase ← Authentication ← Sign-in method، وصفحة Google فتحت على المحاكي. Apple وFacebook لسه | P-03b |
 | 11-26 | Google على محاكي الأندرويد ما فتحش صفحة الدخول | Firebase بيرفض أي APK بصمة مفتاح توقيعه مش متسجلة في تطبيق الأندرويد (`INVALID_CERT_HASH`)، والنسخة الحالية متوقّعة بمفتاح debug | المالك يضيف SHA-1 وSHA-256 لمفتاح debug في إعدادات تطبيق الأندرويد على Firebase. ولما المفتاح النهائي يتعمل (N-11) تتضاف بصمته هو كمان | P-03b |
 | 11-26 | فحص «App translations match the website» وقف #1130 | ضفت نصوص جديدة في `app/l10n_extra` ونسيت أرفع ملفات `app_*.arb` المتولّدة منها (على السيرفر كانت بتتولّد قبل الاختبار، فما بانش) | شغّلت `python3 app/tool/sync_messages.py` ورفعت الملفات الست، و`--check` بقى نضيف. قبل أي PR فيه نصوص جديدة: شغّل `--check` | #1130 |
 | 11-26 | الدخول بـ Google/Apple كان بيفتح الحساب من غير كود التحقق بخطوتين (MFA) حتى لو مفعّل | `/auth/firebase/social/session` كان بيطلع التوكنز على طول، من غير ما يشيك على الـ MFA زي `/auth/login` | لو الـ MFA مفعّل بيرجع `mfa_required` وتحدي، والجلسة ماتطلعش غير بعد `/auth/mfa/challenge`. الموقع بيودّي صاحب الحساب لخطوة الكود الموجودة. اختبار `test_social_session_mfa.py` | P-03 |
