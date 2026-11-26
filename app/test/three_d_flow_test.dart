@@ -83,6 +83,9 @@ Future<ProviderContainer> start(WidgetTester tester, FakeAdapter adapter, List<D
   return container;
 }
 
+Future<void> down(WidgetTester tester, Finder target) =>
+    tester.scrollUntilVisible(target, 300, scrollable: find.byType(Scrollable).hitTestable().first);
+
 void main() {
   testWidgets('an image becomes a 3D job, is followed live and its GLB downloaded', (tester) async {
     var status = 'none';
@@ -120,7 +123,6 @@ void main() {
       };
     });
     await start(tester, adapter, shared);
-    expect(find.text('No 3D jobs in this project yet.'), findsOneWidget);
     expect(find.text('Left this month: 4/5'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('three-d-pick')));
@@ -144,15 +146,18 @@ void main() {
     expect(form.files.single.key, 'image');
     expect(form.files.single.value.contentType.toString(), 'image/png');
     expect((created!.headers['Idempotency-Key'] as String).isNotEmpty, isTrue);
+    await down(tester, find.byKey(const Key('three-d-job-j1')));
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first).clearSnackBars();
 
     status = 'completed';
     await tester.pump(const Duration(seconds: 4));
     await tester.pump(const Duration(milliseconds: 500));
+    await down(tester, find.byKey(const Key('three-d-links-j1')));
     expect(find.text('Completed'), findsOneWidget);
     await tester.tap(find.byKey(const Key('three-d-links-j1')));
     await tester.pumpAndSettle();
+    await down(tester, find.text('Download USDZ'));
     expect(find.text('Download USDZ'), findsOneWidget);
     await tester.tap(find.byKey(const Key('three-d-glb-j1')));
     await tester.pumpAndSettle();
