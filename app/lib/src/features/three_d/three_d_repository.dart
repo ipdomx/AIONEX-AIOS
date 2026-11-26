@@ -54,7 +54,7 @@ class ThreeDAccess {
   bool get canCreate => eligible && serviceEnabled && monthlyRemaining > 0 && activeJobs < maxConcurrentJobs;
 
   factory ThreeDAccess.fromJson(Map<String, Object?> j) {
-    final disclosure = j['model_disclosure'] is Map ? (j['model_disclosure']! as Map).cast<String, Object?>() : const {};
+    final disclosure = j['model_disclosure'] is Map ? (j['model_disclosure']! as Map).cast<String, Object?>() : const <String, Object?>{};
     return ThreeDAccess(
       eligible: j['eligible'] == true,
       serviceEnabled: j['service_enabled'] != false,
@@ -147,7 +147,7 @@ class ThreeDLinks {
       glb: ThreeDLink(label: 'glb', filename: filename, url: Uri.parse(_s(j['download_url']))),
       exports: [
         if (j['exports'] is List)
-          for (final e in (j['exports']! as List).whereType<Map>())
+          for (final e in (j['exports']! as List).whereType<Map<Object?, Object?>>())
             ThreeDLink(label: _s(e['format']), filename: _s(e['filename']), url: Uri.parse(_s(e['url']))),
       ],
       previewUrl: j['preview_url'] is String ? Uri.tryParse(j['preview_url']! as String) : null,
