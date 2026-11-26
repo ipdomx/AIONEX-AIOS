@@ -50,7 +50,8 @@ class DashboardPage extends ConsumerWidget {
           ],
         ),
         actions: [
-          IconButton(
+          if (ref.watch(canReadNotificationsProvider))
+            IconButton(
             key: const Key('open-notifications'),
             tooltip: l.nav_notifications,
             onPressed: () => context.go('/notifications'),
@@ -112,8 +113,8 @@ class DashboardPage extends ConsumerWidget {
               children: [
                 _Action(icon: Icons.folder_outlined, label: l.dashboard_manageProjects, path: '/projects'),
                 _Action(icon: Icons.forum_outlined, label: l.nav_conversations, path: '/conversations'),
-                // Studio stays unlinked until the public API gateway serves /studio
-                // (it answers 404 there today; see COMPLETION-ROADMAP N-05).
+                _Action(icon: Icons.auto_awesome, label: l.nav_studio, path: '/studio'),
+                _Action(icon: Icons.school_outlined, label: l.app_academy, path: '/academy'),
                 _Action(icon: Icons.support_agent, label: l.dashboard_contactSupport, path: '/support'),
                 _Action(icon: Icons.manage_accounts_outlined, label: l.dashboard_accountSettings, path: '/profile'),
               ],

@@ -27,5 +27,6 @@
   "pushEnabled": "Bu telefonda bildirimler açık.",
   "pushDenied": "AIONEX bildirimleri telefon ayarlarında kapalı.",
   "newNotification": "Yeni bildirim",
-  "codeSentTo": "{phone} numarasına bir kod gönderdik."
+  "codeSentTo": "{phone} numarasına bir kod gönderdik.",
+  "academy": "Akademi"
 }

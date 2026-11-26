@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' show DateFormat;
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../core/api/api_client.dart';
+import '../../core/auth/session_controller.dart';
 import '../../core/providers.dart';
 import '../../widgets/async_view.dart';
 import '../../widgets/error_text.dart';
@@ -81,8 +82,18 @@ class NotificationsRepository {
 final notificationsRepositoryProvider =
     Provider<NotificationsRepository>((ref) => NotificationsRepository(ref.watch(apiClientProvider)));
 
+/// The free plan has no notifications:read, so the app neither shows the inbox nor asks for it.
+final canReadNotificationsProvider = Provider.autoDispose<bool>((ref) {
+  final session = ref.watch(sessionProvider).value;
+  if (session is! SignedIn) return false;
+  final granted = session.user.permissions;
+  return granted.contains('*') || granted.contains('notifications:read');
+});
+
 final notificationsProvider = FutureProvider.autoDispose<List<PortalNotification>>(
-  (ref) => ref.watch(notificationsRepositoryProvider).list(),
+  (ref) async => ref.watch(canReadNotificationsProvider)
+      ? ref.watch(notificationsRepositoryProvider).list()
+      : const <PortalNotification>[],
 );
 
 final unreadCountProvider = Provider.autoDispose<int>(

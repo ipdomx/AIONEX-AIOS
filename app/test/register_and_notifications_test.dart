@@ -190,13 +190,14 @@ void main() {
           'archived': false,
           'created_at': '2026-11-23T10:00:00Z',
         };
+    final reader = userJson(permissions: ['notifications:read', 'notifications:write']);
     final container = await pumpApp(
       tester,
       (request) async {
         final path = request.uri.path.replaceFirst('/api/v1', '');
         return switch ((request.method, path)) {
-          ('POST', '/auth/refresh') => jsonBody(200, grantJson()),
-          ('GET', '/auth/me') => jsonBody(200, userJson()),
+          ('POST', '/auth/refresh') => jsonBody(200, {...grantJson(), 'user': reader}),
+          ('GET', '/auth/me') => jsonBody(200, reader),
           ('GET', '/notifications') => jsonBody(200, {
               'items': [n('n1', 'Project ready'), n('n2', 'Invoice paid')],
             }),
