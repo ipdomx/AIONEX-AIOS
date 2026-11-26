@@ -182,6 +182,9 @@ void main() {
     await tester.tap(find.byKey(const Key('mfa-verify')));
     await tester.pumpAndSettle();
 
+    // The page is longer now (account deletion at the end): start from the top.
+    await tester.drag(find.byType(Scrollable).hitTestable().first, const Offset(0, 4000));
+    await tester.pumpAndSettle();
     await reveal(tester, find.text('Enabled — 8 recovery codes remaining'));
     expect(find.text('Enabled — 8 recovery codes remaining'), findsOneWidget);
     expect(find.byKey(const Key('mfa-disable')), findsOneWidget);
