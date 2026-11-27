@@ -243,7 +243,14 @@ class NotificationSettingsPage extends ConsumerWidget {
               const SizedBox(height: 12),
               _TelegramCard(status: data.telegram),
               const SizedBox(height: 12),
-              _EndpointsCard(endpoints: data.endpoints),
+              _EndpointsCard(
+                endpoints: data.endpoints,
+                // Typed-in addresses: only channels the server offers this user (WhatsApp is owner-only today).
+                channels: [
+                  for (final c in data.channels)
+                    if (c.id == 'email' || c.id == 'whatsapp') c.id,
+                ],
+              ),
             ],
           ),
         ),
@@ -490,20 +497,20 @@ class _TelegramCardState extends ConsumerState<_TelegramCard> {
 }
 
 class _EndpointsCard extends ConsumerStatefulWidget {
-  const _EndpointsCard({required this.endpoints});
+  const _EndpointsCard({required this.endpoints, required this.channels});
 
   final List<ContactEndpoint> endpoints;
+  final List<String> channels;
 
   @override
   ConsumerState<_EndpointsCard> createState() => _EndpointsCardState();
 }
 
 class _EndpointsCardState extends ConsumerState<_EndpointsCard> {
-  // Push is registered by the app itself, so only email and WhatsApp are typed in.
-  static const _channels = ['email', 'whatsapp'];
+  // Push is registered by the app itself, so only email (and WhatsApp when offered) are typed in.
   final _address = TextEditingController();
   final _label = TextEditingController();
-  String _channel = 'email';
+  late String _channel = widget.channels.firstOrNull ?? 'email';
   bool _busy = false;
 
   @override
@@ -593,16 +600,19 @@ class _EndpointsCardState extends ConsumerState<_EndpointsCard> {
                     onPressed: _busy ? null : () => _remove(endpoint),
                   ),
                 ),
+            if (widget.channels.isNotEmpty) ...[
             const Divider(height: 24),
-            DropdownButtonFormField<String>(
-              key: const Key('endpoint-channel'),
-              initialValue: _channel,
-              items: [
-                for (final c in _channels) DropdownMenuItem(value: c, child: Text(_channelName(l, c))),
-              ],
-              onChanged: _busy ? null : (value) => setState(() => _channel = value ?? 'email'),
-            ),
-            const SizedBox(height: 8),
+            if (widget.channels.length > 1) ...[
+              DropdownButtonFormField<String>(
+                key: const Key('endpoint-channel'),
+                initialValue: _channel,
+                items: [
+                  for (final c in widget.channels) DropdownMenuItem(value: c, child: Text(_channelName(l, c))),
+                ],
+                onChanged: _busy ? null : (value) => setState(() => _channel = value ?? _channel),
+              ),
+              const SizedBox(height: 8),
+            ],
             TextField(
               key: const Key('endpoint-address'),
               controller: _address,
@@ -627,6 +637,7 @@ class _EndpointsCardState extends ConsumerState<_EndpointsCard> {
               icon: const Icon(Icons.send_outlined),
               label: Text(l.notifications_addEndpoint),
             ),
+            ],
           ],
         ),
       ),

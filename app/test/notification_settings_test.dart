@@ -78,7 +78,7 @@ void main() {
             {'id': 'in_app', 'name': 'In-app', 'ready': true, 'owner_only': false},
             {'id': 'email', 'name': 'Email', 'ready': true, 'owner_only': false},
             {'id': 'telegram', 'name': 'Telegram', 'ready': false, 'owner_only': false},
-            {'id': 'ops', 'name': 'Owner ops', 'ready': true, 'owner_only': true},
+            {'id': 'whatsapp', 'name': 'WhatsApp', 'ready': false, 'owner_only': true},
           ]),
         ('GET', '/communications/endpoints') => jsonBody(200, endpoints),
         ('GET', '/communications/preferences') => jsonBody(200, [
@@ -137,7 +137,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Owner-only channels are hidden; in-app cannot be switched off.
-    expect(find.byKey(const Key('pref-channel-ops')), findsNothing);
+    expect(find.byKey(const Key('pref-channel-whatsapp')), findsNothing);
     expect(tester.widget<CheckboxListTile>(find.byKey(const Key('pref-channel-in_app'))).onChanged, isNull);
     await tester.tap(find.byKey(const Key('pref-channel-email')));
     await tester.pump();
@@ -157,6 +157,8 @@ void main() {
     await tapVisible(tester, find.byKey(const Key('telegram-copy')));
     expect(clipboard, ['LINK-1234']);
 
+    // WhatsApp is owner-only, so email is the only address type and no picker is shown.
+    expect(find.byKey(const Key('endpoint-channel')), findsNothing);
     await tester.ensureVisible(find.byKey(const Key('endpoint-address')));
     await tester.enterText(find.byKey(const Key('endpoint-address')), 'work@example.com');
     await tester.enterText(find.byKey(const Key('endpoint-label')), 'Work');
