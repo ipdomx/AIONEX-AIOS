@@ -436,7 +436,6 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
           gap,
           DropdownButtonFormField<String>(
             key: const Key('create-page'),
-            isExpanded: true,
             initialValue: _pageId,
             isExpanded: true,
             decoration: InputDecoration(labelText: l.ads_create_page),
