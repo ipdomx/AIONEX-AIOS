@@ -99,6 +99,14 @@ Future<ProviderContainer> start(WidgetTester tester, Map<String, Object?> sent) 
   return container;
 }
 
+/// The preset grid does not scroll itself, so scroll the Start list until the tile is above the navigation bar.
+Future<void> reveal(WidgetTester tester, Finder tile) async {
+  final list = find.descendant(of: find.byKey(const Key('studio-start')), matching: find.byType(Scrollable)).first;
+  await tester.scrollUntilVisible(tile, 120, scrollable: list);
+  await tester.drag(list, const Offset(0, -120));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('Start tab: readiness, a ready preset opens the request prefilled, a closed one is disabled',
       (tester) async {
@@ -107,12 +115,12 @@ void main() {
     expect(find.textContaining('This capability is not available on your current organization plan.'), findsOneWidget);
 
     // Video is not in this plan: tapping does nothing.
-    await tester.ensureVisible(find.byKey(const Key('studio-preset-video')));
+    await reveal(tester, find.byKey(const Key('studio-preset-video')));
     await tester.tap(find.byKey(const Key('studio-preset-video')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('studio-department')), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const Key('studio-preset-prompts')));
+    await reveal(tester, find.byKey(const Key('studio-preset-prompts')));
     await tester.tap(find.byKey(const Key('studio-preset-prompts')));
     await tester.pumpAndSettle();
     final department = tester.widget<DropdownButtonFormField<String>>(find.byKey(const Key('studio-department')));
@@ -127,7 +135,7 @@ void main() {
   testWidgets('Sectors tab: a pack and a custom sector become projects in the chosen workspace', (tester) async {
     final sent = <String, Object?>{};
     await start(tester, sent);
-    await tester.ensureVisible(find.byKey(const Key('studio-preset-sector')));
+    await reveal(tester, find.byKey(const Key('studio-preset-sector')));
     await tester.tap(find.byKey(const Key('studio-preset-sector')));
     await tester.pumpAndSettle();
     expect(find.text('Clinic operations'), findsOneWidget);
