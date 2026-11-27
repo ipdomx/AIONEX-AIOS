@@ -72,10 +72,12 @@ class AdAccountLink {
     required this.syncError,
     required this.lastSyncAt,
     required this.syncedThrough,
+    this.cpaTargetMinor,
   });
   final String id;
   final String name;
   final String adAccountId;
+  final int? cpaTargetMinor;
   final String currency;
   final String syncState;
   final String? syncError;
@@ -91,6 +93,7 @@ class AdAccountLink {
         syncError: j['sync_error'] as String?,
         lastSyncAt: _d(j['last_sync_at']),
         syncedThrough: j['insights_synced_through'] as String?,
+        cpaTargetMinor: j['cpa_target_minor'] is num ? _i(j['cpa_target_minor']) : null,
       );
 }
 
@@ -218,6 +221,7 @@ class AdsCampaign {
   int? get budgetMinor => dailyBudgetMinor ?? lifetimeBudgetMinor;
   bool get canPause => status == 'active';
   bool get canActivate => status == 'paused' || status == 'auto_paused';
+  bool get canRetry => status == 'failed' || status == 'draft';
 
   factory AdsCampaign.fromJson(Map<String, Object?> j) => AdsCampaign(
         id: _s(j['id']),
@@ -263,6 +267,18 @@ class AdsRepository {
 
   Future<List<AdsCampaign>> campaigns() async =>
       [for (final r in _rows((await _api.getJson('/ads/campaigns'))['items'])) AdsCampaign.fromJson(r)];
+
+  /// Creates the campaign on Meta, always PAUSED. The key makes a repeated tap harmless.
+  Future<AdsCampaign> create(Map<String, Object?> input) async =>
+      AdsCampaign.fromJson(await _api.postJson('/ads/campaigns', body: input, retry: false));
+
+  Future<void> provision(String id) async =>
+      _api.postJson('/ads/campaigns/${Uri.encodeComponent(id)}/provision', retry: false);
+
+  Future<void> setCpaTarget(String linkId, int? minor) async =>
+      _api.patchJson('/ads/accounts/${Uri.encodeComponent(linkId)}', body: {'cpa_target_minor': minor});
+
+  Future<void> unlink(String linkId) async => _api.deleteJson('/ads/accounts/${Uri.encodeComponent(linkId)}');
 
   Future<void> pause(String id) async => _api.postJson('/ads/campaigns/${Uri.encodeComponent(id)}/pause', retry: false);
 
