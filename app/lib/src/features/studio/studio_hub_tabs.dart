@@ -65,7 +65,8 @@ class StudioStartTab extends ConsumerWidget {
       onRetry: () => ref.invalidate(studioHubProvider),
       builder: (hub) => ListView(
         key: const Key('studio-start'),
-        padding: const EdgeInsets.all(16),
+        // Room below the last item so the floating Create button never covers it.
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
           Text(l.studio_readinessTitle, style: theme.textTheme.titleMedium),
           Text(l.studio_readinessCopy, style: theme.textTheme.bodySmall),
@@ -255,7 +256,8 @@ class _StudioSectorsTabState extends ConsumerState<StudioSectorsTab> {
         final open = catalog.capability.available && workspaces.isNotEmpty;
         return ListView(
           key: const Key('studio-sectors'),
-          padding: const EdgeInsets.all(16),
+          // Room below the last item so the floating Create button never covers it.
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: [
             Text(l.studio_sectorTitle, style: theme.textTheme.titleMedium),
             Text(l.studio_sectorCopy, style: theme.textTheme.bodySmall),
