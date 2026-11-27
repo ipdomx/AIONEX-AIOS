@@ -47,5 +47,10 @@
   "deleteAccountMfaCode": "كود التحقق بخطوتين",
   "continueWith": "المتابعة باستخدام {provider}",
   "socialSignUpNote": "أكمل إنشاء حسابك. بريدك الإلكتروني من {provider} ولا يمكن تغييره هنا.",
-  "notificationSettings": "إعدادات الإشعارات"
+  "notificationSettings": "إعدادات الإشعارات",
+  "purchaseActive": "باقتك اتفعّلت.",
+  "purchaseFailed": "الشراء ما اكتملش. لو اتخصم منك فلوس، استخدم «استرجاع المشتريات».",
+  "purchaseInStoreApp": "الاشتراك متاح من تطبيق App Store وGoogle Play.",
+  "purchaseNotReady": "الاشتراك من التطبيق هيبقى متاح قريب.",
+  "purchasePending": "مستنيين تأكيد المتجر…"
 }

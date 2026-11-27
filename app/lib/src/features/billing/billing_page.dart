@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -82,9 +83,13 @@ class BillingSummary {
     required this.invoices,
     required this.walletMinor,
     required this.walletCurrency,
+    this.planCode = '',
   });
   final String accountStatus;
   final String planName;
+
+  /// Catalog code (free, professional, ...) to mark the current plan on the plans page.
+  final String planCode;
   final int seats;
   final Map<String, Object?> limits;
   final Map<String, int> usage;
@@ -115,6 +120,7 @@ class BillingSummary {
       ],
       walletMinor: _i(wallet['balance_minor']),
       walletCurrency: _s(wallet['currency'], 'USD'),
+      planCode: _s(account['plan'], 'free'),
     );
   }
 }
@@ -235,6 +241,15 @@ class BillingPage extends ConsumerWidget {
                   title: Text(l.billing_currentPlan, style: theme.textTheme.labelMedium),
                   subtitle: Text(b.planName, key: const Key('billing-plan'), style: theme.textTheme.titleLarge),
                   trailing: Text('${l.billing_accountStatus}: ${b.accountStatus}', style: theme.textTheme.bodySmall),
+                ),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const Key('billing-plans'),
+                  icon: const Icon(Icons.workspace_premium_outlined),
+                  label: Text(l.billing_plans),
+                  onPressed: () => context.go('/billing/plans'),
                 ),
               ),
               const SizedBox(height: 8),
