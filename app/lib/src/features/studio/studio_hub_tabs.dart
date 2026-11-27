@@ -86,13 +86,16 @@ class StudioStartTab extends ConsumerWidget {
           Text(l.studio_templatesTitle, style: theme.textTheme.titleMedium),
           Text(l.studio_templatesCopy, style: theme.textTheme.bodySmall),
           const SizedBox(height: 8),
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2.2,
+            // A fixed height (not a ratio): larger text or narrow phones must not overflow the tile.
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              mainAxisExtent: 92,
+            ),
             children: [
               for (final preset in studioPresets)
                 _PresetTile(
