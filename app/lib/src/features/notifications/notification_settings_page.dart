@@ -182,7 +182,7 @@ class NotificationSettingsRepository {
       _api.getJson('/telegram/status'),
     ]);
     Iterable<Map<String, Object?>> maps(Object? list) =>
-        (list as List).whereType<Map>().map((m) => m.cast<String, Object?>());
+        (list as List).whereType<Map<Object?, Object?>>().map((m) => m.cast<String, Object?>());
     final preferences = maps(results[2]).map(DeliveryPreference.fromJson).toList();
     return NotificationSettings(
       channels: [
