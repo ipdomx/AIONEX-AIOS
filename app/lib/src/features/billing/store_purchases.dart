@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/auth/session_controller.dart';
 import '../../core/providers.dart';
 import 'billing_page.dart';
