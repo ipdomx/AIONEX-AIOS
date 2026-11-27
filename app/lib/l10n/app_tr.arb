@@ -274,6 +274,7 @@
   "app_mb": "{value} MB",
   "app_networkError": "AIONEX bağlantısı yok. İnternetinizi kontrol edip tekrar deneyin.",
   "app_newNotification": "Yeni bildirim",
+  "app_notificationSettings": "Bildirim ayarları",
   "app_openAuthenticator": "Doğrulama uygulamasında aç",
   "app_ownerConsoleOnly": "Bu hesap yalnızca sahip konsolundan giriş yapar.",
   "app_pushDenied": "AIONEX bildirimleri telefon ayarlarında kapalı.",

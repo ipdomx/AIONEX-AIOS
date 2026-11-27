@@ -46,5 +46,6 @@
   "deleteAccountOwnerHasMembers": "You own an organization with other members. Transfer ownership or remove the members first.",
   "deleteAccountMfaCode": "Two-step verification code",
   "continueWith": "Continue with {provider}",
-  "socialSignUpNote": "Finish creating your account. Your email comes from {provider} and cannot be changed here."
+  "socialSignUpNote": "Finish creating your account. Your email comes from {provider} and cannot be changed here.",
+  "notificationSettings": "Notification settings"
 }

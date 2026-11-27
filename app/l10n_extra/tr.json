@@ -46,5 +46,6 @@
   "deleteAccountOwnerHasMembers": "Başka üyeleri olan bir kuruluşun sahibisiniz. Önce sahipliği devredin veya üyeleri çıkarın.",
   "deleteAccountMfaCode": "İki adımlı doğrulama kodu",
   "continueWith": "{provider} ile devam et",
-  "socialSignUpNote": "Hesabınızı oluşturmayı tamamlayın. E-postanız {provider} hesabından gelir ve burada değiştirilemez."
+  "socialSignUpNote": "Hesabınızı oluşturmayı tamamlayın. E-postanız {provider} hesabından gelir ve burada değiştirilemez.",
+  "notificationSettings": "Bildirim ayarları"
 }

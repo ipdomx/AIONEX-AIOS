@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -126,6 +127,12 @@ class NotificationsPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l.nav_notifications),
         actions: [
+          IconButton(
+            key: const Key('notification-settings'),
+            tooltip: l.app_notificationSettings,
+            icon: const Icon(Icons.tune),
+            onPressed: () => context.go('/notifications/settings'),
+          ),
           IconButton(
             key: const Key('mark-all-read'),
             tooltip: l.notifications_markAllRead,
