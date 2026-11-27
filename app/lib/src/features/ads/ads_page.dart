@@ -9,6 +9,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../core/api/api_exception.dart';
 import '../../widgets/async_view.dart';
 import '../../widgets/notice.dart';
+import 'ads_planning_tab.dart';
 import 'ads_repository.dart';
 
 String adsError(AppLocalizations l, Object error) {
@@ -68,8 +69,36 @@ class AdsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final access = ref.watch(adsAccessProvider);
+    final planning = ref.watch(paidReadinessProvider);
+    // Ads management and owner-reviewed planning are gated separately; the page opens for either.
+    final ads = access.value?.allowed == true ? access.value : null;
+    final plan = planning.value?.campaignsVisible == true ? planning.value : null;
+    final tabs = <(String, Widget)>[
+      if (ads != null) ...[
+        (l.ads_tabs_dashboard, const _DashboardTab()),
+        (l.ads_tabs_accounts, const _AccountsTab()),
+        (l.ads_list_title, _CampaignsTab(access: ads)),
+      ],
+      if (plan != null) (l.ads_tabs_planning, AdsPlanningTab(readiness: plan)),
+    ];
+    final Widget body;
+    if (access.isLoading || planning.isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (tabs.isNotEmpty) {
+      body = TabBarView(children: [for (final t in tabs) t.$2]);
+    } else if (access.hasError &&
+        !(access.error is ApiException && const {402, 403}.contains((access.error! as ApiException).statusCode))) {
+      body = ListView(children: [
+        Padding(padding: const EdgeInsets.all(16), child: Notice(text: adsError(l, access.error!), tone: NoticeTone.error)),
+      ]);
+    } else {
+      body = ListView(children: [
+        EmptyState(icon: Icons.campaign_outlined, title: l.ads_notEntitledTitle, message: l.ads_notEntitledBody),
+      ]);
+    }
     return DefaultTabController(
-      length: 3,
+      key: ValueKey(tabs.length),
+      length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
           title: Text(l.app_ads),
@@ -82,25 +111,21 @@ class AdsPage extends ConsumerWidget {
                 ref.invalidate(adsLinksProvider);
                 ref.invalidate(adsCampaignsProvider);
                 ref.invalidate(adsDashboardProvider);
+                ref.invalidate(paidReadinessProvider);
+                ref.invalidate(paidCampaignsProvider);
               },
             ),
           ],
-          bottom: access.value?.allowed == true
-              ? TabBar(tabs: [Tab(text: l.ads_tabs_dashboard), Tab(text: l.ads_tabs_accounts), Tab(text: l.ads_list_title)])
+          bottom: tabs.length > 1
+              ? TabBar(
+                  // Four tabs (ads + planning) do not fit a phone width; three still do.
+                  isScrollable: tabs.length > 3,
+                  tabAlignment: tabs.length > 3 ? TabAlignment.start : null,
+                  tabs: [for (final t in tabs) Tab(text: t.$1)],
+                )
               : null,
         ),
-        body: access.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(children: [
-            if (e is ApiException && (e.statusCode == 402 || e.statusCode == 403))
-              EmptyState(icon: Icons.campaign_outlined, title: l.ads_notEntitledTitle, message: l.ads_notEntitledBody)
-            else
-              Padding(padding: const EdgeInsets.all(16), child: Notice(text: adsError(l, e), tone: NoticeTone.error)),
-          ]),
-          data: (a) => !a.allowed
-              ? ListView(children: [EmptyState(icon: Icons.campaign_outlined, title: l.ads_notEntitledTitle, message: l.ads_notEntitledBody)])
-              : TabBarView(children: [const _DashboardTab(), const _AccountsTab(), _CampaignsTab(access: a)]),
-        ),
+        body: body,
       ),
     );
   }

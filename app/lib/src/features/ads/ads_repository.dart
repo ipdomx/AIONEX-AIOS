@@ -298,3 +298,123 @@ final adsDashboardProvider =
     FutureProvider.autoDispose.family<AdsDashboard, String>((ref, id) => ref.watch(adsRepositoryProvider).dashboard(id));
 final adsRecommendationsProvider =
     FutureProvider.autoDispose.family<AdsRecommendationRun?, String>((ref, id) => ref.watch(adsRepositoryProvider).latestRecommendations(id));
+
+/// Owner-reviewed paid-campaign planning (GS-12): AIOS simulates and advises, nothing spends.
+@immutable
+class PaidAdAccount {
+  const PaidAdAccount({
+    required this.id,
+    required this.provider,
+    required this.displayName,
+    required this.currency,
+    required this.liveObjectives,
+  });
+  final String id;
+  final String provider;
+  final String displayName;
+  final String currency;
+  final List<String> liveObjectives;
+
+  factory PaidAdAccount.fromJson(Map<String, Object?> j) => PaidAdAccount(
+        id: _s(j['id']),
+        provider: _s(j['provider']),
+        displayName: _s(j['display_name']),
+        currency: _s(j['currency'], 'USD'),
+        liveObjectives: [for (final o in (j['live_objectives'] is List ? j['live_objectives']! as List : const [])) if (o is String) o],
+      );
+}
+
+@immutable
+class PaidReadiness {
+  const PaidReadiness({required this.campaignsVisible, required this.accounts});
+  final bool campaignsVisible;
+  final List<PaidAdAccount> accounts;
+
+  factory PaidReadiness.fromJson(Map<String, Object?> j) => PaidReadiness(
+        campaignsVisible: j['campaigns_visible'] == true,
+        accounts: [for (final r in _rows(j['linked_ad_accounts'])) PaidAdAccount.fromJson(r)],
+      );
+}
+
+@immutable
+class PaidCampaign {
+  const PaidCampaign({
+    required this.id,
+    required this.name,
+    required this.objective,
+    required this.approved,
+    required this.currency,
+    required this.totalBudgetMinor,
+    required this.dailyCapMinor,
+    required this.deliveryStage,
+    required this.manualReview,
+  });
+  final String id;
+  final String name;
+  final String objective;
+  final bool approved;
+  final String currency;
+  final int totalBudgetMinor;
+  final int dailyCapMinor;
+  final String deliveryStage;
+  final bool manualReview;
+
+  factory PaidCampaign.fromJson(Map<String, Object?> j) => PaidCampaign(
+        id: _s(j['id']),
+        name: _s(j['name']),
+        objective: _s(j['objective']),
+        approved: j['approval_status'] == 'approved',
+        currency: _s(j['currency'], 'USD'),
+        totalBudgetMinor: _i(j['total_budget_minor']),
+        dailyCapMinor: _i(j['daily_budget_cap_minor']),
+        deliveryStage: _s(j['delivery_stage'], 'aios_analysis'),
+        manualReview: j['manual_review_required'] == true,
+      );
+}
+
+@immutable
+class PaidAssessment {
+  const PaidAssessment({required this.recommendation, required this.cpaMinor, required this.roas, required this.currency});
+  final String recommendation;
+  final int? cpaMinor;
+  final double roas;
+  final String currency;
+
+  factory PaidAssessment.fromJson(Map<String, Object?> j) {
+    final assessment = _map(j['budget_assessment']);
+    return PaidAssessment(
+      recommendation: _s(assessment['recommendation']),
+      cpaMinor: assessment['observed_cpa_minor'] is num ? _i(assessment['observed_cpa_minor']) : null,
+      roas: _n(assessment['observed_roas']) ?? 0,
+      currency: _s(_map(j['campaign'])['currency'], 'USD'),
+    );
+  }
+}
+
+class PaidCampaignRepository {
+  PaidCampaignRepository(this._api);
+  final ApiClient _api;
+
+  /// Null when planning is not available to this account (the page then shows ads only).
+  Future<PaidReadiness?> readiness() async {
+    try {
+      return PaidReadiness.fromJson(await _api.getJson('/growth-social/paid-campaigns/readiness'));
+    } on Object {
+      return null;
+    }
+  }
+
+  Future<List<PaidCampaign>> list() async =>
+      [for (final r in _rows((await _api.getJson('/growth-social/paid-campaigns'))['items'])) PaidCampaign.fromJson(r)];
+
+  Future<PaidAssessment> prepareAndSimulate(Map<String, Object?> input) async => PaidAssessment.fromJson(
+        await _api.postJson('/growth-social/paid-campaigns/prepare-and-simulate', body: input, retry: false),
+      );
+}
+
+final paidCampaignRepositoryProvider =
+    Provider<PaidCampaignRepository>((ref) => PaidCampaignRepository(ref.watch(apiClientProvider)));
+final paidReadinessProvider =
+    FutureProvider.autoDispose<PaidReadiness?>((ref) => ref.watch(paidCampaignRepositoryProvider).readiness());
+final paidCampaignsProvider =
+    FutureProvider.autoDispose<List<PaidCampaign>>((ref) => ref.watch(paidCampaignRepositoryProvider).list());
