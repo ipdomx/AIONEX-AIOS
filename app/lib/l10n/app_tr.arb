@@ -295,6 +295,8 @@
   "app_socialConnectOnWebsite": "Yeni hesaplar web sitesinde Meta'nın resmi girişiyle bağlanır. Ardından buraya dönüp yenileyin.",
   "app_socialOpenWebsite": "Web sitesini aç",
   "app_socialSignUpNote": "Hesabınızı oluşturmayı tamamlayın. E-postanız {provider} hesabından gelir ve burada değiştirilemez.",
+  "app_studioSectors": "Sektörler",
+  "app_studioStart": "Başla",
   "app_systemLanguage": "Cihaz dili",
   "app_threeDLinks": "İndirme bağlantılarını al",
   "auth_accountUnavailable": "Bu hesapla şu anda giriş yapılamıyor. Lütfen destekle iletişime geçin.",

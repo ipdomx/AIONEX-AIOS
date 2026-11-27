@@ -52,5 +52,7 @@
   "purchaseFailed": "الشراء ما اكتملش. لو اتخصم منك فلوس، استخدم «استرجاع المشتريات».",
   "purchaseInStoreApp": "الاشتراك متاح من تطبيق App Store وGoogle Play.",
   "purchaseNotReady": "الاشتراك من التطبيق هيبقى متاح قريب.",
-  "purchasePending": "مستنيين تأكيد المتجر…"
+  "purchasePending": "مستنيين تأكيد المتجر…",
+  "studioStart": "ابدأ",
+  "studioSectors": "القطاعات"
 }

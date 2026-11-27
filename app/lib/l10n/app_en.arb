@@ -295,6 +295,8 @@
   "app_socialConnectOnWebsite": "New accounts are connected on the website with Meta's official login. Come back and refresh afterwards.",
   "app_socialOpenWebsite": "Open the website",
   "app_socialSignUpNote": "Finish creating your account. Your email comes from {provider} and cannot be changed here.",
+  "app_studioSectors": "Sectors",
+  "app_studioStart": "Start",
   "app_systemLanguage": "Device language",
   "app_threeDLinks": "Get download links",
   "auth_accountUnavailable": "This account can’t sign in right now. Please contact support.",

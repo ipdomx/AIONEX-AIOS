@@ -295,6 +295,8 @@
   "app_socialConnectOnWebsite": "Las cuentas nuevas se conectan en el sitio web con el inicio de sesión oficial de Meta. Luego vuelve y actualiza.",
   "app_socialOpenWebsite": "Abrir el sitio web",
   "app_socialSignUpNote": "Termina de crear tu cuenta. Tu correo viene de {provider} y no se puede cambiar aquí.",
+  "app_studioSectors": "Sectores",
+  "app_studioStart": "Inicio",
   "app_systemLanguage": "Idioma del dispositivo",
   "app_threeDLinks": "Obtener enlaces de descarga",
   "auth_accountUnavailable": "Esta cuenta no puede iniciar sesión ahora. Contacta con soporte.",

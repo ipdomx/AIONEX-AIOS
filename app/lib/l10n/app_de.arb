@@ -295,6 +295,8 @@
   "app_socialConnectOnWebsite": "Neue Konten werden auf der Website mit dem offiziellen Meta-Login verbunden. Danach hier aktualisieren.",
   "app_socialOpenWebsite": "Website öffnen",
   "app_socialSignUpNote": "Schließen Sie die Kontoerstellung ab. Ihre E-Mail-Adresse stammt von {provider} und kann hier nicht geändert werden.",
+  "app_studioSectors": "Branchen",
+  "app_studioStart": "Start",
   "app_systemLanguage": "Gerätesprache",
   "app_threeDLinks": "Download-Links abrufen",
   "auth_accountUnavailable": "Dieses Konto kann sich derzeit nicht anmelden. Bitte kontaktiere den Support.",
