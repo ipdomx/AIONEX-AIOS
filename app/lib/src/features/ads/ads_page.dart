@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat, NumberFormat;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -300,7 +302,8 @@ class _AccountsTab extends ConsumerWidget {
                   for (final x in links)
                     Card(
                       key: Key('ads-link-${x.id}'),
-                      child: ListTile(
+                      child: Column(children: [
+                        ListTile(
                         title: Text('${x.name} · ${x.currency}'),
                         subtitle: Text([
                           syncLabel(l, x.syncState),
@@ -323,6 +326,8 @@ class _AccountsTab extends ConsumerWidget {
                           child: Text(l.ads_accounts_syncNow),
                         ),
                       ),
+                        _LinkControls(link: x),
+                      ]),
                     ),
                 ]),
         ),
@@ -370,8 +375,9 @@ class _CampaignsTab extends ConsumerWidget {
             alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
               icon: const Icon(Icons.add),
+              key: const Key('ads-create'),
               label: Text(l.ads_tabs_create),
-              onPressed: () => _openWebsite(context),
+              onPressed: () => context.go('/ads/new'),
             ),
           ),
           if (rows.isEmpty) Text(l.ads_list_empty, style: theme.textTheme.bodySmall),
@@ -405,6 +411,20 @@ class _CampaignsTab extends ConsumerWidget {
                           ref.invalidate(adsCampaignsProvider);
                         },
                         child: Text(l.ads_list_pause),
+                      ),
+                    if (c.canRetry)
+                      TextButton(
+                        key: Key('ads-retry-${c.id}'),
+                        onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            await ref.read(adsRepositoryProvider).provision(c.id);
+                          } on Object catch (error) {
+                            messenger.showSnackBar(SnackBar(content: Text(adsError(l, error))));
+                          }
+                          ref.invalidate(adsCampaignsProvider);
+                        },
+                        child: Text(l.ads_list_retry),
                       ),
                     if (c.canActivate && access.activationEnabled)
                       TextButton(
@@ -480,6 +500,106 @@ class _ActivateDialogState extends State<_ActivateDialog> {
           child: Text(l.ads_activate_confirm),
         ),
       ],
+    );
+  }
+}
+
+/// Target CPA (used by the AI advice and alerts) and unlinking, as on the website.
+class _LinkControls extends ConsumerStatefulWidget {
+  const _LinkControls({required this.link});
+
+  final AdAccountLink link;
+
+  @override
+  ConsumerState<_LinkControls> createState() => _LinkControlsState();
+}
+
+class _LinkControlsState extends ConsumerState<_LinkControls> {
+  late final _target = TextEditingController(
+    text: widget.link.cpaTargetMinor == null
+        ? ''
+        : (widget.link.cpaTargetMinor! / currencyOffset(widget.link.currency)).toString(),
+  );
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _target.dispose();
+    super.dispose();
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    final l = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await action();
+    } on Object catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(adsError(l, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    ref.invalidate(adsLinksProvider);
+  }
+
+  Future<void> _unlink() async {
+    final l = AppLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.ads_accounts_unlink),
+        content: Text('${widget.link.name} · ${widget.link.adAccountId}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.ads_activate_cancel)),
+          TextButton(
+            key: const Key('unlink-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.ads_accounts_unlink),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _run(() => ref.read(adsRepositoryProvider).unlink(widget.link.id));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final link = widget.link;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: TextField(
+              key: Key('ads-cpa-${link.id}'),
+              controller: _target,
+              enabled: !_busy,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+              decoration: InputDecoration(labelText: l.ads_accounts_cpaTarget(link.currency), isDense: true),
+            ),
+          ),
+          TextButton(
+            key: Key('ads-cpa-save-${link.id}'),
+            onPressed: _busy
+                ? null
+                : () => _run(() {
+                      final text = _target.text.trim();
+                      final minor = text.isEmpty ? null : toMinor(text, link.currency);
+                      return ref.read(adsRepositoryProvider).setCpaTarget(link.id, minor == 0 ? null : minor);
+                    }),
+            child: Text(l.ads_accounts_saveTarget),
+          ),
+          IconButton(
+            key: Key('ads-unlink-${link.id}'),
+            tooltip: l.ads_accounts_unlink,
+            icon: const Icon(Icons.link_off),
+            onPressed: _busy ? null : _unlink,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/academy/academy_page.dart';
+import '../../features/ads/ads_campaign_create_page.dart';
 import '../../features/ads/ads_page.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/auth/mfa_page.dart';
@@ -116,7 +117,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(path: 'studio', builder: (context, state) => const StudioPage()),
                   GoRoute(path: 'academy', builder: (context, state) => const AcademyPage()),
-                  GoRoute(path: 'ads', builder: (context, state) => const AdsPage()),
+                  GoRoute(
+                    path: 'ads',
+                    builder: (context, state) => const AdsPage(),
+                    routes: [GoRoute(path: 'new', builder: (context, state) => const AdsCampaignCreatePage())],
+                  ),
                   GoRoute(path: 'billing', builder: (context, state) => const BillingPage()),
                   GoRoute(path: 'realtime', builder: (context, state) => const RealtimePage()),
                   GoRoute(

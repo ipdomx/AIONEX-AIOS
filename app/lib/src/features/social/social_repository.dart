@@ -74,8 +74,15 @@ class SocialTarget {
     required this.permalink,
     required this.errorCode,
     required this.errorMessage,
+    this.id = '',
+    this.remotePostId,
+    this.publishedAt,
   });
 
+  /// Target id: an ad can promote this published post (creative source "post").
+  final String id;
+  final String? remotePostId;
+  final DateTime? publishedAt;
   final String accountName;
   final String provider;
   final String status;
@@ -94,6 +101,9 @@ class SocialTarget {
         permalink: j['permalink'] as String?,
         errorCode: j['error_code'] as String?,
         errorMessage: j['error_message'] as String?,
+        id: _s(j['id']),
+        remotePostId: j['remote_post_id'] as String?,
+        publishedAt: _d(j['published_at']),
       );
 }
 
