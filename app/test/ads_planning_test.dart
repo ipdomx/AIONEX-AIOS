@@ -95,7 +95,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // No ads plan: no ads tabs, but the planning form is there.
-    expect(find.text('Dashboard'), findsNothing);
+    expect(find.byType(TabBar), findsNothing);
     expect(find.text('Create and analyze a campaign'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('plan-name')), 'Summer sales');

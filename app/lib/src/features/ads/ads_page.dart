@@ -116,7 +116,14 @@ class AdsPage extends ConsumerWidget {
               },
             ),
           ],
-          bottom: tabs.length > 1 ? TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [for (final t in tabs) Tab(text: t.$1)]) : null,
+          bottom: tabs.length > 1
+              ? TabBar(
+                  // Four tabs (ads + planning) do not fit a phone width; three still do.
+                  isScrollable: tabs.length > 3,
+                  tabAlignment: tabs.length > 3 ? TabAlignment.start : null,
+                  tabs: [for (final t in tabs) Tab(text: t.$1)],
+                )
+              : null,
         ),
         body: body,
       ),
