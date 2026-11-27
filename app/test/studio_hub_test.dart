@@ -75,7 +75,7 @@ Future<ProviderContainer> start(WidgetTester tester, Map<String, Object?> sent) 
           ],
         }),
       ('POST', '/projects') => () {
-          ((sent['projects'] ??= <Object?>[])! as List<Object?>).add(body(request));
+          ((sent['projects'] ??= <Object?>[]) as List<Object?>).add(body(request));
           final b = body(request)! as Map;
           return jsonBody(201, {'id': 'p1', 'name': b['name'], 'status': 'active', 'workspace': {'id': 'w1', 'name': 'Main'}});
         }(),
@@ -103,8 +103,6 @@ void main() {
   testWidgets('Start tab: readiness, a ready preset opens the request prefilled, a closed one is disabled',
       (tester) async {
     await start(tester, {});
-    await tester.tap(find.text('Start'));
-    await tester.pumpAndSettle();
     expect(find.textContaining('2 · Available to your account now'), findsOneWidget);
     expect(find.textContaining('This capability is not available on your current organization plan.'), findsOneWidget);
 
@@ -127,8 +125,6 @@ void main() {
   testWidgets('Sectors tab: a pack and a custom sector become projects in the chosen workspace', (tester) async {
     final sent = <String, Object?>{};
     await start(tester, sent);
-    await tester.tap(find.text('Start'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('studio-preset-sector')));
     await tester.pumpAndSettle();
     expect(find.text('Clinic operations'), findsOneWidget);

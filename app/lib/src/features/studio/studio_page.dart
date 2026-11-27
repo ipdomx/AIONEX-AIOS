@@ -78,7 +78,6 @@ class _StudioPageState extends ConsumerState<StudioPage> {
         );
     return DefaultTabController(
       length: 4,
-      initialIndex: 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text(l.studio_title),
