@@ -47,5 +47,17 @@
   "deleteAccountMfaCode": "Code der Zwei-Schritt-Verifizierung",
   "continueWith": "Weiter mit {provider}",
   "socialSignUpNote": "Schließen Sie die Kontoerstellung ab. Ihre E-Mail-Adresse stammt von {provider} und kann hier nicht geändert werden.",
-  "notificationSettings": "Benachrichtigungseinstellungen"
+  "notificationSettings": "Benachrichtigungseinstellungen",
+  "copyReport": "Bericht kopieren",
+  "reportCopied": "Bericht kopiert.",
+  "remediationRequest": "Behebung anfordern",
+  "remediationRequested": "Behebung angefordert. Der Status erscheint im Security Lab.",
+  "remediationUnavailable": "Automatische Behebungen gibt es nur für vom Plattformbetreiber freigegebene AIONEX-Projekte.",
+  "remediationRetest": "Erneut prüfen",
+  "remediationRetestQueued": "Erneute Prüfung eingeplant.",
+  "remediationFinalize": "Behebung bestätigen",
+  "remediationFinalized": "Die erneute Prüfung hat die Behebung bestätigt.",
+  "remediationReadyToRetest": "Bereit zur erneuten Prüfung",
+  "remediationRetesting": "Wird erneut geprüft",
+  "remediationFixed": "Behoben und geprüft"
 }

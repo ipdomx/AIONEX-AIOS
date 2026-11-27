@@ -47,5 +47,17 @@
   "deleteAccountMfaCode": "Two-step verification code",
   "continueWith": "Continue with {provider}",
   "socialSignUpNote": "Finish creating your account. Your email comes from {provider} and cannot be changed here.",
-  "notificationSettings": "Notification settings"
+  "notificationSettings": "Notification settings",
+  "copyReport": "Copy report",
+  "reportCopied": "Report copied.",
+  "remediationRequest": "Request a fix",
+  "remediationRequested": "Fix requested. Its status appears in the Security Lab.",
+  "remediationUnavailable": "Automatic fixes are only available for AIONEX projects enabled by the platform owner.",
+  "remediationRetest": "Retest",
+  "remediationRetestQueued": "Retest queued.",
+  "remediationFinalize": "Confirm fix",
+  "remediationFinalized": "Fix confirmed by the retest.",
+  "remediationReadyToRetest": "Ready to retest",
+  "remediationRetesting": "Retesting",
+  "remediationFixed": "Fixed and verified"
 }

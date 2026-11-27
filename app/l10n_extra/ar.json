@@ -47,5 +47,17 @@
   "deleteAccountMfaCode": "كود التحقق بخطوتين",
   "continueWith": "المتابعة باستخدام {provider}",
   "socialSignUpNote": "أكمل إنشاء حسابك. بريدك الإلكتروني من {provider} ولا يمكن تغييره هنا.",
-  "notificationSettings": "إعدادات الإشعارات"
+  "notificationSettings": "إعدادات الإشعارات",
+  "copyReport": "نسخ التقرير",
+  "reportCopied": "اتنسخ التقرير.",
+  "remediationRequest": "اطلب إصلاح",
+  "remediationRequested": "اتطلب الإصلاح، وحالته هتظهر في معمل الأمان.",
+  "remediationUnavailable": "الإصلاح التلقائي متاح بس لمشاريع AIONEX اللي مالك المنصة مفعّلها.",
+  "remediationRetest": "إعادة الفحص",
+  "remediationRetestQueued": "إعادة الفحص اتحطت في الطابور.",
+  "remediationFinalize": "تأكيد الإصلاح",
+  "remediationFinalized": "إعادة الفحص أكدت الإصلاح.",
+  "remediationReadyToRetest": "جاهز لإعادة الفحص",
+  "remediationRetesting": "بيتعاد فحصه",
+  "remediationFixed": "اتصلح واتأكد"
 }

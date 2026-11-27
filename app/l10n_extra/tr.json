@@ -47,5 +47,17 @@
   "deleteAccountMfaCode": "İki adımlı doğrulama kodu",
   "continueWith": "{provider} ile devam et",
   "socialSignUpNote": "Hesabınızı oluşturmayı tamamlayın. E-postanız {provider} hesabından gelir ve burada değiştirilemez.",
-  "notificationSettings": "Bildirim ayarları"
+  "notificationSettings": "Bildirim ayarları",
+  "copyReport": "Raporu kopyala",
+  "reportCopied": "Rapor kopyalandı.",
+  "remediationRequest": "Düzeltme iste",
+  "remediationRequested": "Düzeltme istendi. Durumu Security Lab'de görünür.",
+  "remediationUnavailable": "Otomatik düzeltmeler yalnızca platform sahibinin etkinleştirdiği AIONEX projelerinde kullanılabilir.",
+  "remediationRetest": "Yeniden test et",
+  "remediationRetestQueued": "Yeniden test sıraya alındı.",
+  "remediationFinalize": "Düzeltmeyi onayla",
+  "remediationFinalized": "Yeniden test düzeltmeyi doğruladı.",
+  "remediationReadyToRetest": "Yeniden teste hazır",
+  "remediationRetesting": "Yeniden test ediliyor",
+  "remediationFixed": "Düzeltildi ve doğrulandı"
 }

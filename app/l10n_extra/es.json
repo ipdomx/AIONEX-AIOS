@@ -47,5 +47,17 @@
   "deleteAccountMfaCode": "Código de verificación en dos pasos",
   "continueWith": "Continuar con {provider}",
   "socialSignUpNote": "Termina de crear tu cuenta. Tu correo viene de {provider} y no se puede cambiar aquí.",
-  "notificationSettings": "Ajustes de notificaciones"
+  "notificationSettings": "Ajustes de notificaciones",
+  "copyReport": "Copiar informe",
+  "reportCopied": "Informe copiado.",
+  "remediationRequest": "Solicitar corrección",
+  "remediationRequested": "Corrección solicitada. Su estado aparece en el Security Lab.",
+  "remediationUnavailable": "Las correcciones automáticas solo están disponibles para proyectos AIONEX habilitados por el propietario.",
+  "remediationRetest": "Volver a analizar",
+  "remediationRetestQueued": "Nuevo análisis en cola.",
+  "remediationFinalize": "Confirmar corrección",
+  "remediationFinalized": "El nuevo análisis confirmó la corrección.",
+  "remediationReadyToRetest": "Listo para volver a analizar",
+  "remediationRetesting": "Volviendo a analizar",
+  "remediationFixed": "Corregido y verificado"
 }
