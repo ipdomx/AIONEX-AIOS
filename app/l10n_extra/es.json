@@ -52,5 +52,7 @@
   "purchaseFailed": "La compra no se completó. Si se te cobró, usa Restaurar compras.",
   "purchaseInStoreApp": "La suscripción está disponible en las apps de App Store y Google Play.",
   "purchaseNotReady": "La suscripción en la app estará disponible pronto.",
-  "purchasePending": "Esperando la confirmación de la tienda…"
+  "purchasePending": "Esperando la confirmación de la tienda…",
+  "studioStart": "Inicio",
+  "studioSectors": "Sectores"
 }

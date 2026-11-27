@@ -52,5 +52,7 @@
   "purchaseFailed": "Der Kauf wurde nicht abgeschlossen. Falls Ihnen etwas berechnet wurde, nutzen Sie „Käufe wiederherstellen“.",
   "purchaseInStoreApp": "Abonnieren ist in der App aus dem App Store und von Google Play möglich.",
   "purchaseNotReady": "Abonnieren in der App ist bald verfügbar.",
-  "purchasePending": "Warten auf die Bestätigung des Stores…"
+  "purchasePending": "Warten auf die Bestätigung des Stores…",
+  "studioStart": "Start",
+  "studioSectors": "Branchen"
 }

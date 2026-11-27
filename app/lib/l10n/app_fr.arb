@@ -295,6 +295,8 @@
   "app_socialConnectOnWebsite": "Les nouveaux comptes se connectent sur le site avec la connexion officielle Meta. Revenez ensuite et actualisez.",
   "app_socialOpenWebsite": "Ouvrir le site",
   "app_socialSignUpNote": "Terminez la création de votre compte. Votre e-mail provient de {provider} et ne peut pas être modifié ici.",
+  "app_studioSectors": "Secteurs",
+  "app_studioStart": "Démarrer",
   "app_systemLanguage": "Langue de l’appareil",
   "app_threeDLinks": "Obtenir les liens de téléchargement",
   "auth_accountUnavailable": "Ce compte ne peut pas se connecter pour le moment. Contactez le support.",

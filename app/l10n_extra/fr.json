@@ -52,5 +52,7 @@
   "purchaseFailed": "L’achat n’a pas abouti. Si vous avez été débité, utilisez Restaurer les achats.",
   "purchaseInStoreApp": "L’abonnement est disponible dans les apps App Store et Google Play.",
   "purchaseNotReady": "L’abonnement dans l’app sera bientôt disponible.",
-  "purchasePending": "En attente de la confirmation du store…"
+  "purchasePending": "En attente de la confirmation du store…",
+  "studioStart": "Démarrer",
+  "studioSectors": "Secteurs"
 }

@@ -122,6 +122,10 @@ void main() {
     await tester.pumpAndSettle();
     container.read(routerProvider).go('/studio');
     await tester.pumpAndSettle();
+    // The Studio opens on Start; the queue is the third tab.
+    await tester.ensureVisible(find.text('Live production queue'));
+    await tester.tap(find.text('Live production queue'));
+    await tester.pumpAndSettle();
     expect(find.text('No Studio jobs yet.'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('new-studio-job')));
@@ -142,6 +146,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('completed'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Asset library & history'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Asset library & history'));
     await tester.pumpAndSettle();
     expect(find.textContaining('launch-brief.md'), findsOneWidget);

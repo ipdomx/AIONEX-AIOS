@@ -12,6 +12,8 @@ import '../../widgets/notice.dart';
 import '../auth/password_recovery_pages.dart';
 import '../workspace/workspace_models.dart';
 import '../workspace/workspace_repository.dart';
+import 'studio_hub.dart';
+import 'studio_hub_tabs.dart';
 import 'studio_repository.dart';
 
 String _size(int bytes) => bytes >= 1 << 20
@@ -68,8 +70,14 @@ class _StudioPageState extends ConsumerState<StudioPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    void openRequest({String? department, String? style}) => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (_) => _CreateJobSheet(department: department, style: style),
+        );
     return DefaultTabController(
-      length: 2,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text(l.studio_title),
@@ -80,23 +88,39 @@ class _StudioPageState extends ConsumerState<StudioPage> {
               onPressed: () {
                 ref.invalidate(studioJobsProvider);
                 ref.invalidate(studioAssetsProvider);
+                ref.invalidate(studioHubProvider);
+                ref.invalidate(sectorCatalogProvider);
               },
             ),
           ],
-          bottom: TabBar(tabs: [Tab(text: l.studio_queueTitle), Tab(text: l.studio_assetLibrary)]),
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: l.app_studioStart),
+              Tab(text: l.app_studioSectors),
+              Tab(text: l.studio_queueTitle),
+              Tab(text: l.studio_assetLibrary),
+            ],
+          ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           key: const Key('new-studio-job'),
           icon: const Icon(Icons.auto_awesome),
           label: Text(l.studio_createTitle),
-          onPressed: () => showModalBottomSheet<void>(
-            context: context,
-            isScrollControlled: true,
-            showDragHandle: true,
-            builder: (_) => const _CreateJobSheet(),
-          ),
+          onPressed: openRequest,
         ),
-        body: TabBarView(children: [_queue(l), _assets(l)]),
+        body: Builder(
+          builder: (tabsContext) => TabBarView(children: [
+            StudioStartTab(
+              onPreset: (department, style) => openRequest(department: department, style: style),
+              onSectors: () => DefaultTabController.of(tabsContext).animateTo(1),
+            ),
+            const StudioSectorsTab(),
+            _queue(l),
+            _assets(l),
+          ]),
+        ),
       ),
     );
   }
@@ -276,7 +300,11 @@ class _StudioPageState extends ConsumerState<StudioPage> {
 }
 
 class _CreateJobSheet extends ConsumerStatefulWidget {
-  const _CreateJobSheet();
+  const _CreateJobSheet({this.department, this.style});
+
+  /// Set when the request starts from a preset on the Start tab.
+  final String? department;
+  final String? style;
 
   @override
   ConsumerState<_CreateJobSheet> createState() => _CreateJobSheetState();
@@ -286,10 +314,10 @@ class _CreateJobSheetState extends ConsumerState<_CreateJobSheet> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _brief = TextEditingController();
-  final _style = TextEditingController(text: 'professional');
+  late final _style = TextEditingController(text: widget.style ?? 'professional');
   final _target = TextEditingController();
   final _language = TextEditingController();
-  String? _department;
+  late String? _department = widget.department;
   String? _projectId;
   bool _busy = false;
   String? _error;
@@ -336,14 +364,17 @@ class _CreateJobSheetState extends ConsumerState<_CreateJobSheet> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final departments = ref.watch(studioDepartmentsProvider);
+    // Departments whose capability this account cannot open are left out, as on the website.
+    final hub = ref.watch(studioHubProvider).value;
     final projects = ref.watch(projectsProvider).value?.where((p) => p.isActive).toList() ?? const <Project>[];
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
       child: AsyncView(
         value: departments,
         onRetry: () => ref.invalidate(studioDepartmentsProvider),
-        builder: (items) {
-          _department ??= items.firstOrNull?.id;
+        builder: (all) {
+          final items = [for (final d in all) if (hub?.departmentAllowed(d.id) ?? true) d];
+          if (!items.any((d) => d.id == _department)) _department = items.firstOrNull?.id;
           final selected = items.where((d) => d.id == _department).firstOrNull;
           return Form(
             key: _formKey,

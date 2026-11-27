@@ -295,6 +295,8 @@
   "app_socialConnectOnWebsite": "ربط حسابات جديدة بيتم من الموقع (تسجيل دخول Meta الرسمي). بعد الربط ارجع هنا واعمل تحديث.",
   "app_socialOpenWebsite": "افتح الموقع",
   "app_socialSignUpNote": "أكمل إنشاء حسابك. بريدك الإلكتروني من {provider} ولا يمكن تغييره هنا.",
+  "app_studioSectors": "القطاعات",
+  "app_studioStart": "ابدأ",
   "app_systemLanguage": "لغة الجهاز",
   "app_threeDLinks": "روابط التنزيل",
   "auth_accountUnavailable": "لا يمكن تسجيل الدخول بهذا الحساب حاليًا. يرجى التواصل مع الدعم.",
