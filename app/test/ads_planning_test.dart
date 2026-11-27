@@ -27,8 +27,10 @@ Map<String, Object?> paid(String stage) => {
       'manual_review_required': false,
     };
 
+final planList = find.descendant(of: find.byKey(const Key('plan-list')), matching: find.byType(Scrollable)).first;
+
 Future<void> reveal(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable).hitTestable().first);
+  await tester.scrollUntilVisible(finder, 200, scrollable: planList);
   await tester.pumpAndSettle();
 }
 
@@ -107,7 +109,7 @@ void main() {
     expect(find.text('Enter a valid total and daily budget; the daily budget cannot exceed the total.'), findsOneWidget);
     expect(sent, isNull);
 
-    await tester.drag(find.byType(Scrollable).hitTestable().first, const Offset(0, 3000));
+    await tester.drag(planList, const Offset(0, 3000));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('plan-total')), '500');
     await tester.enterText(find.byKey(const Key('plan-daily')), '50');

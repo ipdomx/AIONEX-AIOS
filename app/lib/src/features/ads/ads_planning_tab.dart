@@ -170,6 +170,7 @@ class _AdsPlanningTabState extends ConsumerState<AdsPlanningTab> {
         );
     const money = TextInputType.numberWithOptions(decimal: true);
     return ListView(
+      key: const Key('plan-list'),
       padding: const EdgeInsets.all(16),
       children: [
         Text(l.campaigns_createTitle, style: theme.textTheme.titleMedium),
