@@ -52,5 +52,17 @@
   "purchaseFailed": "La compra no se completó. Si se te cobró, usa Restaurar compras.",
   "purchaseInStoreApp": "La suscripción está disponible en las apps de App Store y Google Play.",
   "purchaseNotReady": "La suscripción en la app estará disponible pronto.",
-  "purchasePending": "Esperando la confirmación de la tienda…"
+  "purchasePending": "Esperando la confirmación de la tienda…",
+  "copyReport": "Copiar informe",
+  "reportCopied": "Informe copiado.",
+  "remediationRequest": "Solicitar corrección",
+  "remediationRequested": "Corrección solicitada. Su estado aparece en el Security Lab.",
+  "remediationUnavailable": "Las correcciones automáticas solo están disponibles para proyectos AIONEX habilitados por el propietario.",
+  "remediationRetest": "Volver a analizar",
+  "remediationRetestQueued": "Nuevo análisis en cola.",
+  "remediationFinalize": "Confirmar corrección",
+  "remediationFinalized": "El nuevo análisis confirmó la corrección.",
+  "remediationReadyToRetest": "Listo para volver a analizar",
+  "remediationRetesting": "Volviendo a analizar",
+  "remediationFixed": "Corregido y verificado"
 }

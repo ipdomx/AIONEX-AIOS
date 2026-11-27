@@ -23,8 +23,11 @@ class SecurityLabAccess {
     required this.scansThisMonth,
     required this.verifiedTargets,
     required this.reverifyDays,
+    this.source,
   });
 
+  /// subscription, owner, grant… The engine inventory is not shown to subscribers (as on the website).
+  final String? source;
   final bool enabled;
   final bool granted;
   final bool reportsAvailable;
@@ -50,6 +53,7 @@ class SecurityLabAccess {
       scansThisMonth: _i(usage['scans_this_month']),
       verifiedTargets: _i(usage['verified_targets']),
       reverifyDays: _i(_map(j['verification'])['reverify_after_days']),
+      source: j['source'] as String?,
     );
   }
 }
@@ -150,8 +154,11 @@ class SecurityScan {
 
 @immutable
 class SecurityFinding {
-  const SecurityFinding({required this.id, required this.title, required this.severity, required this.category, required this.location, required this.remediation, required this.cwe});
+  const SecurityFinding({required this.id, required this.title, required this.severity, required this.category, required this.location, required this.remediation, required this.cwe, this.state = ''});
   final String id;
+
+  /// Only "confirmed" findings can enter remediation (the server enforces it).
+  final String state;
   final String title;
   final String severity;
   final String category;
@@ -167,7 +174,76 @@ class SecurityFinding {
         location: j['location'] as String?,
         remediation: j['remediation'] as String?,
         cwe: j['cwe'] as String?,
+        state: _s(j['state']),
       );
+}
+
+/// A scanner engine and whether the worker reports it available.
+@immutable
+class SecurityTool {
+  const SecurityTool({required this.id, required this.category, required this.available, required this.active, required this.requiresClone});
+  final String id;
+  final String category;
+  final bool available;
+  final bool active;
+  final bool requiresClone;
+
+  factory SecurityTool.fromJson(Map<String, Object?> j) => SecurityTool(
+        id: _s(j['id']),
+        category: _s(j['category']),
+        available: j['available'] == true,
+        active: j['active'] == true,
+        requiresClone: j['requires_clone'] == true,
+      );
+}
+
+/// Evidence-gated remediation of one finding (managed AIONEX projects only).
+@immutable
+class SecurityRemediation {
+  const SecurityRemediation({required this.id, required this.findingId, required this.status, required this.updatedAt});
+  final String id;
+  final String findingId;
+  final String status;
+  final DateTime? updatedAt;
+
+  bool get canRetest => status == 'regression_passed';
+  bool get canFinalize => status == 'retest_queued';
+
+  factory SecurityRemediation.fromJson(Map<String, Object?> j) => SecurityRemediation(
+        id: _s(j['id']),
+        findingId: _s(j['finding_id']),
+        status: _s(j['status']),
+        updatedAt: _d(j['updated_at']),
+      );
+}
+
+/// The printable report: target, dates and counts per severity.
+@immutable
+class SecurityReport {
+  const SecurityReport({
+    required this.origin,
+    required this.profile,
+    required this.completedAt,
+    required this.generatedAt,
+    required this.counts,
+  });
+  final String? origin;
+  final String profile;
+  final DateTime? completedAt;
+  final DateTime? generatedAt;
+  final Map<String, int> counts;
+
+  factory SecurityReport.fromJson(Map<String, Object?> j) {
+    final scan = _map(j['scan']);
+    final target = j['target'] is Map ? _map(j['target']) : null;
+    return SecurityReport(
+      origin: target == null ? null : _s(target['origin']),
+      profile: _s(scan['profile']),
+      completedAt: _d(scan['completed_at']),
+      generatedAt: _d(j['generated_at']),
+      counts: {for (final e in _map(j['severity_counts']).entries) e.key: _i(e.value)},
+    );
+  }
 }
 
 /// The Security Lab, the same endpoints as vip-frontend/src/lib/api.ts.
@@ -206,9 +282,43 @@ class SecurityLabRepository {
       ];
 }
 
+extension SecurityLabExtras on SecurityLabRepository {
+  ApiClient get _client => _api;
+
+  Future<List<SecurityTool>> tools() async =>
+      [for (final r in _rows(await _client.getList('/security-lab/tools'))) SecurityTool.fromJson(r)];
+
+  Future<SecurityReport> report(String scanId) async =>
+      SecurityReport.fromJson(await _client.getJson('/security-lab/scans/${Uri.encodeComponent(scanId)}/report'));
+
+  Future<List<SecurityRemediation>> remediations() async =>
+      [for (final r in _rows(await _client.getList('/security-lab/remediations'))) SecurityRemediation.fromJson(r)];
+
+  Future<void> requestRemediation(String findingId) async =>
+      _client.postJson('/security-lab/remediations', body: {'finding_id': findingId}, retry: false);
+
+  Future<void> retest(String remediationId) async =>
+      _client.postJson('/security-lab/remediations/${Uri.encodeComponent(remediationId)}/retest', retry: false);
+
+  Future<void> finalize(String remediationId) async =>
+      _client.postJson('/security-lab/remediations/${Uri.encodeComponent(remediationId)}/finalize', retry: false);
+}
+
 final securityLabRepositoryProvider = Provider<SecurityLabRepository>((ref) => SecurityLabRepository(ref.watch(apiClientProvider)));
 final securityAccessProvider = FutureProvider.autoDispose<SecurityLabAccess>((ref) => ref.watch(securityLabRepositoryProvider).access());
 final securityTargetsProvider = FutureProvider.autoDispose<List<SecurityTarget>>((ref) => ref.watch(securityLabRepositoryProvider).targets());
 final securityScansProvider = FutureProvider.autoDispose<List<SecurityScan>>((ref) => ref.watch(securityLabRepositoryProvider).scans());
 final securityFindingsProvider =
     FutureProvider.autoDispose.family<List<SecurityFinding>, String>((ref, id) => ref.watch(securityLabRepositoryProvider).findings(id));
+final securityToolsProvider = FutureProvider.autoDispose<List<SecurityTool>>((ref) => ref.watch(securityLabRepositoryProvider).tools());
+final securityRemediationsProvider = FutureProvider.autoDispose<List<SecurityRemediation>>(
+  (ref) async {
+    try {
+      return await ref.watch(securityLabRepositoryProvider).remediations();
+    } on Object {
+      return const <SecurityRemediation>[];
+    }
+  },
+);
+final securityReportProvider =
+    FutureProvider.autoDispose.family<SecurityReport, String>((ref, id) => ref.watch(securityLabRepositoryProvider).report(id));

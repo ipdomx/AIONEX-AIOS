@@ -52,5 +52,17 @@
   "purchaseFailed": "Der Kauf wurde nicht abgeschlossen. Falls Ihnen etwas berechnet wurde, nutzen Sie „Käufe wiederherstellen“.",
   "purchaseInStoreApp": "Abonnieren ist in der App aus dem App Store und von Google Play möglich.",
   "purchaseNotReady": "Abonnieren in der App ist bald verfügbar.",
-  "purchasePending": "Warten auf die Bestätigung des Stores…"
+  "purchasePending": "Warten auf die Bestätigung des Stores…",
+  "copyReport": "Bericht kopieren",
+  "reportCopied": "Bericht kopiert.",
+  "remediationRequest": "Behebung anfordern",
+  "remediationRequested": "Behebung angefordert. Der Status erscheint im Security Lab.",
+  "remediationUnavailable": "Automatische Behebungen gibt es nur für vom Plattformbetreiber freigegebene AIONEX-Projekte.",
+  "remediationRetest": "Erneut prüfen",
+  "remediationRetestQueued": "Erneute Prüfung eingeplant.",
+  "remediationFinalize": "Behebung bestätigen",
+  "remediationFinalized": "Die erneute Prüfung hat die Behebung bestätigt.",
+  "remediationReadyToRetest": "Bereit zur erneuten Prüfung",
+  "remediationRetesting": "Wird erneut geprüft",
+  "remediationFixed": "Behoben und geprüft"
 }

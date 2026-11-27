@@ -357,7 +357,126 @@ class _SecurityLabPageState extends ConsumerState<SecurityLabPage> {
                     ),
                 ]),
         ),
+        if (a.granted && a.source != 'subscription') ...[
+          const SizedBox(height: 16),
+          _ToolsCard(),
+        ],
+        if (a.granted) _RemediationsCard(),
       ],
+    );
+  }
+}
+
+/// Scanner engines and what each may do (not shown to subscribers, as on the website).
+class _ToolsCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final tools = ref.watch(securityToolsProvider).value ?? const <SecurityTool>[];
+    if (tools.isEmpty) return const SizedBox.shrink();
+    return Card(
+      key: const Key('security-tools'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(l.securityLab_engineInventory, style: theme.textTheme.titleMedium),
+          Text(l.securityLab_engineInventoryCopy, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 8),
+          for (final t in tools)
+            ListTile(
+              key: Key('security-tool-${t.id}'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(t.available ? Icons.check_circle_outline : Icons.remove_circle_outline),
+              title: Text(t.id),
+              subtitle: Text([
+                t.category,
+                t.available ? l.securityLab_available : l.securityLab_unavailable,
+                t.requiresClone
+                    ? l.securityLab_cloneOnly
+                    : t.active
+                        ? l.securityLab_authorizedRuntime
+                        : l.securityLab_sourcePassive,
+              ].join(' · ')),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
+String remediationStatusLabel(AppLocalizations l, String s) => switch (s) {
+      'regression_passed' => l.app_remediationReadyToRetest,
+      'retest_queued' => l.app_remediationRetesting,
+      'verified_fixed' || 'fixed' => l.app_remediationFixed,
+      _ => s.replaceAll('_', ' '),
+    };
+
+/// Remediation requests: the retest and the final check are separate, evidence-gated steps.
+class _RemediationsCard extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_RemediationsCard> createState() => _RemediationsCardState();
+}
+
+class _RemediationsCardState extends ConsumerState<_RemediationsCard> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action, String done) async {
+    final l = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await action();
+      messenger.showSnackBar(SnackBar(content: Text(done)));
+    } on Object catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(securityError(l, error, l.securityLab_loadError))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    ref.invalidate(securityRemediationsProvider);
+    ref.invalidate(securityScansProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final rows = ref.watch(securityRemediationsProvider).value ?? const <SecurityRemediation>[];
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final repo = ref.read(securityLabRepositoryProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Card(
+        key: const Key('security-remediations'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(l.securityLab_remediations, style: theme.textTheme.titleMedium),
+            Text(l.securityLab_remediationsCopy, style: theme.textTheme.bodySmall),
+            for (final r in rows.take(20))
+              ListTile(
+                key: Key('remediation-${r.id}'),
+                contentPadding: EdgeInsets.zero,
+                title: Text(remediationStatusLabel(l, r.status)),
+                subtitle: Text(r.findingId.length > 8 ? r.findingId.substring(0, 8) : r.findingId),
+                trailing: r.canRetest
+                    ? TextButton(
+                        key: Key('remediation-retest-${r.id}'),
+                        onPressed: _busy ? null : () => _run(() => repo.retest(r.id), l.app_remediationRetestQueued),
+                        child: Text(l.app_remediationRetest),
+                      )
+                    : r.canFinalize
+                        ? TextButton(
+                            key: Key('remediation-finalize-${r.id}'),
+                            onPressed: _busy ? null : () => _run(() => repo.finalize(r.id), l.app_remediationFinalized),
+                            child: Text(l.app_remediationFinalize),
+                          )
+                        : null,
+              ),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -478,15 +597,73 @@ class SecurityScanPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
+    final access = ref.watch(securityAccessProvider).value;
+    final report = (access?.reportsAvailable ?? false) || (access?.granted ?? false)
+        ? ref.watch(securityReportProvider(scanId)).value
+        : null;
+    final format = DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag()).add_Hm();
+    final findingsNow = ref.watch(securityFindingsProvider(scanId)).value;
     return Scaffold(
-      appBar: AppBar(title: Text(l.securityLab_reportTitle)),
+      appBar: AppBar(
+        title: Text(l.securityLab_reportTitle),
+        actions: [
+          if (findingsNow != null)
+            IconButton(
+              key: const Key('security-copy-report'),
+              tooltip: l.app_copyReport,
+              icon: const Icon(Icons.copy_all_outlined),
+              onPressed: () async {
+                final lines = <String>[
+                  l.securityLab_reportTitle,
+                  if ((report?.origin ?? origin).isNotEmpty) '${l.securityLab_target}: ${report?.origin ?? origin}',
+                  if (report != null) '${l.securityLab_profile}: ${profileLabel(l, report.profile)}',
+                  if (report?.completedAt != null) '${l.securityLab_reportCompleted}: ${format.format(report!.completedAt!.toLocal())}',
+                  '',
+                  for (final level in _severityOrder)
+                    for (final f in findingsNow.where((x) => x.severity == level)) ...[
+                      '[${severityLabel(l, f.severity)}] ${f.title}${f.cwe == null ? '' : ' (${f.cwe})'}',
+                      if (f.location != null) '  ${f.location}',
+                      '  ${l.securityLab_howToFix}: ${f.remediation ?? l.securityLab_noRemediation}',
+                    ],
+                  '',
+                  l.securityLab_reportDisclaimer,
+                ];
+                await Clipboard.setData(ClipboardData(text: lines.join('\n')));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.app_reportCopied)));
+                }
+              },
+            ),
+        ],
+      ),
       body: AsyncView(
         value: ref.watch(securityFindingsProvider(scanId)),
         onRetry: () => ref.invalidate(securityFindingsProvider(scanId)),
         builder: (findings) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (origin.isNotEmpty) Text(origin, textDirection: TextDirection.ltr, style: theme.textTheme.titleMedium),
+            if ((report?.origin ?? origin).isNotEmpty)
+              Text(report?.origin ?? origin, textDirection: TextDirection.ltr, style: theme.textTheme.titleMedium),
+            if (report != null) ...[
+              Text(
+                [
+                  '${l.securityLab_profile}: ${profileLabel(l, report.profile)}',
+                  if (report.completedAt != null) '${l.securityLab_reportCompleted}: ${format.format(report.completedAt!.toLocal())}',
+                  if (report.generatedAt != null) '${l.securityLab_reportGenerated}: ${format.format(report.generatedAt!.toLocal())}',
+                ].join('\n'),
+                key: const Key('security-report-meta'),
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final level in _severityOrder)
+                  Chip(
+                    key: Key('security-count-$level'),
+                    visualDensity: VisualDensity.compact,
+                    label: Text('${severityLabel(l, level)} · ${report.counts[level] ?? 0}'),
+                  ),
+              ]),
+            ],
             Text(l.securityLab_reportDisclaimer, style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
             if (findings.isEmpty) Text(l.securityLab_noFindings),
@@ -509,6 +686,27 @@ class SecurityScanPage extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(l.securityLab_howToFix, style: theme.textTheme.labelLarge),
                       Text(f.remediation ?? l.securityLab_noRemediation),
+                      if (f.state == 'confirmed' && (access?.granted ?? false))
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: TextButton.icon(
+                            key: Key('finding-fix-${f.id}'),
+                            icon: const Icon(Icons.build_outlined),
+                            label: Text(l.app_remediationRequest),
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              try {
+                                await ref.read(securityLabRepositoryProvider).requestRemediation(f.id);
+                                messenger.showSnackBar(SnackBar(content: Text(l.app_remediationRequested)));
+                              } on Object catch (error) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text(securityError(l, error, l.app_remediationUnavailable))),
+                                );
+                              }
+                              ref.invalidate(securityRemediationsProvider);
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ),

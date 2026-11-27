@@ -52,5 +52,17 @@
   "purchaseFailed": "L’achat n’a pas abouti. Si vous avez été débité, utilisez Restaurer les achats.",
   "purchaseInStoreApp": "L’abonnement est disponible dans les apps App Store et Google Play.",
   "purchaseNotReady": "L’abonnement dans l’app sera bientôt disponible.",
-  "purchasePending": "En attente de la confirmation du store…"
+  "purchasePending": "En attente de la confirmation du store…",
+  "copyReport": "Copier le rapport",
+  "reportCopied": "Rapport copié.",
+  "remediationRequest": "Demander un correctif",
+  "remediationRequested": "Correctif demandé. Son statut apparaît dans le Security Lab.",
+  "remediationUnavailable": "Les correctifs automatiques sont réservés aux projets AIONEX activés par le propriétaire.",
+  "remediationRetest": "Retester",
+  "remediationRetestQueued": "Nouveau test planifié.",
+  "remediationFinalize": "Confirmer le correctif",
+  "remediationFinalized": "Le nouveau test a confirmé le correctif.",
+  "remediationReadyToRetest": "Prêt à être retesté",
+  "remediationRetesting": "Nouveau test en cours",
+  "remediationFixed": "Corrigé et vérifié"
 }

@@ -52,5 +52,17 @@
   "purchaseFailed": "The purchase was not completed. If you were charged, use Restore purchases.",
   "purchaseInStoreApp": "Subscribing is available in the App Store and Google Play apps.",
   "purchaseNotReady": "Subscribing in the app will be available soon.",
-  "purchasePending": "Waiting for the store to confirm…"
+  "purchasePending": "Waiting for the store to confirm…",
+  "copyReport": "Copy report",
+  "reportCopied": "Report copied.",
+  "remediationRequest": "Request a fix",
+  "remediationRequested": "Fix requested. Its status appears in the Security Lab.",
+  "remediationUnavailable": "Automatic fixes are only available for AIONEX projects enabled by the platform owner.",
+  "remediationRetest": "Retest",
+  "remediationRetestQueued": "Retest queued.",
+  "remediationFinalize": "Confirm fix",
+  "remediationFinalized": "Fix confirmed by the retest.",
+  "remediationReadyToRetest": "Ready to retest",
+  "remediationRetesting": "Retesting",
+  "remediationFixed": "Fixed and verified"
 }

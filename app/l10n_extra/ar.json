@@ -52,5 +52,17 @@
   "purchaseFailed": "الشراء ما اكتملش. لو اتخصم منك فلوس، استخدم «استرجاع المشتريات».",
   "purchaseInStoreApp": "الاشتراك متاح من تطبيق App Store وGoogle Play.",
   "purchaseNotReady": "الاشتراك من التطبيق هيبقى متاح قريب.",
-  "purchasePending": "مستنيين تأكيد المتجر…"
+  "purchasePending": "مستنيين تأكيد المتجر…",
+  "copyReport": "نسخ التقرير",
+  "reportCopied": "اتنسخ التقرير.",
+  "remediationRequest": "اطلب إصلاح",
+  "remediationRequested": "اتطلب الإصلاح، وحالته هتظهر في معمل الأمان.",
+  "remediationUnavailable": "الإصلاح التلقائي متاح بس لمشاريع AIONEX اللي مالك المنصة مفعّلها.",
+  "remediationRetest": "إعادة الفحص",
+  "remediationRetestQueued": "إعادة الفحص اتحطت في الطابور.",
+  "remediationFinalize": "تأكيد الإصلاح",
+  "remediationFinalized": "إعادة الفحص أكدت الإصلاح.",
+  "remediationReadyToRetest": "جاهز لإعادة الفحص",
+  "remediationRetesting": "بيتعاد فحصه",
+  "remediationFixed": "اتصلح واتأكد"
 }
