@@ -47,5 +47,10 @@
   "deleteAccountMfaCode": "İki adımlı doğrulama kodu",
   "continueWith": "{provider} ile devam et",
   "socialSignUpNote": "Hesabınızı oluşturmayı tamamlayın. E-postanız {provider} hesabından gelir ve burada değiştirilemez.",
-  "notificationSettings": "Bildirim ayarları"
+  "notificationSettings": "Bildirim ayarları",
+  "purchaseActive": "Planınız etkin.",
+  "purchaseFailed": "Satın alma tamamlanmadı. Ücret alındıysa Satın alımları geri yükle seçeneğini kullanın.",
+  "purchaseInStoreApp": "Abonelik App Store ve Google Play uygulamalarında kullanılabilir.",
+  "purchaseNotReady": "Uygulama içinden abonelik yakında kullanılabilecek.",
+  "purchasePending": "Mağaza onayı bekleniyor…"
 }

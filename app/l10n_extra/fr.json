@@ -47,5 +47,10 @@
   "deleteAccountMfaCode": "Code de vérification en deux étapes",
   "continueWith": "Continuer avec {provider}",
   "socialSignUpNote": "Terminez la création de votre compte. Votre e-mail provient de {provider} et ne peut pas être modifié ici.",
-  "notificationSettings": "Paramètres des notifications"
+  "notificationSettings": "Paramètres des notifications",
+  "purchaseActive": "Votre forfait est actif.",
+  "purchaseFailed": "L’achat n’a pas abouti. Si vous avez été débité, utilisez Restaurer les achats.",
+  "purchaseInStoreApp": "L’abonnement est disponible dans les apps App Store et Google Play.",
+  "purchaseNotReady": "L’abonnement dans l’app sera bientôt disponible.",
+  "purchasePending": "En attente de la confirmation du store…"
 }

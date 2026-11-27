@@ -173,3 +173,30 @@ def test_studio_and_academy_user_routes_reach_the_backend_narrowly() -> None:
         assert route.fullmatch(path), path
     for path in blocked:
         assert not route.fullmatch(path), path
+
+
+def test_store_purchase_user_routes_reach_the_backend_narrowly() -> None:
+    """P-07: in-app purchases are verified by the server; owner mappings and store callbacks stay off this channel."""
+    route = _public_portal_route()
+    allowed = [
+        "/api/v1/billing/mobile-store/readiness",
+        "/api/v1/billing/mobile-store/subscription",
+        "/api/v1/billing/mobile-store/verify",
+        "/api/v1/billing/mobile-store/catalog/app_store",
+        "/api/v1/billing/mobile-store/catalog/google_play",
+        "/api/v1/billing/mobile-store/restore/google_play",
+        "/api/v1/billing/mobile-store/reconcile/app_store",
+    ]
+    blocked = [
+        "/api/v1/billing/mobile-store/owner/overview",
+        "/api/v1/billing/mobile-store/owner/mappings",
+        "/api/v1/billing/mobile-store/notifications/app-store",
+        "/api/v1/billing/mobile-store/notifications/google-play",
+        "/api/v1/billing/mobile-store/catalog/other_store",
+        "/api/v1/billing/mobile-store/verify/extra",
+        "/api/v1/billing/mobile-store/catalog/../owner/overview",
+    ]
+    for path in allowed:
+        assert route.fullmatch(path), path
+    for path in blocked:
+        assert not route.fullmatch(path), path
