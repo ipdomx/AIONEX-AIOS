@@ -274,6 +274,7 @@
   "app_mb": "{value} ميجابايت",
   "app_networkError": "لا يوجد اتصال بـ AIONEX. تحقق من الإنترنت وحاول مرة أخرى.",
   "app_newNotification": "إشعار جديد",
+  "app_notificationSettings": "إعدادات الإشعارات",
   "app_openAuthenticator": "افتح في تطبيق المصادقة",
   "app_ownerConsoleOnly": "هذا الحساب يسجّل الدخول من لوحة المالك فقط.",
   "app_pushDenied": "إشعارات AIONEX مقفولة من إعدادات الهاتف.",

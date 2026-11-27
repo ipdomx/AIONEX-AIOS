@@ -46,5 +46,6 @@
   "deleteAccountOwnerHasMembers": "Eres propietario de una organización con otros miembros. Transfiere la propiedad o elimina a los miembros primero.",
   "deleteAccountMfaCode": "Código de verificación en dos pasos",
   "continueWith": "Continuar con {provider}",
-  "socialSignUpNote": "Termina de crear tu cuenta. Tu correo viene de {provider} y no se puede cambiar aquí."
+  "socialSignUpNote": "Termina de crear tu cuenta. Tu correo viene de {provider} y no se puede cambiar aquí.",
+  "notificationSettings": "Ajustes de notificaciones"
 }

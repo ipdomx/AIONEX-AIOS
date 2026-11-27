@@ -274,6 +274,7 @@
   "app_mb": "{value} MB",
   "app_networkError": "Keine Verbindung zu AIONEX. Prüfe deine Internetverbindung und versuche es erneut.",
   "app_newNotification": "Neue Benachrichtigung",
+  "app_notificationSettings": "Benachrichtigungseinstellungen",
   "app_openAuthenticator": "In Authenticator-App öffnen",
   "app_ownerConsoleOnly": "Dieses Konto meldet sich nur über die Owner-Konsole an.",
   "app_pushDenied": "Benachrichtigungen für AIONEX sind in den Telefoneinstellungen deaktiviert.",

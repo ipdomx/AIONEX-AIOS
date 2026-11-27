@@ -46,5 +46,6 @@
   "deleteAccountOwnerHasMembers": "Sie besitzen eine Organisation mit weiteren Mitgliedern. Übertragen Sie zuerst die Inhaberschaft oder entfernen Sie die Mitglieder.",
   "deleteAccountMfaCode": "Code der Zwei-Schritt-Verifizierung",
   "continueWith": "Weiter mit {provider}",
-  "socialSignUpNote": "Schließen Sie die Kontoerstellung ab. Ihre E-Mail-Adresse stammt von {provider} und kann hier nicht geändert werden."
+  "socialSignUpNote": "Schließen Sie die Kontoerstellung ab. Ihre E-Mail-Adresse stammt von {provider} und kann hier nicht geändert werden.",
+  "notificationSettings": "Benachrichtigungseinstellungen"
 }

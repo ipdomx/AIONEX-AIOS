@@ -14,6 +14,7 @@ import '../../features/conversations/conversation_page.dart';
 import '../../features/conversations/conversations_page.dart';
 import '../../features/home/dashboard_page.dart';
 import '../../features/home/home_shell.dart';
+import '../../features/notifications/notification_settings_page.dart';
 import '../../features/notifications/notifications.dart';
 import '../../features/profile/account_security_page.dart';
 import '../../features/profile/profile_page.dart';
@@ -106,7 +107,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 builder: (context, state) => const DashboardPage(),
                 routes: [
-                  GoRoute(path: 'notifications', builder: (context, state) => const NotificationsPage()),
+                  GoRoute(
+                    path: 'notifications',
+                    builder: (context, state) => const NotificationsPage(),
+                    routes: [
+                      GoRoute(path: 'settings', builder: (context, state) => const NotificationSettingsPage()),
+                    ],
+                  ),
                   GoRoute(path: 'studio', builder: (context, state) => const StudioPage()),
                   GoRoute(path: 'academy', builder: (context, state) => const AcademyPage()),
                   GoRoute(path: 'ads', builder: (context, state) => const AdsPage()),

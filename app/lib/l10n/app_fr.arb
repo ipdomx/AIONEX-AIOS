@@ -274,6 +274,7 @@
   "app_mb": "{value} Mo",
   "app_networkError": "Pas de connexion à AIONEX. Vérifiez votre connexion internet et réessayez.",
   "app_newNotification": "Nouvelle notification",
+  "app_notificationSettings": "Paramètres des notifications",
   "app_openAuthenticator": "Ouvrir dans l’application d’authentification",
   "app_ownerConsoleOnly": "Ce compte se connecte uniquement depuis la console propriétaire.",
   "app_pushDenied": "Les notifications AIONEX sont désactivées dans les réglages du téléphone.",

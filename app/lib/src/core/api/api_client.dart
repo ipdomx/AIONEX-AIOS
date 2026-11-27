@@ -90,6 +90,10 @@ class ApiClient {
     return _json(_Call(path, 'PATCH', data: body, contentType: Headers.jsonContentType), auth: true);
   }
 
+  Future<Map<String, Object?>> putJson(String path, {required Object body}) {
+    return _json(_Call(path, 'PUT', data: body, contentType: Headers.jsonContentType), auth: true);
+  }
+
   Future<Map<String, Object?>> deleteJson(String path) => _json(_Call(path, 'DELETE'), auth: true);
 
   /// A multipart upload (3D source images and the like). [headers] carries
