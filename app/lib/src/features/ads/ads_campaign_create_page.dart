@@ -251,6 +251,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
         gap,
         DropdownButtonFormField<String>(
           key: const Key('create-link'),
+          isExpanded: true,
           initialValue: _link?.id,
           decoration: InputDecoration(labelText: l.ads_dashboard_account),
           items: [for (final x in s.links) DropdownMenuItem(value: x.id, child: Text('${x.name} · ${x.currency}'))],
@@ -259,6 +260,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
         gap,
         DropdownButtonFormField<String>(
           key: const Key('create-objective'),
+          isExpanded: true,
           initialValue: _objective,
           decoration: InputDecoration(labelText: l.ads_create_objective),
           items: [
@@ -281,6 +283,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
             Expanded(
               child: DropdownButtonFormField<String>(
                 key: const Key('create-budget-type'),
+                isExpanded: true,
                 initialValue: _budgetType,
                 decoration: InputDecoration(labelText: l.ads_create_budgetType),
                 items: [
@@ -358,6 +361,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
         gap,
         DropdownButtonFormField<String>(
           key: const Key('create-gender'),
+          isExpanded: true,
           initialValue: _gender,
           decoration: InputDecoration(labelText: l.ads_create_gender),
           items: [
@@ -384,6 +388,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
         gap,
         DropdownButtonFormField<String>(
           key: const Key('create-source'),
+          isExpanded: true,
           initialValue: _source,
           decoration: InputDecoration(labelText: l.ads_create_creativeSource),
           items: [
@@ -431,6 +436,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
           gap,
           DropdownButtonFormField<String>(
             key: const Key('create-page'),
+            isExpanded: true,
             initialValue: _pageId,
             isExpanded: true,
             decoration: InputDecoration(labelText: l.ads_create_page),
@@ -479,6 +485,7 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
           gap,
           DropdownButtonFormField<String>(
             key: const Key('create-cta'),
+            isExpanded: true,
             initialValue: _cta,
             decoration: InputDecoration(labelText: l.ads_create_cta),
             items: [

@@ -126,7 +126,13 @@ Future<ProviderContainer> start(WidgetTester tester, Map<String, Object?> sent) 
   return container;
 }
 
+Future<void> reveal(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable).hitTestable().first);
+  await tester.pumpAndSettle();
+}
+
 Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isEmpty) await reveal(tester, finder);
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
@@ -155,10 +161,12 @@ void main() {
     await tapVisible(tester, find.byKey(const Key('create-submit')));
     expect(find.byKey(const Key('create-error')), findsOneWidget);
     expect(sent.containsKey('create'), isFalse);
+    await tester.drag(find.byType(Scrollable).hitTestable().first, const Offset(0, 3000));
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('create-name')), 'Winter traffic');
     await tester.enterText(find.byKey(const Key('create-budget')), '20');
-    await tester.ensureVisible(find.byKey(const Key('create-countries')));
+    await reveal(tester, find.byKey(const Key('create-countries')));
     await tester.enterText(find.byKey(const Key('create-countries')), 'sa, ae, x1');
     await tapVisible(tester, find.byKey(const Key('create-post')));
     await tester.tap(find.textContaining('IPDOMX Page · facebook').last);
