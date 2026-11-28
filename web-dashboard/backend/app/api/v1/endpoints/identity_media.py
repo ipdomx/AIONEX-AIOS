@@ -7,15 +7,17 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
-from sqlalchemy import select
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aios.phase36_identity_media import IdentityMediaPolicyError, IdentityMediaRequest
 from app.core.auth import UserRecord, current_user
 from app.core.config import settings
 from app.db.base import get_db
-from app.db.models import AuditEvent, IdentityMediaExecution, Project
-from app.services import plan_usage
+from app.db.models import AuditEvent, IdentityMediaExecution, Organization, Project
+from app.services import billing, plan_usage
 from app.services import identity_media_access
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
@@ -183,6 +185,61 @@ async def provider_input(
     )
 
 
+def _owner(actor: UserRecord) -> bool:
+    return (actor.role or "").strip().lower() in {"super owner", "super_owner"}
+
+
+async def _plan_entitled(session: AsyncSession, actor: UserRecord) -> bool:
+    if _owner(actor):
+        return True
+    context = await billing.billing_context(session, actor.organization_id)
+    return billing.has_entitlement(context, billing.IDENTITY_MEDIA_BUSINESS_ENTITLEMENT)
+
+
+async def _require_plan(session: AsyncSession, actor: UserRecord) -> None:
+    """Paid provider runs: Business plan only (owner decision 2026-11-27)."""
+    if not await _plan_entitled(session, actor):
+        raise HTTPException(
+            status_code=402,
+            detail={"code": "ENTITLEMENT_REQUIRED", "entitlement": billing.IDENTITY_MEDIA_BUSINESS_ENTITLEMENT},
+        )
+
+
+async def _executions_today(session: AsyncSession, organization_id: str) -> int:
+    since = datetime.now(UTC) - timedelta(hours=24)
+    return int(
+        await session.scalar(
+            select(func.count(IdentityMediaExecution.id)).where(
+                IdentityMediaExecution.organization_id == organization_id,
+                IdentityMediaExecution.created_at >= since,
+            )
+        )
+        or 0
+    )
+
+
+async def _require_daily_room(session: AsyncSession, actor: UserRecord, idempotency_key: str) -> None:
+    """At most N runs per organization in 24 hours; a retry of the same request is not a new run."""
+    if _owner(actor):
+        return
+    limit = int(settings.IDENTITY_MEDIA_DAILY_EXECUTIONS_PER_ORG)
+    # Serialize this organization's submissions so two at once cannot both pass the count.
+    await session.scalar(select(Organization.id).where(Organization.id == actor.organization_id).with_for_update())
+    repeated = await session.scalar(
+        select(IdentityMediaExecution.id).where(
+            IdentityMediaExecution.organization_id == actor.organization_id,
+            IdentityMediaExecution.idempotency_key == idempotency_key,
+        )
+    )
+    if repeated is not None:
+        return
+    if await _executions_today(session, actor.organization_id) >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "IDENTITY_MEDIA_DAILY_LIMIT", "limit": limit},
+        )
+
+
 @router.get("/capabilities")
 async def capabilities(
     actor: UserRecord = Depends(current_user),
@@ -204,6 +261,9 @@ async def capabilities(
             "free_provider_route_ready": False,
             "paid_provider_route_ready": live,
             "raw_credentials_returned": False,
+            "plan_entitled": await _plan_entitled(session, actor),
+            "daily_limit": int(settings.IDENTITY_MEDIA_DAILY_EXECUTIONS_PER_ORG),
+            "used_today": await _executions_today(session, actor.organization_id),
         }
     )
     return snapshot
@@ -226,6 +286,7 @@ async def request_access(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    await _require_plan(session, actor)
     try:
         result = await identity_media_access.submit_access_request(
             session,
@@ -296,6 +357,8 @@ async def create_identity_execution(
                 "message": "This Identity Media operation is visible but runtime acceptance is pending",
             },
         )
+    await _require_plan(session, actor)
+    await _require_daily_room(session, actor, idempotency_key)
     if identity_basis == "licensed_public_figure":
         raise HTTPException(
             status_code=503,

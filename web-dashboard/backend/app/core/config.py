@@ -966,6 +966,11 @@ class Settings(BaseSettings):
     # Owner flag: let normal users submit operations whose runtime exists but
     # whose Phase 36 acceptance is still pending (voice_transform, face_swap).
     # Off by default; the Super Owner can always run acceptance executions.
+    # Owner decision 2026-11-27: at most this many identity-media executions per organization
+    # in any rolling 24 hours (each one is already capped at 25 USD).
+    IDENTITY_MEDIA_DAILY_EXECUTIONS_PER_ORG: int = Field(
+        default=5, ge=0, le=500, validation_alias="IDENTITY_MEDIA_DAILY_EXECUTIONS_PER_ORG"
+    )
     IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC: bool = Field(
         default=False, validation_alias="IDENTITY_MEDIA_UNACCEPTED_OPERATIONS_PUBLIC"
     )

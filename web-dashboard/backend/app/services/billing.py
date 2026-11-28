@@ -71,6 +71,8 @@ EXTERNAL_SUBSCRIPTION_PROVIDERS = {"stripe", "paypal", "paddle"}
 ACTIVE_ACCOUNT_STATUSES = {"active", "trial"}
 ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing"}
 THREE_D_BUSINESS_ENTITLEMENT = "3d.generation"
+# Owner decision 2026-11-27: face and voice (identity media) belong to Business only, like 3D.
+IDENTITY_MEDIA_BUSINESS_ENTITLEMENT = "identity.media"
 SENSITIVE_EVENT_KEYS = {
     "number",
     "card_number",
@@ -300,7 +302,9 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
         # Compatibility for Owner catalogues published before Phase 34D.
         # The separate Owner 3D policy remains the final allow/deny authority.
         if code == "business":
-            entitlements = sorted(set(entitlements) | {THREE_D_BUSINESS_ENTITLEMENT})
+            entitlements = sorted(
+                set(entitlements) | {THREE_D_BUSINESS_ENTITLEMENT, IDENTITY_MEDIA_BUSINESS_ENTITLEMENT}
+            )
         if code == "free":
             limits = dict(free_policy["limits"])
             entitlements = sorted(
