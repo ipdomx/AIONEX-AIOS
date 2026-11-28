@@ -31,7 +31,7 @@ async def _user(session, suffix: str):
 def _execution(actor, key: str) -> IdentityMediaExecution:
     return IdentityMediaExecution(
         organization_id=actor.organization_id,
-        user_id=actor.id,
+        requested_by_id=actor.id,
         operation="voice_clone",
         identity_basis="self",
         provider_access="paid",
@@ -60,11 +60,19 @@ async def test_a_plan_without_the_entitlement_is_refused_before_any_upload() -> 
     suffix = uuid4().hex
     async with SessionLocal() as session:
         actor = await _user(session, suffix)
+        # Same entitlements as the Free plan in production.
+        account = await billing.ensure_billing_account(session, actor.organization_id)
+        account.entitlements = ["projects.core", "account.profile", "support.requests"]
+        await session.commit()
         assert await endpoint._plan_entitled(session, actor) is False
         with pytest.raises(HTTPException) as refused:
             await endpoint._require_plan(session, actor)
         assert refused.value.status_code == 402
         assert refused.value.detail["entitlement"] == "identity.media"
+
+        account.entitlements = ["projects.core", "identity.media"]
+        await session.commit()
+        assert await endpoint._plan_entitled(session, actor) is True
 
 
 @pytest.mark.asyncio
