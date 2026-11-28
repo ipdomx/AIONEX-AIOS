@@ -422,7 +422,6 @@ def test_billing_sync_backfills_business_3d_entitlement_for_older_published_cata
     source = (ROOT / "app/services/billing.py").read_text()
     assert THREE_D_BUSINESS_ENTITLEMENT == "3d.generation"
     assert 'if code == "business":' in source
-    assert (
-        "entitlements = sorted(set(entitlements) | {THREE_D_BUSINESS_ENTITLEMENT})"
-        in source
-    )
+    business_block = source.split('if code == "business":', 1)[1].split("if code ==", 1)[0]
+    # Business always carries 3D (and, since 2026-11-27, identity media) even on older catalogues.
+    assert "set(entitlements) | {THREE_D_BUSINESS_ENTITLEMENT" in business_block
